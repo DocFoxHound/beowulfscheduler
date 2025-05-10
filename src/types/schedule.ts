@@ -2,7 +2,8 @@
  * Represents a single day's schedule entry with available hours
  */
 export interface ScheduleEntry {
-  // id: number;
+  action: string; // e.g., "add", "remove"
+  id: number;
   author_id: number;
   timestamp: string; // ISO 8601 string with timezone, e.g., "2024-05-10T14:00:00Z"
   type: string;

@@ -66,24 +66,51 @@ export default function Scheduler() {
     const timestamp = local.toISOString(); // or use luxon/moment for more control
 
     setAvailability((prev) => {
-      const updated = [...prev];
-      const existingIndex = updated.findIndex(
+      // const updated: Availability | { author_id: any; timestamp: string; type: string; attendees: never[]; author_username: any; attendees_usernames: never[]; }[] = [];
+      const previous = [...prev];
+      // const newArray: Availability | { action: string, id: number, author_id: any; timestamp: string; type: string; attendees: number[]; author_username: any; attendees_usernames: string[]; }[] = [];
+      // const deleteArray: Availability | { action: string, id: number, author_id: any; timestamp: string; type: string; attendees: number[]; author_username: any; attendees_usernames: string[]; }[] = [];
+      const existingIndex = previous.findIndex(
         (entry) => entry.timestamp === timestamp
       );
 
-      if (existingIndex >= 0) {
-        updated.splice(existingIndex, 1);
-      } else {
-        updated.push({
-          author_id: user.id,
-          timestamp,
-          type: availabilityType,
-          attendees: [],
-          author_username: user.username,
-          attendees_usernames: [],
-        });
+      if (existingIndex >= 0) {//click off availability
+        const existingEntry = previous.find(
+          (entry) =>
+            entry.timestamp === timestamp &&
+            entry.author_id === user.id
+        );
+        if (existingEntry) {
+          if(existingEntry.action === "add") {
+            previous.splice(existingIndex, 1);
+          }else{
+            existingEntry.action = "delete";
+          }
+        }        
+      } else {//click on availability
+        //check the previous array for an entry that has the same timestamp, type, and author_id, and if it exists don't add a new one
+        const existingEntry = previous.find(
+          (entry) =>
+            entry.timestamp === timestamp &&
+            entry.author_id === user.id
+        );
+        if (existingEntry) {
+          existingEntry.action = "update";
+          existingEntry.type = availabilityType;
+        }else if (!existingEntry) {
+          previous.push({
+            action: "add",
+            id: Math.floor(Math.random() * 1000000), // Temporary ID, replace with real ID from backend
+            author_id: user.id,
+            timestamp,
+            type: availabilityType,
+            attendees: [],
+            author_username: user.username,
+            attendees_usernames: [],
+          });
+        }        
       }
-      return updated;
+      return previous;
     });
 
     setSaveStatus(null);

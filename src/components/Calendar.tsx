@@ -61,7 +61,11 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
 
   const getSelectedHours = (date: Date): { timestamp: string; type: string }[] => {
     const isoKey = date.toISOString().split('T')[0];
-    return availability.filter((entry) => entry.timestamp.startsWith(isoKey));
+    return availability.filter(
+      (entry) =>
+        entry.timestamp.startsWith(isoKey) &&
+        entry.action !== "delete" // Ignore deleted entries for UI
+    );
   };
 
   return (
