@@ -1,16 +1,109 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "./Dashboard.css"; // Reuse the same styles
+import "./Scheduler.css"; // Import scheduler-specific styles
+import Calendar from "../components/Calendar";
+import { getWeeklySchedule, saveSchedule } from "../api/scheduleService";
+import { type Availability, type ScheduleEntry } from "../types/schedule";
 
 export default function Scheduler() {
   const [user, setUser] = useState<any>(null);
+  const [availability, setAvailability] = useState<Availability>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [availabilityType, setAvailabilityType] = useState<string>("Dogfighting"); // Default type
+  const [weekRange, setWeekRange] = useState<{ start: Date; end: Date } | null>(null);
+  const hasLoadedInitialWeek = useRef(false);
 
+  const availabilityTypes = ["Dogfighting", "Piracy", "FPS", "Fleet", "Event"];
+
+  // Fetch user data
   useEffect(() => {
     axios
       .get("http://localhost:3000/auth/user", { withCredentials: true })
       .then((res) => setUser(res.data))
       .catch(() => setUser(null));
   }, []);
+
+  // When week changes in Calendar, store the range
+  const handleWeekChange = (startOfWeek: Date, endOfWeek: Date) => {
+    setWeekRange({ start: startOfWeek, end: endOfWeek });
+  };
+
+  // When both user and weekRange are available, fetch data
+  useEffect(() => {
+    if (user && !weekRange) {
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      setWeekRange({ start: startOfWeek, end: endOfWeek });
+    }
+    else if (user && weekRange) {
+      console.log("Fetching schedule for user:", user.username);
+      setLoading(true);
+      getWeeklySchedule(weekRange.start, weekRange.end)
+        .then((data) => {
+          setAvailability(data);
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Failed to load schedule:", error);
+          setLoading(false);
+        });
+    }
+  }, [user, weekRange]);
+
+  // Handle toggling an hour in the availability
+  const handleToggleHour = (date: Date, hour: number) => {
+    // Create a new Date at the correct hour in the user's local time
+    const local = new Date(date);
+    local.setHours(hour, 0, 0, 0);
+
+    // Convert to ISO string (UTC) or with offset
+    const timestamp = local.toISOString(); // or use luxon/moment for more control
+
+    setAvailability((prev) => {
+      const updated = [...prev];
+      const existingIndex = updated.findIndex(
+        (entry) => entry.timestamp === timestamp
+      );
+
+      if (existingIndex >= 0) {
+        updated.splice(existingIndex, 1);
+      } else {
+        updated.push({
+          author_id: user.id,
+          timestamp,
+          type: availabilityType,
+          attendees: [],
+          author_username: user.username,
+          attendees_usernames: [],
+        });
+      }
+      return updated;
+    });
+
+    setSaveStatus(null);
+  };
+
+  // Handle saving the schedule
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveStatus(null);
+
+    try {
+      await saveSchedule(availability);
+      setSaveStatus("Schedule saved successfully!");
+    } catch (error) {
+      console.error("Failed to save schedule:", error);
+      setSaveStatus("Failed to save schedule. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -42,22 +135,50 @@ export default function Scheduler() {
           <p>Create and manage your upcoming mission schedules.</p>
         </section>
 
-        {/* Filler for calendar/scheduling UI */}
-        <section className="dashboard-grid">
-          <div className="card">
-            <h2>📅 Upcoming Event</h2>
-            <p>You have no scheduled missions.</p>
+        {/* Calendar UI */}
+        <section className="calendar-container">
+          <div className="availability-type-selector">
+            {availabilityTypes.map((type) => (
+              <label key={type} className={`type-option ${availabilityType === type ? 'active' : ''}`}>
+                <input
+                  type="radio"
+                  name="availabilityType"
+                  value={type}
+                  checked={availabilityType === type}
+                  onChange={() => setAvailabilityType(type)}
+                />
+                {type}
+              </label>
+            ))}
           </div>
 
-          <div className="card">
-            <h2>➕ New Schedule</h2>
-            <p>Use this section to add a new mission or training slot.</p>
-          </div>
+          {loading ? (
+            <div className="loading-indicator">Loading your schedule...</div>
+          ) : (
+            <>
+              <Calendar
+                initialDate={weekRange ? weekRange.start : undefined}
+                availability={availability}
+                onToggleHour={handleToggleHour}
+                onWeekChange={handleWeekChange}
+              />
 
-          <div className="card">
-            <h2>🕒 Time Zones</h2>
-            <p>All times are shown in your local time zone (auto-detected).</p>
-          </div>
+              <div className="save-container">
+                {saveStatus && (
+                  <div className={`save-status ${saveStatus.includes('Failed') ? 'error' : 'success'}`}>
+                    {saveStatus}
+                  </div>
+                )}
+                <button
+                  className="save-button"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Availability'}
+                </button>
+              </div>
+            </>
+          )}
         </section>
       </main>
     </div>

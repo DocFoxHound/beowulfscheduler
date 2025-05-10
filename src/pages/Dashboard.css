@@ -40,6 +40,16 @@
     margin: 0 auto;
     padding: 2rem;
   }
+
+  .dashboard-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Allow children to grow */
+    width: 90%; /* Ensure it spans the full width */
+    max-width: 95%; /* Prevent unnecessary constraints */
+    margin: 0 auto;
+    padding: 2rem;
+  }
   
   /* User Header */
   .dashboard-header h1 {
