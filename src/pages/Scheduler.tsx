@@ -58,57 +58,55 @@ export default function Scheduler() {
 
   // Handle toggling an hour in the availability
   const handleToggleHour = (date: Date, hour: number) => {
-    // Create a new Date at the correct hour in the user's local time
-    const local = new Date(date);
-    local.setHours(hour, 0, 0, 0);
-
-    // Convert to ISO string (UTC) or with offset
-    const timestamp = local.toISOString(); // or use luxon/moment for more control
+    const localDate = new Date(date);
+    localDate.setHours(hour, 0, 0, 0);
+    const timestamp = localDate.toISOString(); // This saves with your local offset!
 
     setAvailability((prev) => {
-      // const updated: Availability | { author_id: any; timestamp: string; type: string; attendees: never[]; author_username: any; attendees_usernames: never[]; }[] = [];
       const previous = [...prev];
-      // const newArray: Availability | { action: string, id: number, author_id: any; timestamp: string; type: string; attendees: number[]; author_username: any; attendees_usernames: string[]; }[] = [];
-      // const deleteArray: Availability | { action: string, id: number, author_id: any; timestamp: string; type: string; attendees: number[]; author_username: any; attendees_usernames: string[]; }[] = [];
       const existingIndex = previous.findIndex(
         (entry) => entry.timestamp === timestamp
       );
 
-      if (existingIndex >= 0) {//click off availability
-        const existingEntry = previous.find(
-          (entry) =>
-            entry.timestamp === timestamp &&
-            entry.author_id === user.id
-        );
-        if (existingEntry) {
-          if(existingEntry.action === "add") {
+      if (existingIndex >= 0) {
+        const existingEntry = previous[existingIndex];
+        // If user is author or DocHound, allow delete
+        if (existingEntry.author_id === user.id || user.id === 664023164350627843) {
+          if (existingEntry.action === "add") {
             previous.splice(existingIndex, 1);
-          }else{
+          } else {
             existingEntry.action = "delete";
           }
-        }        
-      } else {//click on availability
-        //check the previous array for an entry that has the same timestamp, type, and author_id, and if it exists don't add a new one
-        const existingEntry = previous.find(
-          (entry) =>
-            entry.timestamp === timestamp &&
-            entry.author_id === user.id
-        );
-        if (existingEntry) {
-          existingEntry.action = "update";
-          existingEntry.type = availabilityType;
-        }else if (!existingEntry) {
-          previous.push({
-            action: "add",
-            id: Math.floor(Math.random() * 1000000), // Temporary ID, replace with real ID from backend
-            author_id: user.id,
-            timestamp,
-            type: availabilityType,
-            attendees: [],
-            author_username: user.username,
-            attendees_usernames: [],
-          });
-        }        
+        } else {
+          // Not author: toggle attendee status
+          const attendeeIdx = existingEntry.attendees.indexOf(user.id);
+          const attendeeNameIdx = existingEntry.attendees_usernames.indexOf(user.username);
+          if (attendeeIdx !== -1) {
+            // Remove attendee
+            existingEntry.attendees.splice(attendeeIdx, 1);
+            if (attendeeNameIdx !== -1) existingEntry.attendees_usernames.splice(attendeeNameIdx, 1);
+          } else {
+            // Add attendee
+            existingEntry.attendees.push(user.id);
+            existingEntry.attendees_usernames.push(user.username);
+          }
+          // Mark as update for backend
+          if (existingEntry.action !== "add") {
+            existingEntry.action = "update";
+          }
+        }
+      } else {
+        // Add new availability for self
+        previous.push({
+          action: "add",
+          id: Math.floor(Math.random() * 1000000),
+          author_id: user.id,
+          timestamp,
+          type: availabilityType,
+          attendees: [],
+          author_username: user.username,
+          attendees_usernames: [],
+        });
       }
       return previous;
     });
@@ -188,6 +186,8 @@ export default function Scheduler() {
                 availability={availability}
                 onToggleHour={handleToggleHour}
                 onWeekChange={handleWeekChange}
+                currentUserId={user.id}
+                currentUsername={user.username}
               />
 
               <div className="save-container">

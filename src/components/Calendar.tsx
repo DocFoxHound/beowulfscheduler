@@ -7,11 +7,13 @@ export interface CalendarProps {
   availability: Availability;
   onToggleHour: (date: Date, hour: number) => void;
   onWeekChange: (startOfWeek: Date, endOfWeek: Date) => void;
+  currentUserId: number;
+  currentUsername: string;
 }
 
 const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggleHour, onWeekChange }) => {
+const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggleHour, onWeekChange, currentUserId, currentUsername }) => {
   const [currentDate, setCurrentDate] = useState(() =>
     initialDate ? new Date(initialDate) : new Date()
   );
@@ -59,13 +61,16 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
     });
   };
 
-  const getSelectedHours = (date: Date): { timestamp: string; type: string }[] => {
-    const isoKey = date.toISOString().split('T')[0];
-    return availability.filter(
-      (entry) =>
-        entry.timestamp.startsWith(isoKey) &&
-        entry.action !== "delete" // Ignore deleted entries for UI
-    );
+  const getSelectedHours = (date: Date) => {
+    return availability.filter(entry => {
+      const entryDate = new Date(entry.timestamp); // UTC from DB
+      return (
+        entryDate.getFullYear() === date.getFullYear() &&
+        entryDate.getMonth() === date.getMonth() &&
+        entryDate.getDate() === date.getDate() &&
+        entry.action !== "delete"
+      );
+    });
   };
 
   return (
@@ -87,8 +92,10 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
           <DayCell
             key={idx}
             date={date}
-            selectedHours={getSelectedHours(date)} // now includes type info
+            selectedHours={getSelectedHours(date)}
             onToggleHour={onToggleHour}
+            currentUserId={currentUserId}
+            currentUsername={currentUsername}
           />
         ))}
       </div>
