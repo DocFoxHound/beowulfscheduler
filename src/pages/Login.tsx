@@ -1,8 +1,18 @@
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_IS_LIVE: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 import "./Login.css"; // Create this file for custom styles
 
 export default function Login() {
   const handleLogin = () => {
-    window.location.href = "http://localhost:3000/auth/discord";
+    window.location.href = import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_LOGIN_URL : import.meta.env.VITE_TEST_LOGIN_URL;
   };
 
   return (
