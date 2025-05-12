@@ -26,18 +26,18 @@ export default function Dashboard() {
         <div className="navbar-title">IronPoint</div>
         <nav className="navbar-links">
           <a href="/dashboard">Dashboard</a>
-          <a href="/charts">Charts</a>
-          <a href="/scheduler">Beowulf Scheduler</a>
-          <a href="/hittracker">Hits</a>
-          <a href="/settings">Settings</a>
-          <a href="/logout" className="logout-link">Logout</a>
+          {/* <a href="/charts">Charts</a> */}
+          <a href="/scheduler">Training Scheduler</a>
+          {/* <a href="/hittracker">Hits</a> */}
+          {/* <a href="/settings">Settings</a> */}
+          {/* <a href="/logout" className="logout-link">Logout</a> */}
         </nav>
       </header>
 
       <main className="dashboard-content">
         <section className="dashboard-header">
           <h1>Welcome, {user.username}#{user.discriminator}</h1>
-          <p>Here's an overview of your activity.</p>
+          <p></p>
           <img
             src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
             alt="User Avatar"
@@ -47,19 +47,20 @@ export default function Dashboard() {
 
         <section className="dashboard-grid">
           <div className="card">
+            <h2>Fleet Assignment</h2>
+            <h4>IronPoint Main</h4>
+            <p>Current Task: Disrupt trade in Stanton and Pyro systems.</p>
+          </div>
+
+          <div className="card">
             <h2>Upcoming Missions</h2>
-            <p>No missions scheduled. Stay sharp, Captain.</p>
+            <p>No current missions on the horizon.</p>
           </div>
 
-          <div className="card">
-            <h2>Fleet Status</h2>
-            <p>All ships are operational and docked.</p>
-          </div>
-
-          <div className="card">
+          {/* <div className="card">
             <h2>Last Login</h2>
             <p>5 hours ago from Discord auth</p>
-          </div>
+          </div> */}
         </section>
       </main>
     </div>

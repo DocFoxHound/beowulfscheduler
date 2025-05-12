@@ -145,11 +145,11 @@ export default function Scheduler() {
         <div className="navbar-title">IronPoint</div>
         <nav className="navbar-links">
           <a href="/dashboard">Dashboard</a>
-          <a href="/charts">Charts</a>
-          <a href="/scheduler">Beowulf Scheduler</a>
-          <a href="/hittracker">Hits</a>
-          <a href="/settings">Settings</a>
-          <a href="/logout" className="logout-link">Logout</a>
+          {/* <a href="/charts">Charts</a> */}
+          <a href="/scheduler">Training Scheduler</a>
+          {/* <a href="/hittracker">Hits</a> */}
+          {/* <a href="/settings">Settings</a> */}
+          {/* <a href="/logout" className="logout-link">Logout</a> */}
         </nav>
       </header>
 
@@ -157,7 +157,7 @@ export default function Scheduler() {
       <main className="dashboard-content">
         <section className="dashboard-header">
           <h1>Scheduler</h1>
-          <p>Create and manage your upcoming mission schedules.</p>
+          <p>Create and sign up for training availabilities.</p>
         </section>
 
         {/* Calendar UI */}
