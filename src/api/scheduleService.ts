@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { type Availability } from '../types/schedule';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
 
 /**
  * Fetches the user's schedule from the API
