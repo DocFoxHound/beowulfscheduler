@@ -7,7 +7,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     axios
-      .get("http://localhost:3000/auth/user", { withCredentials: true })
+      .get(`${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_USER_URL : import.meta.env.VITE_TEST_USER_URL}`, { withCredentials: true })
       .then((res) => setUser(res.data))
       .catch(() => setUser(null));
   }, []);
