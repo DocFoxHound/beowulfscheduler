@@ -20,7 +20,6 @@ export const getSchedule = async (): Promise<Availability> => {
 };
 
 export const getWeeklySchedule = async (startOfWeek: Date, endOfWeek: Date): Promise<Availability> => {
-  console.log("Fetching weekly schedule from", startOfWeek, "to", endOfWeek);
   try {
     const response = await axios.get(`${API_URL}/schedule`, {
       params: {
@@ -42,13 +41,11 @@ export const getWeeklySchedule = async (startOfWeek: Date, endOfWeek: Date): Pro
  * @returns Promise with the saved availability data
  */
 export const saveSchedule = async (availability: Availability): Promise<Availability> => {
-  console.log("Saving schedule:", availability);
   try {
     const results = await Promise.all(
       availability.map(async (item) => {
         if (item.action === "add") {
           item.action = "";
-          console.log("Item:", item);
           // POST to create new availability
           //create new availability entry
           const response = await axios.post(`${API_URL}/schedule`, item, {

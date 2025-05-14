@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 export interface DayCellProps {
   date: Date;
-  selectedHours: { timestamp: string; type: string; author_username?: string; attendees_usernames?: string[], attendees?: number[], author_id?: number }[];
+  selectedHours: { timestamp: string; type: string; author_username?: string; attendees_usernames?: string[], attendees?: number[], author_id?: number, allowed_ranks_names?: string[] }[];
   onToggleHour: (date: Date, hour: number) => void;
   currentUserId: number;
   currentUsername: string;
@@ -37,6 +37,7 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
           const author = selectedEntry?.author_username || '';
           const attendees = selectedEntry?.attendees_usernames || [];
           const isAttendee = selectedEntry?.attendees?.includes(currentUserId);
+          const allowedRanksNames = selectedEntry?.allowed_ranks_names || [];
 
           return (
             <div
@@ -59,6 +60,14 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                       {attendees.length > 0 ? attendees.map((name, idx) => (
                         <li key={idx}>{name}</li>
                       )) : <li>None</li>}
+                    </ul>
+                  </div>
+                  <div>
+                    <strong>Allowed Ranks:</strong>
+                    <ul>
+                      {allowedRanksNames.length > 0 ? allowedRanksNames.map((name, idx) => (
+                        <li key={idx}>{name}</li>
+                      )) : <li>All</li>}
                     </ul>
                   </div>
                 </div>

@@ -10,6 +10,8 @@ export interface ScheduleEntry {
   attendees: number[];
   author_username: string;
   attendees_usernames: string[];
+  allowed_ranks: string[];
+  allowed_ranks_names: string[];
 }
 
 /**

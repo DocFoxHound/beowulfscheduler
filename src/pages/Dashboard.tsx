@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import "./Dashboard.css"; // Add this if you're putting styles separately
+import "./Dashboard.css";
+import { getUserById, getUserRank } from "../api/userService";
+import { useUserContext } from "../context/UserContext"; // <-- Import the context hook
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
+  const { dbUser, setDbUser, userRank, setUserRank } = useUserContext(); 
 
   useEffect(() => {
     axios
@@ -11,6 +14,22 @@ export default function Dashboard() {
       .then((res) => setUser(res.data))
       .catch(() => setUser(null));
   }, []);
+
+  useEffect(() => {
+    if (user && user.id) {
+      getUserById(user.id)
+        .then((data) => setDbUser(data))
+        .catch(() => setDbUser(null));
+    }
+  }, [user, setDbUser]);
+
+  useEffect(() => {
+    if (dbUser && dbUser.id) {
+      getUserRank(dbUser.rank)
+        .then((data) => setUserRank(data))
+        .catch(() => setUserRank(null));
+    }
+  }, [dbUser, setUserRank]);
 
   if (!user) {
     return (
@@ -26,9 +45,9 @@ export default function Dashboard() {
         <div className="navbar-title">IronPoint</div>
         <nav className="navbar-links">
           <a href="/dashboard">Dashboard</a>
-          {/* <a href="/charts">Charts</a> */}
           <a href="/scheduler">Training Scheduler</a>
-          {/* <a href="/hittracker">Hits</a> */}
+          <a href="/hittracker">Hits</a>
+          {/* <a href="/charts">Charts</a> */}
           {/* <a href="/settings">Settings</a> */}
           {/* <a href="/logout" className="logout-link">Logout</a> */}
         </nav>
@@ -37,7 +56,7 @@ export default function Dashboard() {
       <main className="dashboard-content">
         <section className="dashboard-header">
           <h1>Welcome, {user.username}#{user.discriminator}</h1>
-          <p></p>
+          <p>Rank: {userRank?.name ? userRank.name : "Unknown"}</p>
           <img
             src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
             alt="User Avatar"

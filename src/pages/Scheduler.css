@@ -324,19 +324,24 @@
 /* Tooltip for hour cells */
 .hour-tooltip {
   position: absolute;
-  top: -10px;
-  left: 110%;
-  z-index: 10;
+  left: 100%;
+  top: 0;
+  z-index: 100;
   background: #222;
   color: #fff;
-  padding: 0.7em 1em;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  border: 1px solid #444;
+  padding: 8px;
   min-width: 180px;
-  font-size: 0.95em;
-  pointer-events: none;
+  max-width: 300px;
   white-space: normal;
+  pointer-events: none;
 }
+
+.day-cell:last-child .hour-tooltip {
+  left: auto;
+  right: 100%;
+}
+
 .hour-tooltip ul {
   margin: 0.3em 0 0 0;
   padding-left: 1.2em;
