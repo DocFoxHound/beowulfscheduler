@@ -36,6 +36,24 @@ const ROLE_OPTIONS = [
   { label: "Fleet Instructor", ids: import.meta.env.VITE_FLEET_INSTRUCTOR_ID.split(",").map((id: string) => id.trim()).filter(Boolean) },
 ];
 
+// Add this helper function above your component:
+const typeColorClass = (type: string) => {
+  switch (type) {
+    case "Dogfighting":
+      return "dogfighting";
+    case "Piracy":
+      return "piracy";
+    case "FPS":
+      return "fps";
+    case "Fleet":
+      return "fleet";
+    case "Event":
+      return "event";
+    default:
+      return "";
+  }
+};
+
 export default function Scheduler() {
   const [user, setUser] = useState<any>(null);
   const [availability, setAvailability] = useState<Availability>([]);
@@ -254,7 +272,14 @@ export default function Scheduler() {
         <section className="calendar-container">
           <div className="availability-type-selector">
             {availabilityTypes.map((type) => (
-              <label key={type} className={`type-option ${availabilityType === type ? 'active' : ''}`}>
+              <label
+                key={type}
+                className={`type-option ${typeColorClass(type)}${availabilityType === type ? ' active' : ''}`}
+                style={{
+                  // Optional: make the active one stand out more
+                  border: availabilityType === type ? "2px solid #fff" : undefined,
+                }}
+              >
                 <input
                   type="radio"
                   name="availabilityType"
@@ -306,6 +331,7 @@ export default function Scheduler() {
                 onWeekChange={handleWeekChange}
                 currentUserId={user.id}
                 currentUsername={user.username}
+                userRoleIds={dbUser?.roles || []}
               />
 
               <div className="save-container">

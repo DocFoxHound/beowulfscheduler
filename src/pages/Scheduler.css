@@ -56,7 +56,7 @@
   background-color: #2a2a3c;
   border: 1px solid #3a3a4c;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Day Header Cells */
@@ -118,6 +118,7 @@
   justify-content: center;
   font-size: 0.8rem;
   color: #a0a0b0;
+  position: relative;
 }
 
 .hour-cell:hover {
@@ -292,9 +293,31 @@
   transition: background-color 0.2s ease;
 }
 
+.type-option.dogfighting {
+  background-color: #00b9e7b8;
+}
+
+.type-option.piracy {
+  background-color: #8d00adc3;
+}
+
+.type-option.fps {
+  background-color: #d10000b6;
+}
+
+.type-option.fleet {
+  background-color: #0b9735;
+}
+
+.type-option.event {
+  background-color: #c8c84d;
+  color: #222;
+}
+
 .type-option.active {
   background-color: #4a92ff;
   font-weight: bold;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .type-option input {
@@ -302,31 +325,30 @@
 }
 
 .hour-cell.dogfighting {
-  background-color: #00b9e7;
+  background-color: #00b9e7b8;
 }
 
 .hour-cell.piracy {
-  background-color: #8e00ad;
+  background-color: #8d00adc3;
 }
 
 .hour-cell.fps {
-  background-color: #d10000;
+  background-color: #d10000b6;
 }
 
 .hour-cell.fleet {
-  background-color: #00d13f;
+  background-color: #0b9735;
 }
 
 .hour-cell.event {
-  background-color: #e6e600;
+  background-color: #c8c84d;
 }
 
 /* Tooltip for hour cells */
 .hour-tooltip {
   position: absolute;
   left: 100%;
-  top: 0;
-  z-index: 100;
+  z-index: 1000;
   background: #222;
   color: #fff;
   border: 1px solid #444;
@@ -335,11 +357,13 @@
   max-width: 300px;
   white-space: normal;
   pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
 
 .day-cell:last-child .hour-tooltip {
   left: auto;
   right: 100%;
+  z-index: 5;
 }
 
 .hour-tooltip ul {
@@ -360,4 +384,25 @@
   font-size: 1.2em;
   margin-left: 4px;
   vertical-align: middle;
+}
+
+.hour-cell.locked {
+  opacity: 0.5;
+  pointer-events: none;
+  position: relative;
+}
+.lock-icon {
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+  pointer-events: none;
+}
+
+.hour-cell.author-ring {
+  border: 2px solid #b1b1b1;
+  box-shadow: 0 0 4px 0 rgba(255,255,255,0.15);
+}
+
+.attendees-icon {
+  vertical-align: middle;
+  margin-right: 2px;
 }

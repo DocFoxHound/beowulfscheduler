@@ -9,11 +9,12 @@ export interface CalendarProps {
   onWeekChange: (startOfWeek: Date, endOfWeek: Date) => void;
   currentUserId: number;
   currentUsername: string;
+  userRoleIds : [];
 }
 
 const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggleHour, onWeekChange, currentUserId, currentUsername }) => {
+const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggleHour, onWeekChange, currentUserId, currentUsername, userRoleIds }) => {
   const [currentDate, setCurrentDate] = useState(() =>
     initialDate ? new Date(initialDate) : new Date()
   );
@@ -96,6 +97,7 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
             onToggleHour={onToggleHour}
             currentUserId={currentUserId}
             currentUsername={currentUsername}
+            userRoleIds={userRoleIds}
           />
         ))}
       </div>
