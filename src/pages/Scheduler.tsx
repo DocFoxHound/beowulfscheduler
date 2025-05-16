@@ -138,23 +138,50 @@ export default function Scheduler() {
   }, [user, weekRange]);
 
   // Handle toggling an hour in the availability
-  const handleToggleHour = (date: Date, hour: number) => {
+  const handleToggleHour = (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean }) => {
     const localDate = new Date(date);
     localDate.setHours(hour, 0, 0, 0);
     const timestamp = localDate.toISOString();
 
     setAvailability((prev) => {
-      const previous = [...prev];
+      let previous = [...prev];
       const existingIndex = previous.findIndex(
+        (entry) => entry.timestamp === timestamp && entry.author_id === user.id
+      );
+
+      if (options?.removeOwn && existingIndex >= 0) {
+        // If the entry has an id, mark for deletion; otherwise, remove it
+        if (previous[existingIndex].id) {
+          previous[existingIndex] = {
+            ...previous[existingIndex],
+            action: "delete"
+          };
+        } else {
+          previous.splice(existingIndex, 1);
+        }
+        return previous;
+      }
+
+      const existingIndexGeneral = previous.findIndex(
         (entry) => entry.timestamp === timestamp
       );
 
-      if (existingIndex >= 0) {
-        const existingEntry = previous[existingIndex];
-        // If user is author or DocHound, allow delete
+      if (existingIndexGeneral >= 0 && !options?.forceAdd) {
+        const existingEntry = previous[existingIndexGeneral];
+        // If user is author or DocHound, allow delete or re-add
         if (existingEntry.author_id === user.id || user.id === 664023164350627843) {
           if (existingEntry.action === "add") {
-            previous.splice(existingIndex, 1);
+            previous.splice(existingIndexGeneral, 1);
+          } else if (existingEntry.action === "delete") {
+            // Allow re-adding by changing action back to "add"
+            existingEntry.action = "add";
+            existingEntry.type = availabilityType;
+            existingEntry.allowed_ranks = ROLE_OPTIONS
+              .filter(r => allowedRanks.includes(r.label))
+              .flatMap(r => r.ids);
+            existingEntry.allowed_ranks_names = ROLE_OPTIONS
+              .filter(r => allowedRanks.includes(r.label))
+              .map(r => r.label);
           } else {
             existingEntry.action = "delete";
           }

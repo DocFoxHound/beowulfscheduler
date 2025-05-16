@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DayCell from './DayCell';
 import { type Availability } from '../types/schedule';
 
@@ -9,7 +9,7 @@ export interface CalendarProps {
   onWeekChange: (startOfWeek: Date, endOfWeek: Date) => void;
   currentUserId: number;
   currentUsername: string;
-  userRoleIds : [];
+  userRoleIds: string[]; // Fix type here
 }
 
 const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -19,6 +19,7 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
     initialDate ? new Date(initialDate) : new Date()
   );
   const [weekDates, setWeekDates] = useState<Date[]>([]);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   // Initial load: set currentDate if initialDate changes
   useEffect(() => {
@@ -75,7 +76,7 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
   };
 
   return (
-    <div className="calendar">
+    <div className="calendar" ref={calendarRef}>
       <div className="calendar-header">
         <button onClick={goPrevWeek}>&lt;</button>
         <h2>
@@ -98,6 +99,7 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
             currentUserId={currentUserId}
             currentUsername={currentUsername}
             userRoleIds={userRoleIds}
+            calendarRef={calendarRef}
           />
         ))}
       </div>

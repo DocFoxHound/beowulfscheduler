@@ -406,3 +406,28 @@
   vertical-align: middle;
   margin-right: 2px;
 }
+
+.add-availability-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.hour-cell-divider {
+  background: #444;
+  width: 1px;
+  height: 70%;
+  position: absolute;
+  right: 0;
+  top: 15%;
+  bottom: 15%;
+  content: "";
+  display: block;
+  z-index: 1;
+}
