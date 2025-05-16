@@ -1,19 +1,51 @@
 import React, { useState, RefObject } from 'react';
+import { ScheduleEntry } from '../types/schedule';
 
 export interface DayCellProps {
   date: Date;
-  selectedHours: { timestamp: string; type: string; author_username?: string; attendees_usernames?: string[], attendees?: number[], author_id?: number, allowed_ranks_names?: string[], allowed_ranks?: string[] }[];
-  onToggleHour: (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean }) => void;
+  selectedHours: ScheduleEntry[];
+  onToggleHour: (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean, availabilityId?: string }) => void;
   currentUserId: number;
   currentUsername: string;
   userRoleIds?: string[]; // Pass this from Scheduler if needed
   calendarRef: React.RefObject<HTMLDivElement | null>;
 }
 
+const CollapsibleList: React.FC<{ label: string, items: string[], minimizedLabel?: string }> = ({ label, items, minimizedLabel }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!items || items.length === 0) {
+    return (
+      <div>
+        <strong style={{ cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>{label}</strong>
+        <ul><li>{minimizedLabel || "None"}</li></ul>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <strong
+        style={{ cursor: "pointer", userSelect: "none" }}
+        onClick={() => setExpanded(e => !e)}
+        title={expanded ? "Click to collapse" : "Click to expand"}
+      >
+        {label}
+        {expanded ? " ▲" : " ▼"}
+      </strong>
+      <ul style={{ margin: 0, paddingLeft: 18 }}>
+        {expanded
+          ? items.map((name, idx) => <li key={idx}>{name}</li>)
+          : <li>{items[0]}{items.length > 1 ? ` (+${items.length - 1} more)` : ""}</li>
+        }
+      </ul>
+    </div>
+  );
+};
+
 const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, currentUserId, currentUsername, userRoleIds = [], calendarRef }) => {
   const dayNumber = date.getDate();
   const [hoveredHour, setHoveredHour] = useState<number | null>(null);
   const [popoverDirection, setPopoverDirection] = useState<'down' | 'up'>('down');
+  const [hoveredPopoverEntry, setHoveredPopoverEntry] = useState<number | null>(null);
 
   return (
     <div className="day-cell">
@@ -100,11 +132,19 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
               <div
                 key={hour}
                 className={`hour-cell${isSelected ? ` selected ${type.toLowerCase()}` : ''}${isAttendee ? ' attendee' : ''}${!canJoin && isSelected ? ' locked' : ''}${isAuthor ? ' author-ring' : ''}`}
-                onClick={() => canJoin ? onToggleHour(date, hour) : undefined}
+                onClick={() =>
+                  canJoin && hourEventsCount <= 1
+                    ? onToggleHour(date, hour)
+                    : undefined
+                }
                 style={{
                   position: "relative",
                   opacity: !canJoin && isSelected ? 0.5 : 1,
-                  cursor: !canJoin && isSelected ? "not-allowed" : "pointer",
+                  cursor: !canJoin && isSelected
+                    ? "not-allowed"
+                    : hourEventsCount > 1
+                      ? "not-allowed"
+                      : "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -270,7 +310,7 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                       const canJoin = entry.allowed_ranks?.length === 0 || userRoleIds.some((roleId: string) => entry.allowed_ranks?.includes(roleId));
                       return (
                         <div
-                          key={idx}
+                          key={entry.id}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -281,6 +321,36 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                             padding: "4px 8px",
                             border: isAuthor ? "1px solid #4a92ff" : isAttendee ? "1px solid #4a92ff55" : "1px solid #444",
                             color: "#fff",
+                            cursor: canJoin ? "pointer" : "not-allowed",
+                            opacity: canJoin ? 1 : 0.6,
+                            position: "relative",
+                          }}
+                          title={
+                            isAuthor
+                              ? "You created this availability"
+                              : isAttendee
+                              ? "Click to leave this availability"
+                              : canJoin
+                              ? "Click to join this availability"
+                              : "You do not have permission to join"
+                          }
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (canJoin && !isAuthor) {
+                              onToggleHour(date, hour, { availabilityId: entry.id.toString() });
+                            }
+                          }}
+                          onMouseEnter={() => setHoveredPopoverEntry(idx)}
+                          onMouseLeave={e => {
+                            // Persist tooltip if mouse moves to tooltip
+                            setTimeout(() => {
+                              if (
+                                !e.relatedTarget ||
+                                !(e.currentTarget.parentNode as HTMLElement).contains(e.relatedTarget as Node)
+                              ) {
+                                setHoveredPopoverEntry(null);
+                              }
+                            }, 10);
                           }}
                         >
                           {/* Type and author */}
@@ -293,44 +363,56 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                             )}
                             {isAttendee && <span className="attendee-dot" title="You are an attendee" style={{ marginLeft: 2 }}>•</span>}
                           </span>
-                          {/* Join/Leave as attendee */}
-                          {!isAuthor && (
-                            <button
+                          {/* Tooltip */}
+                          {hoveredPopoverEntry === idx && (
+                            <div
+                              className="hour-tooltip"
                               style={{
-                                background: "none",
-                                border: "none",
-                                color: isAttendee ? "#ff4a4a" : "#4a92ff",
-                                cursor: canJoin ? "pointer" : "not-allowed",
-                                fontWeight: "bold",
-                                marginLeft: 8,
+                                position: "absolute",
+                                zIndex: 2000,
+                                background: "#222",
+                                border: "1px solid #444",
+                                borderRadius: 4,
+                                minWidth: 200,
+                                padding: 8,
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+                                pointerEvents: "auto",
+                                ...popoverPosition,
+                                top: popoverDirection === 'down' ? 0 : undefined,
+                                bottom: popoverDirection === 'up' ? 0 : undefined,
+                                left: popoverPosition.left,
+                                right: popoverPosition.right,
+                                marginLeft: popoverPosition.marginLeft,
+                                marginRight: popoverPosition.marginRight,
                               }}
-                              disabled={!canJoin}
-                              onClick={e => {
-                                e.stopPropagation();
-                                onToggleHour(date, hour, { forceAdd: !isAttendee });
+                              onMouseEnter={() => setHoveredPopoverEntry(idx)}
+                              onMouseLeave={e => {
+                                setTimeout(() => {
+                                  if (
+                                    !e.relatedTarget ||
+                                    !(e.currentTarget.parentNode as HTMLElement).contains(e.relatedTarget as Node)
+                                  ) {
+                                    setHoveredPopoverEntry(null);
+                                  }
+                                }, 10);
                               }}
+                              onClick={e => e.stopPropagation()} // <-- Add this line
                             >
-                              {isAttendee ? "Leave" : "Join"}
-                            </button>
-                          )}
-                          {/* Remove if author */}
-                          {isAuthor && (
-                            <button
-                              style={{
-                                background: "none",
-                                border: "none",
-                                color: "#ff4a4a",
-                                cursor: "pointer",
-                                fontWeight: "bold",
-                                marginLeft: 8,
-                              }}
-                              onClick={e => {
-                                e.stopPropagation();
-                                onToggleHour(date, hour, { removeOwn: true });
-                              }}
-                            >
-                              Delete
-                            </button>
+                              <div><strong>Type:</strong> {entry.type}</div>
+                              <div><strong>Author:</strong> {entry.author_username}</div>
+                              <div>
+                                <strong>Attendees:</strong>
+                                <ul>
+                                  {entry.attendees_usernames.length > 0
+                                    ? entry.attendees_usernames.map((name, i) => <li key={i}>{name}</li>)
+                                    : <li>None</li>}
+                                </ul>
+                              </div>
+                              <div>
+                                <strong>Allowed Ranks:</strong>
+                                <CollapsibleList label="Allowed Ranks" items={entry.allowed_ranks_names} minimizedLabel="All" />
+                              </div>
+                            </div>
                           )}
                         </div>
                       );
@@ -367,14 +449,10 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                         )) : <li>None</li>}
                       </ul>
                     </div>
-                    {/* <div>
+                    <div>
                       <strong>Allowed Ranks:</strong>
-                      <ul>
-                        {allowedRanksNames.length > 0 ? allowedRanksNames.map((name, idx) => (
-                          <li key={idx}>{name}</li>
-                        )) : <li>All</li>}
-                      </ul>
-                    </div> */}
+                      <CollapsibleList label="Allowed Ranks" items={allowedRanksNames} minimizedLabel="All" />
+                    </div>
                   </div>
                 )
               )}

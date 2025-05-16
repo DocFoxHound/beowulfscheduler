@@ -5,7 +5,7 @@ import { type Availability } from '../types/schedule';
 export interface CalendarProps {
   initialDate?: Date;
   availability: Availability;
-  onToggleHour: (date: Date, hour: number) => void;
+  onToggleHour: (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean, availabilityId?: string }) => void;
   onWeekChange: (startOfWeek: Date, endOfWeek: Date) => void;
   currentUserId: number;
   currentUsername: string;

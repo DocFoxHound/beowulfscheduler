@@ -138,16 +138,22 @@ export default function Scheduler() {
   }, [user, weekRange]);
 
   // Handle toggling an hour in the availability
-  const handleToggleHour = (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean }) => {
+  const handleToggleHour = (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean, availabilityId?: string }) => {
     const localDate = new Date(date);
     localDate.setHours(hour, 0, 0, 0);
     const timestamp = localDate.toISOString();
 
     setAvailability((prev) => {
       let previous = [...prev];
-      const existingIndex = previous.findIndex(
-        (entry) => entry.timestamp === timestamp && entry.author_id === user.id
-      );
+      // If availabilityId is provided, use it to find the entry
+      let existingIndex = -1;
+      if (options?.availabilityId !== undefined) {
+        existingIndex = previous.findIndex(entry => String(entry.id) === options.availabilityId);
+      } else {
+        existingIndex = previous.findIndex(
+          (entry) => entry.timestamp === timestamp && entry.author_id === user.id
+        );
+      }
 
       if (options?.removeOwn && existingIndex >= 0) {
         // If the entry has an id, mark for deletion; otherwise, remove it
@@ -158,6 +164,27 @@ export default function Scheduler() {
           };
         } else {
           previous.splice(existingIndex, 1);
+        }
+        return previous;
+      }
+
+      // If joining/leaving as attendee
+      if (existingIndex >= 0 && options?.availabilityId !== undefined) {
+        const existingEntry = previous[existingIndex];
+        const attendeeIdx = existingEntry.attendees.indexOf(user.id);
+        const attendeeNameIdx = existingEntry.attendees_usernames.indexOf(user.username);
+        if (attendeeIdx !== -1) {
+          // Remove attendee
+          existingEntry.attendees.splice(attendeeIdx, 1);
+          if (attendeeNameIdx !== -1) existingEntry.attendees_usernames.splice(attendeeNameIdx, 1);
+        } else {
+          // Add attendee
+          existingEntry.attendees.push(user.id);
+          existingEntry.attendees_usernames.push(user.username);
+        }
+        // Mark as update for backend
+        if (existingEntry.action !== "add") {
+          existingEntry.action = "update";
         }
         return previous;
       }
