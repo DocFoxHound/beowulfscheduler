@@ -41,6 +41,18 @@ const CollapsibleList: React.FC<{ label: string, items: string[], minimizedLabel
   );
 };
 
+// Helper: map type to color (should match your CSS)
+const typeToColor = (type: string) => {
+  switch (type) {
+    case "Dogfighting": return "#00b9e7b8";
+    case "Piracy":      return "#8d00adc3";
+    case "FPS":         return "#d10000b6";
+    case "Fleet":       return "#0b9735";
+    case "Event":       return "#c65900";
+    default:            return "#2a2a3c";
+  }
+};
+
 const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, currentUserId, currentUsername, userRoleIds = [], calendarRef }) => {
   const dayNumber = date.getDate();
   const [hoveredHour, setHoveredHour] = useState<number | null>(null);
@@ -104,6 +116,34 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
           // Determine if user can join this availability
           const canJoin = !isSelected || allowedRanks.length === 0 || userRoleIds.some((roleId: string) => allowedRanks.includes(roleId));
 
+          // Find all availabilities for this hour
+          const hourEntries = selectedHours.filter(h => {
+            const entryDate = new Date(h.timestamp);
+            return (
+              entryDate.getFullYear() === cellDate.getFullYear() &&
+              entryDate.getMonth() === cellDate.getMonth() &&
+              entryDate.getDate() === cellDate.getDate() &&
+              entryDate.getHours() === cellDate.getHours()
+            );
+          });
+
+          // Get unique types for this hour
+          const hourTypes = Array.from(new Set(hourEntries.map(e => e.type)));
+
+          // Build gradient if more than one type
+          let hourCellBackground: string | undefined = undefined;
+          if (hourTypes.length > 1) {
+            const colorStops = hourTypes.map((type, idx) => {
+              const percent = Math.round((idx / hourTypes.length) * 100);
+              const nextPercent = Math.round(((idx + 1) / hourTypes.length) * 100);
+              const color = typeToColor(type);
+              return `${color} ${percent}%, ${color} ${nextPercent}%`;
+            }).join(', ');
+            hourCellBackground = `linear-gradient(90deg, ${colorStops})`;
+          } else if (hourTypes.length === 1) {
+            hourCellBackground = typeToColor(hourTypes[0]);
+          }
+
           return (
             <div
               style={{ position: "relative" }}
@@ -138,18 +178,21 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                     : undefined
                 }
                 style={{
-                  position: "relative",
-                  opacity: !canJoin && isSelected ? 0.5 : 1,
-                  cursor: !canJoin && isSelected
-                    ? "not-allowed"
-                    : hourEventsCount > 1
+                  ...{
+                    position: "relative",
+                    opacity: !canJoin && isSelected ? 0.5 : 1,
+                    cursor: !canJoin && isSelected
                       ? "not-allowed"
-                      : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 2,
-                  padding: 0,
+                      : hourEventsCount > 1
+                        ? "not-allowed"
+                        : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 2,
+                    padding: 0,
+                  },
+                  ...(hourCellBackground ? { background: hourCellBackground } : {}),
                 }}
               >
                 {/* Add icon space */}

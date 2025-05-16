@@ -310,8 +310,7 @@
 }
 
 .type-option.event {
-  background-color: #c8c84d;
-  color: #222;
+  background-color: #c65900;
 }
 
 .type-option.active {
@@ -341,7 +340,7 @@
 }
 
 .hour-cell.event {
-  background-color: #c8c84d;
+  background-color: #c65900;
 }
 
 /* Tooltip for hour cells */
