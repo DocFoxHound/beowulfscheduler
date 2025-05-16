@@ -108,7 +108,6 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
           const type = selectedEntry?.type || '';
           const author = selectedEntry?.author_username || '';
           const attendees = selectedEntry?.attendees_usernames || [];
-          const isAttendee = selectedEntry?.attendees?.includes(currentUserId);
           const allowedRanksNames = selectedEntry?.allowed_ranks_names || [];
           const allowedRanks = selectedEntry?.allowed_ranks || [];
           const isAuthor = selectedEntry?.author_id === currentUserId;
@@ -126,6 +125,15 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
               entryDate.getHours() === cellDate.getHours()
             );
           });
+
+          // Calculate total attendees for all availabilities in this hour
+          const totalAttendees = hourEntries.reduce(
+            (sum, entry) => sum + (entry.attendees_usernames?.length || 0),
+            0
+          );
+
+          // New isAttendee: true if user is in any attendee list for this hour
+          const isAttendee = hourEntries.some(entry => entry.attendees?.includes(currentUserId));
 
           // Get unique types for this hour
           const hourTypes = Array.from(new Set(hourEntries.map(e => e.type)));
@@ -297,8 +305,10 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                 )}
                 {/* Attendees icon space */}
                 <span style={{ width: 0, display: "inline-block", textAlign: "center" }}>
-                  {attendees.length > 0 ? (
-                    <span className="attendees-icon" style={{ fontSize: 14, color: "#fff" }}>𐙞</span>
+                  {totalAttendees > 0 ? (
+                    <span className="attendees-icon" style={{ fontSize: 14, color: "#fff" }}>
+                      𐙞
+                    </span>
                   ) : null}
                 </span>
                 {/* Centered hour number */}
@@ -381,6 +391,8 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                             e.stopPropagation();
                             if (canJoin && !isAuthor) {
                               onToggleHour(date, hour, { availabilityId: entry.id.toString() });
+                              setHoveredHour(null); // Close the popover after action
+                              setHoveredPopoverEntry(null);
                             }
                           }}
                           onMouseEnter={() => setHoveredPopoverEntry(idx)}
