@@ -7,7 +7,7 @@ export interface DayCellProps {
   currentUserId: number;
   currentUsername: string;
   userRoleIds?: string[]; // Pass this from Scheduler if needed
-  calendarRef?: RefObject<HTMLDivElement> | null; // Change to allow null
+  calendarRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, currentUserId, currentUsername, userRoleIds = [], calendarRef }) => {
