@@ -48,7 +48,7 @@ const typeToColor = (type: string) => {
     case "Piracy":      return "#8d00adc3";
     case "FPS":         return "#d10000b6";
     case "Fleet":       return "#0b9735";
-    case "Event":       return "#c65900";
+    case "Poll":       return "#c65900";
     default:            return "#2a2a3c";
   }
 };

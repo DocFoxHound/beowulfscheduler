@@ -47,8 +47,8 @@ const typeColorClass = (type: string) => {
       return "fps";
     case "Fleet":
       return "fleet";
-    case "Event":
-      return "event";
+    case "Poll":
+      return "poll";
     default:
       return "";
   }
@@ -65,7 +65,7 @@ export default function Scheduler() {
   const hasLoadedInitialWeek = useRef(false);
   const { dbUser, setDbUser, userRank, setUserRank } = useUserContext();
 
-  const availabilityTypes = ["Dogfighting", "Piracy", "FPS", "Fleet", "Event"];
+  const availabilityTypes = ["Dogfighting", "Piracy", "FPS", "Fleet", "Poll"];
 
   const [allowedRanks, setAllowedRanks] = useState<string[]>(ROLE_OPTIONS.map(r => r.label));
   const [dropdownOpen, setDropdownOpen] = useState(false);

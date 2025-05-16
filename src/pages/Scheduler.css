@@ -309,7 +309,7 @@
   background-color: #0b9735;
 }
 
-.type-option.event {
+.type-option.poll {
   background-color: #c65900;
 }
 
@@ -339,7 +339,7 @@
   background-color: #0b9735;
 }
 
-.hour-cell.event {
+.hour-cell.poll {
   background-color: #c65900;
 }
 
