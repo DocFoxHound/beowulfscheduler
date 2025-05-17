@@ -79,7 +79,7 @@ const Hittracker: React.FC = () => {
             <OverviewPanel />
           </div>
           <div className="column warehouse-items">
-            <WarehouseItems user_id={dbUser?.id ?? null} />
+            <WarehouseItems gameVersion={gameVersion} user_id={dbUser?.id ?? null} />
           </div>
           <div className="column recent-pirate-hits">
             <RecentPirateHits gameVersion={gameVersion} user_id={dbUser?.id ?? null} />

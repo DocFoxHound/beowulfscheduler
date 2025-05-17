@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { fetchWarehouseItems, editWarehouseItem, deleteWarehouseItem, addWarehouseItem } from '../api/warehouseApi';
+import { getSummarizedItems } from '../api/summarizedItemApi';
 import { WarehouseItem } from '../types/warehouse';
+import { SummarizedItem } from '../types/items_summary';
 
 interface Props {
   user_id: string | null;
+  gameVersion: string | null;
 }
 
 type ForOrgFilter = 'both' | 'on' | 'off';
 
-const WarehouseItems: React.FC<Props> = ({ user_id }) => {
+const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion }) => {
   const [items, setItems] = useState<WarehouseItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +28,9 @@ const WarehouseItems: React.FC<Props> = ({ user_id }) => {
     total_value: 0,
     for_org: false,
   });
+  const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
+  const [suggestions, setSuggestions] = useState<SummarizedItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     const getItems = async () => {
@@ -41,6 +47,18 @@ const WarehouseItems: React.FC<Props> = ({ user_id }) => {
     };
     getItems();
   }, [user_id]);
+
+  useEffect(() => {
+    const fetchSummaries = async () => {
+      try {
+        const data = await getSummarizedItems();
+        setSummarizedItems(Array.isArray(data) ? data : []);
+      } catch (e) {
+        setSummarizedItems([]);
+      }
+    };
+    fetchSummaries();
+  }, []);
 
   if (loading) return <div>Loading warehouse items...</div>;
   if (error) return <div>{error}</div>;
@@ -110,19 +128,42 @@ const WarehouseItems: React.FC<Props> = ({ user_id }) => {
       ...prev,
       [field]: value,
     }));
+
+    if (field === 'commodity_name') {
+      if (value.length > 0) {
+        const filtered = summarizedItems.filter(item =>
+          item.commodity_name.toLowerCase().includes(value.toLowerCase())
+        );
+        setSuggestions(filtered.slice(0, 8)); // limit suggestions
+        setShowSuggestions(true);
+      } else {
+        setShowSuggestions(false);
+      }
+    }
+  };
+
+  const handleSuggestionClick = (item: SummarizedItem) => {
+    setNewItem(prev => ({
+      ...prev,
+      commodity_name: item.commodity_name,
+      total_value: Math.max(item.price_buy_avg, item.price_sell_avg),
+    }));
+    setShowSuggestions(false);
   };
 
   const handleAddSave = async () => {
     if (!newItem.commodity_name || !newItem.location) return;
     const itemToAdd = {
       ...newItem,
+      id: new Date().getTime().toString(),
       user_id: user_id ?? '',
-      patch: '', // or your default
+      patch: gameVersion, // or your default
     } as WarehouseItem;
     const saved = await addWarehouseItem(itemToAdd);
     setItems(items => [saved, ...items]);
     setShowAddRow(false);
     setNewItem({
+      id: new Date().getTime().toString(),
       commodity_name: '',
       location: '',
       total_scu: 0,
@@ -197,7 +238,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id }) => {
         <table className="warehouse-table" style={{ width: '100%', margin: '1rem 0', borderCollapse: 'collapse', background: '#181a1b', borderRadius: 6 }}>
           <tbody>
             <tr>
-              <td style={{ padding: '8px' }}>
+              <td style={{ padding: '8px', position: 'relative' }}>
                 <input
                   type="text"
                   value={newItem.commodity_name}
@@ -205,7 +246,43 @@ const WarehouseItems: React.FC<Props> = ({ user_id }) => {
                   placeholder="Commodity Name"
                   style={{ width: 140 }}
                   title="The name of this item"
+                  autoComplete="off"
+                  onFocus={() => {
+                    if (newItem.commodity_name) setShowSuggestions(true);
+                  }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 100)} // allow click
                 />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#222',
+                      border: '1px solid #444',
+                      borderRadius: 4,
+                      zIndex: 10,
+                      width: '100%',
+                      maxHeight: 180,
+                      overflowY: 'auto',
+                      color: '#fff',
+                    }}
+                  >
+                    {suggestions.map(item => (
+                      <div
+                        key={item.id}
+                        style={{
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #333',
+                        }}
+                        onMouseDown={() => handleSuggestionClick(item)}
+                      >
+                        {item.commodity_name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </td>
               <td style={{ padding: '8px' }}>
                 <input
@@ -247,7 +324,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id }) => {
                 />
               </td>
               <td style={{ textAlign: 'center', padding: '8px' }}>
-                <button onClick={handleAddSave} title="Save" style={{ fontSize: 18, marginLeft: 8 }}>💾</button>
+                <button onClick={handleAddSave} title="Save" style={{ fontSize: 18, marginLeft: 8 }}>🖫</button>
               </td>
             </tr>
           </tbody>
@@ -338,7 +415,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id }) => {
                                   onChange={e => handleEditChange('for_org', e.target.checked ? true : false)}
                                   style={{ width: 20, height: 20, marginRight: '2.25rem' }}
                                 />
-                                <button onClick={handleSave} title="Save" style={{ fontSize: 18, marginLeft: 8 }}>💾</button>
+                                <button onClick={handleSave} title="Save" style={{ fontSize: 18, marginLeft: 8 }}>🖫</button>
                               </div>
                             </td>
                           </tr>

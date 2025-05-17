@@ -1,11 +1,11 @@
 import axios from 'axios';
-import { Patch } from '../types/patch';
+import { SummarizedItem } from '../types/items_summary';
 
 
 const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
 
-export const getSummarizedItems = async (): Promise<Patch> => {
-  const response = await axios.get<Patch>(`${API_BASE_URL}/api/uex/summarizedcommodities/`);
+export const getSummarizedItems = async (): Promise<SummarizedItem> => {
+  const response = await axios.get<SummarizedItem>(`${API_BASE_URL}/api/uex/summarizedcommodities/`);
   return response.data;
 };
 
