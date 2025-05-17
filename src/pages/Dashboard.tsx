@@ -3,6 +3,7 @@ import axios from "axios";
 import "./Dashboard.css";
 import { getUserById, getUserRank } from "../api/userService";
 import { useUserContext } from "../context/UserContext"; // <-- Import the context hook
+import RecentOtherHits from "../components/RecentOtherHits"; // Add this import
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -65,6 +66,12 @@ export default function Dashboard() {
         </section>
 
         <section className="dashboard-grid">
+          {/* Left column: RecentOtherHits */}
+          <div className="card recent-other-hits">
+            <RecentOtherHits gameVersion={null} />
+          </div>
+
+          {/* Existing cards */}
           <div className="card">
             <h2>Fleet Assignment</h2>
             <h4>IronPoint Main</h4>
@@ -76,10 +83,24 @@ export default function Dashboard() {
             <p>No current missions on the horizon.</p>
           </div>
 
-          {/* <div className="card">
-            <h2>Last Login</h2>
-            <p>5 hours ago from Discord auth</p>
-          </div> */}
+          {/* Right column: Fleet Performance */}
+          <div className="card fleet-performance">
+            <h2>Fleet Performance</h2>
+            <ul>
+              <li>
+                <strong>Alpha Squadron</strong>
+                <p>Intercepted 3 convoys in Pyro this week.</p>
+              </li>
+              <li>
+                <strong>Bravo Wing</strong>
+                <p>Provided escort for mining ops in Stanton.</p>
+              </li>
+              <li>
+                <strong>Recon Team</strong>
+                <p>Scouted new jump points, no enemy contact.</p>
+              </li>
+            </ul>
+          </div>
         </section>
       </main>
     </div>

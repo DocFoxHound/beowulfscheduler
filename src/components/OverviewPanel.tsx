@@ -1,56 +1,33 @@
-import React, { useEffect, useState } from 'react';
-import { fetchStatistics } from '../api/hittrackerApi';
-import { Statistics } from '../types/hittracker';
+import React from 'react';
 
 const OverviewPanel: React.FC = () => {
-  const [statistics, setStatistics] = useState<Statistics | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const getStatistics = async () => {
-      try {
-        const data = await fetchStatistics();
-        setStatistics(data);
-      } catch (err) {
-        setError('Failed to fetch statistics');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getStatistics();
-  }, []);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div>{error}</div>;
-  }
+  // Replace these with real data from your API or context
+  const totalPirateHits = 42;
+  const totalCargoStolen = 128;
+  const totalMonetaryAmount = 950000;
 
   return (
     <div className="overview-panel">
       <h2>Overview</h2>
       <div className="statistics">
-        <div>Total Hits: {statistics?.totalHits}</div>
-        <div>Hits for Current Patch: {statistics?.currentPatchHits}</div>
-        <div>Total Items Stolen: {statistics?.totalItemsStolen}</div>
-        <div>Total Value: {statistics?.totalValue}</div>
+        <div><strong>Total Pirate Hits:</strong> {totalPirateHits}</div>
+        <div><strong>Total Cargo Stolen:</strong> {totalCargoStolen}</div>
+        <div><strong>Total Monetary Amount Stolen:</strong> {totalMonetaryAmount.toLocaleString()} aUEC</div>
       </div>
-      <div className="recent-hits">
-        <div className="recent-pirate-hits">
-          <h3>Recent Pirate Hits</h3>
-          {/* RecentPirateHits component will be rendered here */}
-        </div>
-        <div className="warehouse-items">
-          <h3>Warehouse Items</h3>
-          {/* WarehouseItems component will be rendered here */}
-        </div>
-        <div className="recent-other-hits">
-          <h3>Recent Hits by Others</h3>
-          {/* RecentOtherHits component will be rendered here */}
+      <div className="hits-graph" style={{ marginTop: '2rem' }}>
+        <h3>Hits Over Time</h3>
+        {/* Replace this with a real chart component, e.g. recharts or chart.js */}
+        <div style={{
+          width: '100%',
+          height: '150px',
+          background: '#222',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#888'
+        }}>
+          [Graph Placeholder]
         </div>
       </div>
     </div>

@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { fetchRecentOtherHits } from '../api/hittrackerApi';
 import { Hit } from '../types/hittracker';
 
-const RecentOtherHits: React.FC = () => {
+
+interface Props {
+  gameVersion: string | null;
+}
+
+const RecentOtherHits: React.FC<Props> = ({ gameVersion }) => {
   const [hits, setHits] = useState<Hit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +41,9 @@ const RecentOtherHits: React.FC = () => {
       <ul>
         {hits.map((hit) => (
           <li key={hit.id}>
-            <p>{hit.description}</p>
-            <span>{hit.date}</span>
+            <p>Title: {hit.title}</p>
+            <span>Value: {hit.total_value}</span>
+            <p>Story: {hit.story}</p>
           </li>
         ))}
       </ul>
