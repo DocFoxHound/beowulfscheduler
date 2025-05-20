@@ -7,11 +7,12 @@ import { SummarizedItem } from '../types/items_summary';
 interface Props {
   user_id: string | null;
   gameVersion: string | null;
+  summarizedItems: SummarizedItem[];
 }
 
 type ForOrgFilter = 'both' | 'on' | 'off';
 
-const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion }) => {
+const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems }) => {
   const [items, setItems] = useState<WarehouseItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,9 +29,11 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion }) => {
     total_value: 0,
     for_org: false,
   });
-  const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
+  // const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [suggestions, setSuggestions] = useState<SummarizedItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverLocation, setDragOverLocation] = useState<string | null>(null);
 
   useEffect(() => {
     const getItems = async () => {
@@ -38,7 +41,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion }) => {
         const data = await fetchWarehouseItems(user_id);
         setItems(data);
         const locations = Array.from(new Set(data.map(item => item.location)));
-        setOpenLocations(Object.fromEntries(locations.map(loc => [loc, true])));
+        setOpenLocations(Object.fromEntries(locations.map(loc => [loc, false])));
       } catch (err) {
         setError('Failed to fetch warehouse items');
       } finally {
@@ -48,17 +51,17 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion }) => {
     getItems();
   }, [user_id]);
 
-  useEffect(() => {
-    const fetchSummaries = async () => {
-      try {
-        const data = await getSummarizedItems();
-        setSummarizedItems(Array.isArray(data) ? data : []);
-      } catch (e) {
-        setSummarizedItems([]);
-      }
-    };
-    fetchSummaries();
-  }, []);
+  // useEffect(() => {
+  //   const fetchSummaries = async () => {
+  //     try {
+  //       const data = await getSummarizedItems();
+  //       setSummarizedItems(Array.isArray(data) ? data : []);
+  //     } catch (e) {
+  //       setSummarizedItems([]);
+  //     }
+  //   };
+  //   fetchSummaries();
+  // }, []);
 
   if (loading) return <div>Loading warehouse items...</div>;
   if (error) return <div>{error}</div>;
@@ -336,7 +339,34 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion }) => {
       {Object.keys(itemsByLocation)
         .sort((a, b) => a.localeCompare(b))
         .map(location => (
-          <div key={location} style={{ marginBottom: '0rem', border: '1px solid #333', borderRadius: '6px', background: '#222' }}>
+          <div
+            key={location}
+            style={{
+              marginBottom: '0rem',
+              border: dragOverLocation === location ? '2px solid #2d7aee' : '1px solid #333',
+              borderRadius: '6px',
+              background: '#222'
+            }}
+            onDragOver={e => {
+              e.preventDefault();
+              setDragOverLocation(location);
+            }}
+            onDragLeave={() => setDragOverLocation(null)}
+            onDrop={async e => {
+              setDragOverLocation(null);
+              if (!draggedItemId) return;
+              // Find the item
+              const item = items.find(i => i.id === draggedItemId);
+              if (!item || item.location === location) return;
+              // Update location in backend and state
+              const updated = { ...item, location };
+              await editWarehouseItem(item.id, updated);
+              setItems(items =>
+                items.map(i => (i.id === item.id ? updated : i))
+              );
+              setDraggedItemId(null);
+            }}
+          >
             <div
               style={{
                 cursor: 'pointer',
@@ -373,7 +403,12 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion }) => {
                     .sort((a, b) => a.commodity_name.localeCompare(b.commodity_name))
                     .map(item => (
                       <React.Fragment key={item.id}>
-                        <tr>
+                        <tr
+                          key={item.id}
+                          draggable
+                          onDragStart={() => setDraggedItemId(item.id)}
+                          onDragEnd={() => setDraggedItemId(null)}
+                        >
                           <td style={{ padding: '8px' }}>{item.commodity_name}</td>
                           <td style={{ textAlign: 'right', padding: '8px' }}>{item.total_scu}</td>
                           <td style={{ textAlign: 'right', padding: '8px' }}>{item.total_value}</td>

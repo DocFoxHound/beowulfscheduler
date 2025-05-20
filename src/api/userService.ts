@@ -19,6 +19,18 @@ export const getUserById = async (userId: string): Promise<User | null> => {
   }
 };
 
+export const getAllUsers = async (): Promise<User | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/`, {
+      withCredentials: true
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    throw error;
+  }
+};
+
 export const getUserRank = async (rankId: string): Promise<User | null> => {
   try {
     const response = await axios.get(`${API_URL}/api/ranks/${rankId}`, {

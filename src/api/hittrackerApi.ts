@@ -9,7 +9,7 @@ interface Coupling {
   gameVersion: string | null;
 }
 
-export const fetchRecentPirateHits = async (coupling: Coupling): Promise<Hit[]> => {
+export const fetchPlayerRecentPirateHits = async (coupling: Coupling): Promise<Hit[]> => {
   const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/userandpatch`, {
     params: {
       user_id: coupling.user_id,
@@ -19,7 +19,30 @@ export const fetchRecentPirateHits = async (coupling: Coupling): Promise<Hit[]> 
   return response.data;
 };
 
+export const fetchAllPlayerPirateHits = async (coupling: Coupling): Promise<Hit[]> => {
+  const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/user`, {
+    params: {
+      user_id: coupling.user_id,
+    },
+  });
+  return response.data;
+};
+
+export const fetchAllPlayerAssistHits = async (coupling: Coupling): Promise<Hit[]> => {
+  const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/assists`, {
+    params: {
+      user_id: coupling.user_id,
+    },
+  });
+  return response.data;
+};
+
 export const fetchRecentOtherHits = async (): Promise<Hit[]> => {
   const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/latest`);
   return response.data;
 };
+
+export const createHit = async (hit: Hit): Promise<Hit> => {
+  const response = await axios.post<Hit>(`${API_BASE_URL}/api/hittracker/`, hit);
+  return response.data;
+}

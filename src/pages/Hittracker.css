@@ -6,25 +6,28 @@
 }
 
 .column {
-  flex: 0 1 350px;
+  flex: 1 1 350px;
   min-width: 250px;
-  max-width: 400px;
+  max-width: 700px;
   background: #181a1b;
   border-radius: 8px;
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.warehouse-items {
-  flex: 0 1 500px; /* Make the warehouse column wider */
-  min-width: 600px;
-  max-width: 800px;
-  border-left: 2px solid #333;
-  border-right: 2px solid #333;
+.overview-panel-column,
+.recent-pirate-hits {
+  flex: 2 1 600px;   /* Make these columns wider */
+  min-width: 400px;
+  max-width: 900px;
 }
 
-.overview-panel-column {
-  /* Optional: special styling for the overview panel */
+.warehouse-items {
+  flex: 0 0 600px;   /* Fixed width for warehouse column */
+  min-width: 600px;
+  max-width: 600px;
+  border-left: 2px solid #333;
+  border-right: 2px solid #333;
 }
 
 /* Add to your Hittracker.css or a new WarehouseItems.css */
