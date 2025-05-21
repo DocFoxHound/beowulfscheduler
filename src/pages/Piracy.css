@@ -72,3 +72,9 @@
   background: #222;
   color: #fff;
 }
+
+.large-checkbox {
+  width: 22px;
+  height: 22px;
+  accent-color: #2d7aee; /* Optional: makes the checkmark blue */
+}

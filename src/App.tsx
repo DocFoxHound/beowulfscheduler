@@ -4,7 +4,8 @@ import './App.css'
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Scheduler from './pages/Scheduler';
-import Hittracker from './pages/Hittracker';
+import Hittracker from './pages/Piracy';
+import Warehouse from "./pages/Warehouse";
 import { UserProvider } from "./context/UserContext";
 
 function App() {
@@ -16,7 +17,8 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/scheduler" element={<Scheduler />} />
-        <Route path="/hittracker" element={<Hittracker />} />
+        <Route path="/piracy" element={<Hittracker />} />
+        <Route path="/warehouse" element={<Warehouse />} />
       </Routes>
     </UserProvider>
   )

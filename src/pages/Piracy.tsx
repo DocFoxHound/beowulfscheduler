@@ -8,7 +8,7 @@ import { useUserContext } from "../context/UserContext";
 import axios from "axios";
 import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAssistHits } from '../api/hittrackerApi';
 import { Hit } from '../types/hittracker';
-import './Hittracker.css';
+import './Piracy.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
 import AddHitModal from '../components/AddHitModal';
 import { getSummarizedItems } from '../api/summarizedItemApi';
@@ -124,14 +124,15 @@ const Hittracker: React.FC = () => {
         <div className="navbar-title">IronPoint</div>
         <nav className="navbar-links">
           <a href="/dashboard">Dashboard</a>
+          <a href="/piracy">Piracy</a>
           <a href="/scheduler">Training Scheduler</a>
-          <a href="/hittracker">Hits</a>
+          <a href="/warehouse">Warehouse</a>
         </nav>
       </header>
 
       <main className="dashboard-content">
         <section className="dashboard-header">
-          <h1>Hit Tracker</h1>
+          <h1>Piracy</h1>
           <p>Track your hits and performance.</p>
         </section>
 
@@ -163,20 +164,19 @@ const Hittracker: React.FC = () => {
             >
               Add New Hit
             </button>
-            <WarehouseItems
-              gameVersion={gameVersion}
-              user_id={dbUser?.id ?? null}
-              summarizedItems={summarizedItems}
-            />
+            {/* <WarehouseItems ... /> */}
+            <div style={{ borderRadius: 8, minHeight: 200 }} className="column recent-pirate-hits">
+              <RecentPirateHits 
+                recentHits={recentHits} 
+                gameVersion={gameVersion} 
+                user_id={dbUser?.id ?? null}
+                pirateHits={allPirateHits}
+                assistHits={allAssistHits}
+              />
+            </div>
           </div>
           <div className="column recent-pirate-hits">
-            <RecentPirateHits 
-              recentHits={recentHits} 
-              gameVersion={gameVersion} 
-              user_id={dbUser?.id ?? null}
-              pirateHits={allPirateHits}
-              assistHits={allAssistHits}
-            />
+            Placeholder for FPS graphs and things
           </div>
         </div>
       </main>

@@ -11,6 +11,7 @@ import { addWarehouseItem } from "../api/warehouseApi";
 import { v4 as uuidv4 } from "uuid";
 import { fetchAllRecentGatherings } from "../api/recentGatheringsApi";
 import { RecentGathering } from "../types/recent_gatherings";
+import { createPlayerExperience } from "../api/playerExperiencesApi";
 
 interface AddHitModalProps {
   show: boolean;
@@ -41,6 +42,17 @@ type CargoItem = {
   commodity_name: string;
   scuAmount: number;
   avg_price: number;
+};
+
+// Extend User type for assists grid
+type AssistUserWithExperience = User & {
+  dogfighter: boolean;
+  marine: boolean;
+  snare: boolean;
+  cargo: boolean;
+  multicrew: boolean;
+  salvage: boolean;
+  leadership: boolean;
 };
 
 const AddHitModal: React.FC<AddHitModalProps> = (props) => {
@@ -75,7 +87,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   // Users state
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [assistSuggestions, setAssistSuggestions] = useState<User[]>([]);
-  const [assistsUsers, setAssistsUsers] = useState<User[]>([]);
+  const [assistsUsers, setAssistsUsers] = useState<AssistUserWithExperience[]>([]);
 
   // Fleets state
   const [allFleets, setAllFleets] = useState<UserFleet[]>([]);
@@ -287,12 +299,111 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
     ).toString();
   };
 
+  // Add this function here:
+  const addAssistUser = (user: User) => {
+    setAssistsUsers(prev => {
+      if (prev.some(u => u.id === user.id)) return prev;
+      return [
+        ...prev,
+        {
+          ...user,
+          dogfighter: false,
+          marine: false,
+          snare: false,
+          cargo: false,
+          multicrew: false,
+          salvage: false,
+          leadership: false,
+        }
+      ];
+    });
+  };
+
   if (!show) return null;
 
   return (
     <Modal onClose={onClose}>
       <h2>Add New Hit</h2>
       <form onSubmit={handleSubmit}>
+        {/* Air or Ground Toggle - moved here */}
+        <div style={{ width: "100%", display: "flex", justifyContent: "center", margin: "16px 0 8px 0" }}>
+          <div style={{ display: "flex", gap: 40 }}>
+            {/* Air or Ground */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Air or Ground:</span>
+              <div style={{ display: "flex" }}>
+                {["Mixed", "Air", "Ground"].map((option, idx, arr) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, air_or_ground: option }))}
+                    style={{
+                      width: 100,
+                      height: 36,
+                      borderRadius: 18,
+                      border: "1px solid #888",
+                      background: form.air_or_ground === option ? "#2d7aee" : "#444",
+                      color: "#fff",
+                      fontWeight: "bold",
+                      fontSize: 16,
+                      marginRight: idx !== arr.length - 1 ? 8 : 0,
+                      cursor: "pointer",
+                      outline: "none",
+                      letterSpacing: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                      boxSizing: "border-box",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                    }}
+                    aria-pressed={form.air_or_ground === option}
+                    aria-label={`Set to ${option}`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Type of Piracy */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Type of Piracy:</span>
+              <button
+                type="button"
+                onClick={() =>
+                  setForm(f => ({
+                    ...f,
+                    type_of_piracy: f.type_of_piracy === "Extortion" ? "Brute Force" : "Extortion"
+                  }))
+                }
+                style={{
+                  width: 140,
+                  height: 36,
+                  borderRadius: 18,
+                  border: "1px solid #888",
+                  background: form.type_of_piracy === "Extortion" ? "#2d7aee" : "#444",
+                  color: "#fff",
+                  fontWeight: "bold",
+                  fontSize: 16,
+                  position: "relative",
+                  transition: "background 0.2s",
+                  outline: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  letterSpacing: 1,
+                }}
+                aria-pressed={form.type_of_piracy === "Extortion"}
+                aria-label="Toggle Type of Piracy"
+              >
+                {form.type_of_piracy === "Extortion" ? "Extortion" : "Brute Force"}
+              </button>
+            </div>
+          </div>
+        </div>
         <label>
           Title:
           <input
@@ -302,83 +413,6 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             disabled={isSubmitting}
           />
         </label>
-        {/* Air or Ground Toggle - moved here */}
-        <div style={{ display: "flex", gap: 40, margin: "16px 0 8px 0" }}>
-          {/* Air or Ground */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Air or Ground:</span>
-            <div style={{ display: "flex" }}>
-              {["Mixed", "Air", "Ground"].map((option, idx, arr) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, air_or_ground: option }))}
-                  style={{
-                    width: 100, // slightly wider for "Mixed"
-                    height: 36,
-                    borderRadius: 18,
-                    border: "1px solid #888",
-                    background: form.air_or_ground === option ? "#2d7aee" : "#444",
-                    color: "#fff",
-                    fontWeight: "bold",
-                    fontSize: 16,
-                    marginRight: idx !== arr.length - 1 ? 8 : 0, // no margin after last button
-                    cursor: "pointer",
-                    outline: "none",
-                    letterSpacing: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    boxSizing: "border-box",
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                  }}
-                  aria-pressed={form.air_or_ground === option}
-                  aria-label={`Set to ${option}`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Type of Piracy */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Type of Piracy:</span>
-            <button
-              type="button"
-              onClick={() =>
-                setForm(f => ({
-                  ...f,
-                  type_of_piracy: f.type_of_piracy === "Extortion" ? "Brute Force" : "Extortion"
-                }))
-              }
-              style={{
-                width: 140,
-                height: 36,
-                borderRadius: 18,
-                border: "1px solid #888",
-                background: form.type_of_piracy === "Extortion" ? "#2d7aee" : "#444",
-                color: "#fff",
-                fontWeight: "bold",
-                fontSize: 16,
-                position: "relative",
-                transition: "background 0.2s",
-                outline: "none",
-                cursor: "pointer",
-                padding: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                letterSpacing: 1,
-              }}
-              aria-pressed={form.type_of_piracy === "Extortion"}
-              aria-label="Toggle Type of Piracy"
-            >
-              {form.type_of_piracy === "Extortion" ? "Extortion" : "Brute Force"}
-            </button>
-          </div>
-        </div>
         <label>
           Cargo:
           <div style={{ marginBottom: "0.5em", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
@@ -494,16 +528,18 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               </div>
             )}
             <table style={{ width: "100%", marginTop: 8, marginBottom: 8, background: "#23272e", borderRadius: 6 }}>
-              <thead>
-                <tr>
-                  <th style={{ color: "#ccc", padding: 4, textAlign: "left" }}>Item</th>
-                  <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value</th>
-                  <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Quantity</th>
-                  <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>For Org</th>
-                  <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>To Warehouse</th>
-                  <th></th>
-                </tr>
-              </thead>
+              {cargoList.length > 0 && (
+                <thead>
+                  <tr>
+                    <th style={{ color: "#ccc", padding: 4, textAlign: "left" }}>Item</th>
+                    <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value</th>
+                    <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Quantity</th>
+                    <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>For Org</th>
+                    <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>To Warehouse</th>
+                    <th></th>
+                  </tr>
+                </thead>
+              )}
               <tbody>
                 {cargoList.map((cargo, idx) => (
                   <tr key={cargo.commodity_name + idx}>
@@ -513,6 +549,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     <td style={{ padding: 4, textAlign: "center" }}>
                       <input
                         type="checkbox"
+                        className="large-checkbox"
                         checked={warehouseFlags[idx]?.forOrg || false}
                         disabled={!warehouseFlags[idx]?.toWarehouse}
                         onChange={e => {
@@ -680,13 +717,10 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   }}
                   title={g.usernames.join(", ")}
                   onMouseDown={() => {
-                    setAssistsUsers(prev => {
-                      const existingIds = new Set(prev.map(u => u.id));
-                      const newUsers = g.user_ids
-                        .map((id, i) => allUsers.find(u => String(u.id) === String(id)))
-                        .filter((u): u is User => !!u && !existingIds.has(u.id));
-                      return [...prev, ...newUsers];
-                    });
+                    g.user_ids
+                      .map((id, i) => allUsers.find(u => String(u.id) === String(id)))
+                      .filter((u): u is User => !!u)
+                      .forEach(addAssistUser);
                     setShowGatheringsMenu(false);
                   }}
                 >
@@ -721,9 +755,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     color: "#fff"
                   }}
                   onMouseDown={() => {
-                    if (!assistsUsers.some(u => u.id === user.id)) {
-                      setAssistsUsers(prev => [...prev, user]);
-                    }
+                    addAssistUser(user);
                     setForm(f => ({ ...f, assists: "" }));
                     setAssistSuggestions([]);
                   }}
@@ -734,8 +766,68 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             </div>
           )}
         </label>
-
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0" }}>
+        {assistsUsers.length > 0 && (
+          <div style={{ overflowX: "auto", margin: "12px 0" }}>
+            <table style={{ width: "100%", background: "#23272e", borderRadius: 6, borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Name</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Marine</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Snare</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Cargo</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Multicrew</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Salvage</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Leadership</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {assistsUsers.map((user, idx) => (
+                  <tr key={user.id} style={{ background: idx % 2 ? "#202226" : "#23272e" }}>
+                    <td style={{ color: "#fff", padding: 6 }}>{user.nickname || user.username}</td>
+                    {(["dogfighter", "marine", "snare", "cargo", "multicrew", "salvage", "leadership"] as Array<keyof AssistUserWithExperience>).map(field => (
+                      <td key={field} style={{ textAlign: "center", padding: 6 }}>
+                        <input
+                          type="checkbox"
+                          className="large-checkbox"
+                          checked={Boolean(user[field])}
+                          onChange={e => {
+                            setAssistsUsers(list =>
+                              list.map(u =>
+                                u.id === user.id
+                                  ? { ...u, [field]: e.target.checked }
+                                  : u
+                              )
+                            );
+                          }}
+                        />
+                      </td>
+                    ))}
+                    <td style={{ textAlign: "center", padding: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => setAssistsUsers(list => list.filter(u => u.id !== user.id))}
+                        style={{
+                          color: "#ff6b6b",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 16,
+                          lineHeight: 1,
+                        }}
+                        aria-label={`Remove ${user.nickname || user.username}`}
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {/* <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0" }}>
           {assistsUsers.map(user => (
             <span
               key={user.id}
@@ -770,7 +862,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               </button>
             </span>
           ))}
-        </div>
+        </div> */}
         <label>
           Fleet Involved:
           <input

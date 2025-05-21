@@ -1,4 +1,4 @@
-// filepath: /home/martinmedic/beowulfscheduler/src/types/hittracker.ts
+// filepath: /home/martinmedic/beowulfscheduler/src/types.ts
 type CargoItem = {
   commodity_name: string;
   scuAmount: number;

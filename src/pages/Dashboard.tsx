@@ -46,11 +46,9 @@ export default function Dashboard() {
         <div className="navbar-title">IronPoint</div>
         <nav className="navbar-links">
           <a href="/dashboard">Dashboard</a>
+          <a href="/piracy">Piracy</a>
           <a href="/scheduler">Training Scheduler</a>
-          <a href="/hittracker">Hits</a>
-          {/* <a href="/charts">Charts</a> */}
-          {/* <a href="/settings">Settings</a> */}
-          {/* <a href="/logout" className="logout-link">Logout</a> */}
+          <a href="/warehouse">Warehouse</a>
         </nav>
       </header>
 
