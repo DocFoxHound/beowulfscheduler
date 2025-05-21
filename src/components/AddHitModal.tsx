@@ -6,12 +6,12 @@ import { getAllUsers } from "../api/userService";
 import { User } from "../types/user";
 import { fetchAllFleets } from "../api/fleetApi";
 import { UserFleet } from "../types/fleet";
-import { createHit } from "../api/hittrackerApi";
+import { createHit, updateHit, deleteHit } from "../api/hittrackerApi";
 import { addWarehouseItem } from "../api/warehouseApi";
 import { v4 as uuidv4 } from "uuid";
 import { fetchAllRecentGatherings } from "../api/recentGatheringsApi";
 import { RecentGathering } from "../types/recent_gatherings";
-import { createPlayerExperience } from "../api/playerExperiencesApi";
+import { createPlayerExperience, editPlayerExperience, deletePlayerExperience, fetchPlayerExperiencesByOperationId } from "../api/playerExperiencesApi";
 import { fetchBlackBoxsByUserId } from "../api/blackboxApi";
 
 interface AddHitModalProps {
@@ -25,6 +25,10 @@ interface AddHitModalProps {
   formError: string | null;
   setFormError: React.Dispatch<React.SetStateAction<string | null>>;
   summarizedItems: SummarizedItem[];
+  isEditMode?: boolean;
+  hit?: Hit;
+  onUpdate?: (hit: Hit) => Promise<void>;
+  onDelete?: () => Promise<void>;
 }
 
 const initialForm = {
@@ -112,6 +116,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   const parseArray = (str: string) =>
     str.split(",").map(s => s.trim()).filter(Boolean);
 
+  // State for delete confirmation modal
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   useEffect(() => {
     if (show) {
       setFormError(null);
@@ -147,6 +154,83 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showGatheringsMenu]);
+
+  useEffect(() => {
+    if (props.isEditMode && props.hit) {
+      const h = props.hit;
+      setForm({
+        assists: "",
+        total_scu: h.total_scu?.toString() ?? "",
+        air_or_ground: h.air_or_ground,
+        title: h.title,
+        story: h.story,
+        assists_usernames: "",
+        video_link: h.video_link,
+        additional_media_links: h.additional_media_links?.join(", ") ?? "",
+        type_of_piracy: h.type_of_piracy,
+        victims: "",
+      });
+      setCargoList(h.cargo || []);
+      setWarehouseFlags(h.cargo?.map(() => ({ toWarehouse: false, forOrg: false })) || []);
+      setVictimsArray(h.victims || []);
+
+      // Fetch player experiences for this operation and map to assistsUsers
+      fetchPlayerExperiencesByOperationId(h.id).then((experiences) => {
+        setAssistsUsers(
+          (h.assists || []).map((id, idx) => {
+            const exp = experiences.find(e => e.user_id === String(id));
+            return {
+              id: Number(id),
+              username: h.assists_usernames?.[idx] || "",
+              nickname: h.assists_usernames?.[idx] || "",
+              corsair_level: 0,
+              raptor_level: 0,
+              radier_level: 0,
+              rank: 0,
+              roles: [],
+              dogfighter: !!exp?.dogfighter,
+              marine: !!exp?.marine,
+              snare: !!exp?.snare,
+              cargo: !!exp?.cargo,
+              multicrew: !!exp?.multicrew,
+              salvage: !!exp?.salvage,
+              leadership: !!exp?.leadership,
+            };
+          })
+        );
+      });
+      // ...set other fields as needed...
+    }
+  }, [props.isEditMode, props.hit]);
+
+  useEffect(() => {
+    if (show && !props.isEditMode) {
+      setAssistsUsers(prev => {
+        // Only add if not already present
+        if (prev.some(u => String(u.id) === String(userId))) return prev;
+        return [
+          {
+            id: Number(userId),
+            username: username,
+            nickname: username,
+            corsair_level: 0,
+            raptor_level: 0,
+            radier_level: 0,
+            rank: 0,
+            roles: [],
+            dogfighter: false,
+            marine: false,
+            snare: false,
+            cargo: false,
+            multicrew: false,
+            salvage: false,
+            leadership: false,
+          },
+          ...prev,
+        ];
+      });
+    }
+  }, [show, userId, username, props.isEditMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1172,12 +1256,190 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
         {formError && (
           <div style={{ color: "#ff6b6b", marginBottom: "1em" }}>{formError}</div>
         )}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Submitting..." : "Submit"}
-        </button>
+        {props.isEditMode ? (
+          <>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!props.onUpdate || !props.hit) return;
+
+                // Prepare updated hit object as in handleSubmit
+                const updatedHit: Hit = {
+                  ...props.hit,
+                  id: props.hit?.id ?? Date.now().toString(),
+                  user_id: props.hit?.user_id ?? userId,
+                  cargo: cargoList,
+                  total_value: totalValue,
+                  patch: gameVersion ?? "",
+                  total_cut_value: Math.round(totalValue / (assistsUsers.length + 1)),
+                  assists: assistsUsers.map(u => String(u.id)),
+                  assists_usernames: assistsUsers.map(u => u.username),
+                  total_scu: cargoList.reduce((sum, item) => sum + item.scuAmount, 0),
+                  air_or_ground: form.air_or_ground,
+                  title: form.title,
+                  story: form.story,
+                  timestamp: new Date().toISOString(),
+                  username: props.hit?.username ?? username,
+                  video_link: form.video_link,
+                  additional_media_links: parseArray(form.additional_media_links),
+                  type_of_piracy: form.type_of_piracy,
+                  fleet_activity: selectedFleets.length > 0,
+                  fleet_names: selectedFleets.map(f => f.name),
+                  fleet_ids: selectedFleets.map(f => f.id),
+                  victims: victimsArray,
+                };
+
+                try {
+                  // 1. Fetch all player experiences for this operation
+                  const existingExperiences = await fetchPlayerExperiencesByOperationId(updatedHit.id);
+
+                  // 2. For each assistsUser, update or create experience
+                  await Promise.all(
+                    assistsUsers.map(async user => {
+                      const existing = existingExperiences.find(e => e.user_id === String(user.id));
+                      const expPayload = {
+                        id: existing?.id ?? randomBigIntId(),
+                        user_id: String(user.id),
+                        username: user.username,
+                        operation_id: updatedHit.id,
+                        operation_name: updatedHit.title,
+                        operation_type: updatedHit.type_of_piracy,
+                        patch: updatedHit.patch,
+                        dogfighter: !!user.dogfighter,
+                        marine: !!user.marine,
+                        snare: !!user.snare,
+                        cargo: !!user.cargo,
+                        multicrew: !!user.multicrew,
+                        salvage: !!user.salvage,
+                        leadership: !!user.leadership,
+                      };
+                      if (existing) {
+                        await editPlayerExperience(existing.id, expPayload);
+                      } else {
+                        await createPlayerExperience(expPayload);
+                      }
+                    })
+                  );
+
+                  // 3. Update the hit
+                  await updateHit(updatedHit);
+
+                  // 4. Call parent update handler
+                  await props.onUpdate(updatedHit);
+                } catch (err) {
+                  setFormError("Failed to update hit or player experiences. Please try again.");
+                }
+              }}
+              disabled={isSubmitting}
+            >
+              Update
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!props.hit) return;
+                try {
+                  let experiences: any[] = [];
+                  try {
+                    // Try to fetch player experiences, but don't fail if none are found
+                    experiences = await fetchPlayerExperiencesByOperationId(props.hit.id);
+                  } catch (err) {
+                    // If not found, just continue (no experiences to delete)
+                    experiences = [];
+                  }
+
+                  // Delete each experience if any
+                  if (experiences.length > 0) {
+                    await Promise.all(
+                      experiences.map(exp => deletePlayerExperience(exp.id))
+                    );
+                  }
+
+                  // Delete the hit
+                  await deleteHit(props.hit.id);
+
+                  // Call parent delete handler if present
+                  if (props.onDelete) await props.onDelete();
+
+                  onClose();
+                } catch (err) {
+                  setFormError("Failed to delete hit or player experiences. Please try again.");
+                }
+              }}
+              disabled={isSubmitting}
+              style={{ marginLeft: 8, background: "#ff6b6b", color: "#fff" }}
+            >
+              Delete
+            </button>
+          </>
+        ) : (
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit"}
+          </button>
+        )}
         <button type="button" onClick={onClose} disabled={isSubmitting}>
           Cancel
         </button>
+
+        {/* Delete confirmation modal */}
+        {showDeleteConfirm && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 1000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <div style={{
+              background: "#23272e",
+              padding: 32,
+              borderRadius: 8,
+              boxShadow: "0 2px 16px rgba(0,0,0,0.5)",
+              color: "#fff",
+              minWidth: 320,
+              textAlign: "center"
+            }}>
+                <button
+                  onClick={async () => {
+                    if (!props.hit) return;
+                    try {
+                      // 1. Fetch all player experiences for this operation
+                      const experiences = await fetchPlayerExperiencesByOperationId(props.hit.id);
+
+                      // 2. Delete each experience
+                      await Promise.all(
+                        experiences.map(exp => deletePlayerExperience(exp.id))
+                      );
+
+                      // 3. Delete the hit
+                      await deleteHit(props.hit.id);
+
+                      // 4. Call parent delete handler if present
+                      if (props.onDelete) await props.onDelete();
+
+                      setShowDeleteConfirm(false);
+                      onClose();
+                    } catch (err) {
+                      setFormError("Failed to delete hit or player experiences. Please try again.");
+                    }
+                  }}
+                  style={{ background: "#ff6b6b", color: "#fff", border: "none", borderRadius: 4, padding: "8px 24px", fontWeight: "bold", cursor: "pointer" }}
+                >
+                  Yes, Delete
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  style={{ background: "#444", color: "#fff", border: "none", borderRadius: 4, padding: "8px 24px", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+        )}
       </form>
     </Modal>
   );

@@ -15,6 +15,13 @@ export const fetchPlayerExperiencesByUserId = async (user_id: string): Promise<P
   return response.data;
 };
 
+export const fetchPlayerExperiencesByOperationId = async (operation_id: string): Promise<PlayerExperience[]> => {
+  const response = await axios.get<PlayerExperience[]>(`${API_BASE_URL}/api/playerexperience/operation`, {
+    params: { operation_id }
+  });
+  return response.data;
+};
+
 export const createPlayerExperience = async (PlayerExperience: PlayerExperience): Promise<PlayerExperience> => {
   const response = await axios.post<PlayerExperience>(`${API_BASE_URL}/api/playerexperience/`, PlayerExperience);
   return response.data;

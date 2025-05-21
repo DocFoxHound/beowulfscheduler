@@ -3,7 +3,7 @@ import OverviewPanel from '../components/OverviewPanel';
 import RecentPirateHits from '../components/RecentPirateHits';
 import WarehouseItems from '../components/WarehouseItems';
 import { getLatestPatch } from '../api/patchApi';
-import { getUserById } from "../api/userService";
+import { getUserById, getAllUsers } from "../api/userService";
 import { useUserContext } from "../context/UserContext";
 import axios from "axios";
 import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAssistHits } from '../api/hittrackerApi';
@@ -13,6 +13,7 @@ import Modal from '../components/Modal'; // You may need to create this if it do
 import AddHitModal from '../components/AddHitModal';
 import { getSummarizedItems } from '../api/summarizedItemApi';
 import { SummarizedItem } from '../types/items_summary';
+import KillOverviewBoard from '../components/KillOverviewBoard';
 
 const Hittracker: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -29,6 +30,8 @@ const Hittracker: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
+  const [userList, setUserList] = useState<any[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -69,20 +72,35 @@ const Hittracker: React.FC = () => {
     fetchVersion();
   }, []);
 
+  // Fetch all users for the dropdown
+  useEffect(() => {
+    getAllUsers()
+      .then(users => setUserList(Array.isArray(users) ? users : users ? [users] : []))
+      .catch(() => setUserList([]));
+  }, []);
+
+  // Set default selected user to viewer's user
+  useEffect(() => {
+    if (dbUser && !selectedUserId) {
+      setSelectedUserId(dbUser.id);
+    }
+  }, [dbUser, selectedUserId]);
+
+  // Fetch stats for selected user
   useEffect(() => {
     const getRecentPirateHits = async () => {
-      if (!dbUser?.id || !gameVersion) return;
-      const coupling = { user_id: dbUser.id, gameVersion };
+      if (!selectedUserId || !gameVersion) return;
+      const coupling = { user_id: selectedUserId, gameVersion };
       const hits = await fetchPlayerRecentPirateHits(coupling);
       setRecentHits(hits);
     };
     getRecentPirateHits();
-  }, [dbUser?.id, gameVersion]);
+  }, [selectedUserId, gameVersion]);
 
   useEffect(() => {
     const fetchAllHits = async () => {
-      if (!dbUser?.id || !gameVersion) return;
-      const coupling = { user_id: dbUser.id, gameVersion };
+      if (!selectedUserId || !gameVersion) return;
+      const coupling = { user_id: selectedUserId, gameVersion };
 
       try {
         const pirateHits = await fetchAllPlayerPirateHits(coupling);
@@ -99,7 +117,7 @@ const Hittracker: React.FC = () => {
       }
     };
     fetchAllHits();
-  }, [dbUser?.id, gameVersion]);
+  }, [selectedUserId, gameVersion]);
 
   useEffect(() => {
     const fetchSummaries = async () => {
@@ -130,6 +148,22 @@ const Hittracker: React.FC = () => {
         </nav>
       </header>
 
+      {/* User selection dropdown */}
+      <div style={{ margin: "1rem 0", display: "flex", alignItems: "center", gap: 8 }}>
+        <label htmlFor="user-select"><b>Viewing stats for:</b></label>
+        <select
+          id="user-select"
+          value={selectedUserId ?? ""}
+          onChange={e => setSelectedUserId(e.target.value)}
+        >
+          {userList.map(user => (
+            <option key={user.id} value={user.id}>
+              {user.username || user.displayName || user.id}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <main className="dashboard-content">
         <section className="dashboard-header">
           <h1>Piracy</h1>
@@ -146,37 +180,38 @@ const Hittracker: React.FC = () => {
             />
           </div>
           <div className="column warehouse-items">
-            {/* Add New Hit Button */}
-            <button
-              className="add-hit-btn"
-              style={{
-                width: '100%',
-                marginBottom: '1rem',
-                padding: '0.75rem',
-                fontSize: '1.1rem',
-                background: '#2d7aee',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-              onClick={() => setShowAddHitModal(true)}
-            >
-              Add New Hit
-            </button>
-            {/* <WarehouseItems ... /> */}
+            {/* Add New Hit Button - only show if viewer is selected */}
+            {selectedUserId === dbUser.id && (
+              <button
+                className="add-hit-btn"
+                style={{
+                  width: '100%',
+                  marginBottom: '1rem',
+                  padding: '0.75rem',
+                  fontSize: '1.1rem',
+                  background: '#2d7aee',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setShowAddHitModal(true)}
+              >
+                Add New Hit
+              </button>
+            )}
             <div style={{ borderRadius: 8, minHeight: 200 }} className="column recent-pirate-hits">
               <RecentPirateHits 
                 recentHits={recentHits} 
                 gameVersion={gameVersion} 
-                user_id={dbUser?.id ?? null}
+                user_id={selectedUserId}
                 pirateHits={allPirateHits}
                 assistHits={allAssistHits}
               />
             </div>
           </div>
           <div className="column recent-pirate-hits">
-            Placeholder for FPS graphs and things
+            <KillOverviewBoard userId={selectedUserId ?? ""} patch={gameVersion ?? ""} />
           </div>
         </div>
       </main>

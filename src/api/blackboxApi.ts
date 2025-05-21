@@ -22,6 +22,17 @@ export const fetchBlackBoxsByUserIdAndPatch = async (user_id: string, patch: str
   return response.data;
 };
 
+export const fetchBlackBoxsByUserIdPatchGameMode = async (
+  user_id: string,
+  patch: string,
+  game_mode: string
+): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/userpatchgamemode`, {
+    params: { user_id, patch, game_mode }
+  });
+  return response.data;
+};
+
 export const createBlackBox = async (BlackBox: BlackBox): Promise<BlackBox> => {
   const response = await axios.post<BlackBox>(`${API_BASE_URL}/api/blackbox/`, BlackBox);
   return response.data;

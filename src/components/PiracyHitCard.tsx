@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Hit } from "../types/hittracker";
 import { fetchPlayerFleet } from "../api/fleetApi"; // <-- import this
+import AddHitModal from "./AddHitModal"; // Import your modal
 
 interface PiracyHitCardProps {
   hit: Hit;
@@ -10,6 +11,7 @@ interface PiracyHitCardProps {
 const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId }) => {
   const [showCargoTooltip, setShowCargoTooltip] = useState(false);
   const [isFleetCommander, setIsFleetCommander] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -72,7 +74,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId }) => {
             cursor: "pointer",
             fontWeight: 600
           }}
-          onClick={() => {/* handle edit logic here */}}
+          onClick={() => setShowEditModal(true)}
         >
           Edit
         </button>
@@ -240,6 +242,38 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId }) => {
             </a>
           ))}
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <AddHitModal
+          show={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          gameVersion={hit.patch}
+          userId={userId}
+          username={hit.username}
+          isEditMode={true}
+          hit={hit}
+          onUpdate={async (updatedHit) => {
+            // Call your update API here
+            // await updateHit(updatedHit);
+            setShowEditModal(false);
+            // Optionally refresh hit list
+          }}
+          onDelete={async () => {
+            // Call your delete API here
+            // await deleteHit(hit.id);
+            setShowEditModal(false);
+            // Optionally refresh hit list
+          }}
+          onSubmit={async () => {
+            // Dummy submit handler for edit mode
+          }}
+          isSubmitting={false}
+          formError={null}
+          setFormError={() => {}}
+          summarizedItems={[]}
+        />
       )}
     </div>
   );

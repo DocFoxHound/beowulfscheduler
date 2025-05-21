@@ -78,3 +78,11 @@
   height: 22px;
   accent-color: #2d7aee; /* Optional: makes the checkmark blue */
 }
+
+.kill-card {
+  border: 1px solid #2d7aee;
+  border-radius: 8px;
+  padding: 12px;
+  background: #23272a;
+  color: #fff;
+}
