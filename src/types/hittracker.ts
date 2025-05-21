@@ -26,4 +26,5 @@ export interface Hit {
   fleet_activity: boolean;
   fleet_names: string[];
   fleet_ids: string[];
+  victims: string[];
 }

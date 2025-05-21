@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import { fetchAllRecentGatherings } from "../api/recentGatheringsApi";
 import { RecentGathering } from "../types/recent_gatherings";
 import { createPlayerExperience } from "../api/playerExperiencesApi";
+import { fetchBlackBoxsByUserId } from "../api/blackboxApi";
 
 interface AddHitModalProps {
   show: boolean;
@@ -36,6 +37,7 @@ const initialForm = {
   video_link: "",
   additional_media_links: "",
   type_of_piracy: "Brute Force",
+  victims: "",
 };
 
 type CargoItem = {
@@ -101,6 +103,11 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   const [showGatheringsMenu, setShowGatheringsMenu] = useState(false);
   const gatheringsMenuRef = useRef<HTMLDivElement | null>(null);
 
+  // New state for input
+  const [victimInput, setVictimInput] = useState("");
+  // Array of victims
+  const [victimsArray, setVictimsArray] = useState<string[]>([]);
+
   // Helper to parse assists and media links
   const parseArray = (str: string) =>
     str.split(",").map(s => s.trim()).filter(Boolean);
@@ -164,14 +171,15 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
     let hitUserId = userId;
     let hitUsername = username;
 
-    // If a fleet is tied, set user_id to fleet.id and add the user to assists
+    // Always ensure the submitting user is in assists
+    if (!assistsIds.includes(userId)) {
+      assistsIds = [userId, ...assistsIds];
+      assistsArr = [username, ...assistsArr];
+    }
+
+    // If a fleet is tied, set user_id to fleet.id
     if (selectedFleets.length > 0) {
-      // Use the first selected fleet for user_id (or adjust as needed)
       hitUserId = selectedFleets[0].id;
-      if (!assistsIds.includes(userId)) {
-        assistsIds = [userId, ...assistsIds];
-        assistsArr = [username, ...assistsArr];
-      }
     }
 
     const totalValueNum = totalValue;
@@ -204,6 +212,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       fleet_activity: selectedFleets.length > 0, // <-- true if any fleet selected
       fleet_names: selectedFleets.map(f => f.name),
       fleet_ids: selectedFleets.map(f => f.id),
+      victims: victimsArray,
     };
     console.log(hit)
 
@@ -227,6 +236,28 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
           }
           return null;
         })
+      );
+
+      // Save player experiences for each assist user
+      await Promise.all(
+        assistsUsers.map(user =>
+          createPlayerExperience({
+            id: randomBigIntId(),
+            user_id: String(user.id),
+            username: user.username,
+            operation_id: hit.id,
+            operation_name: hit.title,
+            operation_type: hit.type_of_piracy,
+            patch: hit.patch,
+            dogfighter: !!user.dogfighter,
+            marine: !!user.marine,
+            snare: !!user.snare,
+            cargo: !!user.cargo,
+            multicrew: !!user.multicrew,
+            salvage: !!user.salvage,
+            leadership: !!user.leadership,
+          })
+        )
       );
 
       setForm(initialForm);
@@ -716,12 +747,42 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     position: "relative"
                   }}
                   title={g.usernames.join(", ")}
-                  onMouseDown={() => {
+                  onMouseDown={async () => {
+                    // Add assists as before
                     g.user_ids
                       .map((id, i) => allUsers.find(u => String(u.id) === String(id)))
                       .filter((u): u is User => !!u)
                       .forEach(addAssistUser);
                     setShowGatheringsMenu(false);
+
+                    // --- New: Fetch BlackBox kills and extract victims ---
+                    const gatheringTime = new Date(g.timestamp).getTime();
+                    const oneHourMs = 60 * 60 * 1000;
+                    let allVictims: string[] = [];
+
+                    for (const userId of g.user_ids) {
+                      try {
+                        // Fetch all kills for this user
+                        const kills = await fetchBlackBoxsByUserId(String(userId));
+                        // Filter kills within ±1 hour of gathering
+                        const relevantKills = kills.filter(kill => {
+                          const killTime = new Date(kill.timestamp).getTime();
+                          return Math.abs(killTime - gatheringTime) <= oneHourMs;
+                        });
+                        // Collect all victim names from these kills
+                        relevantKills.forEach(kill => {
+                          if (Array.isArray(kill.victims)) {
+                            allVictims.push(...kill.victims.filter(Boolean));
+                          }
+                        });
+                      } catch (err) {
+                        // Handle error if needed
+                      }
+                    }
+                    // Remove duplicates and add to victimsArray
+                    setVictimsArray(prev =>
+                      Array.from(new Set([...prev, ...allVictims]))
+                    );
                   }}
                 >
                   <div style={{ fontWeight: 500 }}>
@@ -863,6 +924,63 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             </span>
           ))}
         </div> */}
+        <label>
+          Victim Name:
+          <input
+            type="text"
+            value={victimInput}
+            onChange={e => setVictimInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && victimInput.trim()) {
+                e.preventDefault();
+                if (!victimsArray.includes(victimInput.trim())) {
+                  setVictimsArray(arr => [...arr, victimInput.trim()]);
+                }
+                setVictimInput("");
+              }
+            }}
+            disabled={isSubmitting}
+            autoComplete="off"
+            style={{ width: "100%" }}
+            placeholder="Type a victim name and press Enter"
+          />
+        </label>
+        {victimsArray.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "12px 0" }}>
+            {victimsArray.map((name, idx) => (
+              <span
+                key={idx}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  background: "#181a1b",
+                  color: "#fff",
+                  borderRadius: 16,
+                  padding: "4px 12px",
+                  fontSize: 14,
+                }}
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => setVictimsArray(arr => arr.filter((_, i) => i !== idx))}
+                  style={{
+                    marginLeft: 8,
+                    color: "#ff6b6b",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 16,
+                    lineHeight: 1,
+                  }}
+                  aria-label={`Remove ${name}`}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <label>
           Fleet Involved:
           <input

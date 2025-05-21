@@ -58,7 +58,7 @@ const RecentPirateHits: React.FC<Props> = ({ gameVersion, user_id, recentHits, p
       <h3>Recent Pirate Hits {gameVersion && `(v${gameVersion})`}</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {paginatedHits.map(hit => (
-          <PiracyHitCard key={hit.id} hit={hit} />
+          <PiracyHitCard key={hit.id} hit={hit} userId={user_id ?? ''} />
         ))}
       </div>
       <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
