@@ -115,7 +115,10 @@ const Warehouse: React.FC = () => {
 
   // Optionally, show a loading state if dbUser is still being fetched
   if (!dbUser) {
-    return <div>Not logged in.</div>;
+    return (
+      <div className="centered-screen">
+        <p>Not logged in. <a href="/">Go to Login</a></p>
+      </div>);
   }
 
   return (

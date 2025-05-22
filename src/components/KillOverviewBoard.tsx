@@ -7,9 +7,12 @@ interface KillOverviewBoardProps {
   patch: string;
 }
 
+const PAGE_SIZE = 20;
+
 const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) => {
   const [kills, setKills] = useState<BlackBox[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     const fetchKills = async () => {
@@ -17,6 +20,7 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) 
       try {
         const data = await fetchBlackBoxsByUserIdPatchGameMode(userId, patch, "PU");
         setKills(data || []);
+        setPage(0); // Reset to first page on user/patch change
       } catch {
         setKills([]);
       } finally {
@@ -30,6 +34,9 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) 
   const fpsKills = kills.filter(k => k.ship_killed === "FPS").length;
   const shipKills = kills.filter(k => k.ship_killed !== "FPS").length;
   const totalDamage = kills.reduce((sum, k) => sum + (Number(k.value) || 0), 0);
+
+  const totalPages = Math.ceil(kills.length / PAGE_SIZE);
+  const paginatedKills = kills.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div style={{ padding: 16 }}>
@@ -47,7 +54,7 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) 
           <div>
             <h3>Recent Kills</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {kills.slice(0, 6).map((kill) => (
+              {paginatedKills.map((kill) => (
                 <div key={kill.id} className="kill-card" style={{
                   border: "1px solid #2d7aee",
                   borderRadius: 8,
@@ -71,6 +78,44 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) 
               ))}
               {kills.length === 0 && <div>No kills found.</div>}
             </div>
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 16 }}>
+                <button
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  style={{
+                    padding: "6px 18px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: "#2d7aee",
+                    color: "#fff",
+                    cursor: page === 0 ? "not-allowed" : "pointer",
+                    opacity: page === 0 ? 0.5 : 1
+                  }}
+                >
+                  Previous
+                </button>
+                <span style={{ color: "#fff", alignSelf: "center" }}>
+                  Page {page + 1} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  style={{
+                    padding: "6px 18px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: "#2d7aee",
+                    color: "#fff",
+                    cursor: page >= totalPages - 1 ? "not-allowed" : "pointer",
+                    opacity: page >= totalPages - 1 ? 0.5 : 1
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

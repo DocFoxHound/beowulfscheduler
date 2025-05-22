@@ -118,6 +118,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
   // State for delete confirmation modal
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     if (show) {
@@ -180,7 +182,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
           (h.assists || []).map((id, idx) => {
             const exp = experiences.find(e => e.user_id === String(id));
             return {
-              id: Number(id),
+              id: String(id),
               username: h.assists_usernames?.[idx] || "",
               nickname: h.assists_usernames?.[idx] || "",
               corsair_level: 0,
@@ -210,7 +212,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
         if (prev.some(u => String(u.id) === String(userId))) return prev;
         return [
           {
-            id: Number(userId),
+            id: String(userId),
             username: username,
             nickname: username,
             corsair_level: 0,
@@ -249,6 +251,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       return;
     }
 
+    setSubmitting(true); // <-- Disable submit button
+
     // Prepare assists arrays
     let assistsArr = assistsUsers.map(u => u.username);
     let assistsIds = assistsUsers.map(u => String(u.id));
@@ -256,10 +260,10 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
     let hitUsername = username;
 
     // Always ensure the submitting user is in assists
-    if (!assistsIds.includes(userId)) {
-      assistsIds = [userId, ...assistsIds];
-      assistsArr = [username, ...assistsArr];
-    }
+    // if (!assistsIds.includes(userId)) {
+    //   assistsIds = [userId, ...assistsIds];
+    //   assistsArr = [username, ...assistsArr];
+    // }
 
     // If a fleet is tied, set user_id to fleet.id
     if (selectedFleets.length > 0) {
@@ -346,9 +350,13 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
       setForm(initialForm);
       setCargoList([]);
+      setShowSuccess(true); // <-- Show success popup
+      setTimeout(() => setShowSuccess(false), 2000); // Hide after 2s
       onClose();
     } catch (err) {
       setFormError("Failed to submit hit. Please try again.");
+    } finally {
+      setSubmitting(false); // <-- Re-enable submit button
     }
   };
 
@@ -1373,8 +1381,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             </button>
           </>
         ) : (
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit"}
+          <button type="submit" disabled={isSubmitting || submitting}>
+            {submitting ? "Submitting..." : "Submit"}
           </button>
         )}
         <button type="button" onClick={onClose} disabled={isSubmitting}>
@@ -1439,6 +1447,23 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                 </button>
               </div>
             </div>
+        )}
+        {showSuccess && (
+          <div style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            background: "#28a745",
+            color: "#fff",
+            padding: "12px 24px",
+            borderRadius: 8,
+            boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+            zIndex: 1000,
+            transition: "opacity 0.3s",
+            opacity: showSuccess ? 1 : 0,
+          }}>
+            Hit submitted successfully!
+          </div>
         )}
       </form>
     </Modal>

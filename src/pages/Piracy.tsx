@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Select from 'react-select'; // <-- Add this import
 import OverviewPanel from '../components/OverviewPanel';
 import RecentPirateHits from '../components/RecentPirateHits';
 import WarehouseItems from '../components/WarehouseItems';
@@ -133,8 +134,37 @@ const Hittracker: React.FC = () => {
 
   // Optionally, show a loading state if dbUser is still being fetched
   if (!dbUser) {
-    return <div>Not logged in.</div>;
+    return (
+      <div className="centered-screen">
+        <p>Not logged in. <a href="/">Go to Login</a></p>
+      </div>
+    );
   }
+
+  // Helper to map users to react-select options
+  const userToOption = (user: any) => ({
+    value: user.id,
+    label: user.username || user.nickname || user.displayName || user.id,
+    user,
+  });
+
+  // Prepare options for react-select
+  const userOptions = userList.map(userToOption);
+
+  // Find the currently selected option
+  const selectedOption = userOptions.find(opt => opt.value === selectedUserId);
+
+  // Custom filter for react-select to match username or nickname
+  const filterOption = (option: any, inputValue: string) => {
+    const { user } = option.data;
+    const search = inputValue.toLowerCase();
+    return (
+      (user.username && user.username.toLowerCase().includes(search)) ||
+      (user.nickname && user.nickname.toLowerCase().includes(search)) ||
+      (user.displayName && user.displayName.toLowerCase().includes(search)) ||
+      (user.id && user.id.toLowerCase().includes(search))
+    );
+  };
 
   return (
     <div className="hittracker-root">
@@ -148,26 +178,75 @@ const Hittracker: React.FC = () => {
         </nav>
       </header>
 
-      {/* User selection dropdown */}
-      <div style={{ margin: "1rem 0", display: "flex", alignItems: "center", gap: 8 }}>
-        <label htmlFor="user-select"><b>Viewing stats for:</b></label>
-        <select
-          id="user-select"
-          value={selectedUserId ?? ""}
-          onChange={e => setSelectedUserId(e.target.value)}
-        >
-          {userList.map(user => (
-            <option key={user.id} value={user.id}>
-              {user.username || user.displayName || user.id}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <main className="dashboard-content">
         <section className="dashboard-header">
           <h1>Piracy</h1>
           <p>Track your hits and performance.</p>
+          {/* Move the selection box here, right under the title */}
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            margin: "1.5rem 0 0.5rem 0"
+          }}>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center"
+            }}>
+              <Select
+                inputId="user-select"
+                options={userOptions}
+                value={selectedOption}
+                onChange={opt => setSelectedUserId(opt?.value ?? null)}
+                placeholder="Type a username or nickname..."
+                isSearchable
+                filterOption={filterOption}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    background: "#1a1d21",
+                    borderColor: "#2d7aee",
+                    color: "#fff",
+                    minHeight: 44,
+                    fontSize: 16,
+                    width: 500,
+                    maxWidth: 700,
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    background: "#23272a",
+                    color: "#fff",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    background: state.isFocused ? "#2d7aee" : "#23272a",
+                    color: "#fff",
+                    cursor: "pointer",
+                  }),
+                  singleValue: (base) => ({
+                    ...base,
+                    color: "#fff",
+                  }),
+                  input: (base) => ({
+                    ...base,
+                    color: "#fff",
+                  }),
+                }}
+                theme={theme => ({
+                  ...theme,
+                  borderRadius: 8,
+                  colors: {
+                    ...theme.colors,
+                    primary25: "#2d7aee",
+                    primary: "#2d7aee",
+                    neutral0: "#23272a",
+                    neutral80: "#fff",
+                  },
+                })}
+              />
+            </div>
+          </div>
         </section>
 
         <div className="hittracker-layout">

@@ -2,7 +2,7 @@
  * Represents a single day's schedule entry with available hours
  */
 export interface User {
-  id: number;
+  id: string;
   username: string;
   nickname: string;
   corsair_level: number;
