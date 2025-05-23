@@ -3,7 +3,7 @@ import axios from "axios";
 import "./Dashboard.css";
 import { getUserById, getUserRank } from "../api/userService";
 import { useUserContext } from "../context/UserContext"; // <-- Import the context hook
-import RecentOtherHits from "../components/RecentOtherHits"; // Add this import
+import DashboardGraphs from "../components/DashboardGraphs"; // Add this import
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -66,7 +66,7 @@ export default function Dashboard() {
         <section className="dashboard-grid">
           {/* Left column: RecentOtherHits */}
           <div className="card recent-other-hits">
-            <RecentOtherHits gameVersion={null} />
+            <DashboardGraphs />
           </div>
 
           {/* Existing cards */}
@@ -74,11 +74,6 @@ export default function Dashboard() {
             <h2>Fleet Assignment</h2>
             <h4>IronPoint Main</h4>
             <p>Current Task: Disrupt trade in Stanton and Pyro systems.</p>
-          </div>
-
-          <div className="card">
-            <h2>Upcoming Missions</h2>
-            <p>No current missions on the horizon.</p>
           </div>
 
           {/* Right column: Fleet Performance */}
