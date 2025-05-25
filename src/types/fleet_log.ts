@@ -22,4 +22,5 @@ export interface FleetLog {
   fleet_name?: string;
   video_link: string;
   media_links: string[];
+  associated_hits: string[];
 }

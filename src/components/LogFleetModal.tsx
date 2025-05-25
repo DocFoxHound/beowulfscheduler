@@ -5,6 +5,8 @@ import { createShipLog } from "../api/fleetLogApi";
 import { getAllUsers } from "../api/userService";
 import { User } from "../types/user";
 import { UserFleet } from "../types/fleet"; // Add this import
+import { fetchLatest100Hits } from "../api/hittrackerApi";
+import { Hit } from "../types/hittracker";
 
 const initialForm: Partial<FleetLog> = {
   title: "",
@@ -23,6 +25,9 @@ const initialForm: Partial<FleetLog> = {
   damages_value: 0,
   fleet_id: undefined,
   fleet_name: "",
+  associated_hits: [], // Added property
+  video_link: "", // Optional, if used
+  media_links: [], // Optional, if used
 };
 
 const parseArray = (str: string) =>
@@ -56,7 +61,12 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
   const [fleetInput, setFleetInput] = useState("");
   const [fleetSuggestions, setFleetSuggestions] = useState<typeof fleets>([]);
   const [fleetDropdownOpen, setFleetDropdownOpen] = useState(false);
+  const [hitInput, setHitInput] = useState("");
+  const [hitSuggestions, setHitSuggestions] = useState<Hit[]>([]);
+  const [hitDropdownOpen, setHitDropdownOpen] = useState(false);
+  const [recentHits, setRecentHits] = useState<Hit[]>([]);
   const fleetInputRef = useRef<HTMLInputElement>(null);
+  const hitInputRef = useRef<HTMLInputElement>(null);
 
   // Sort fleets by last_active (most recent first)
   const sortedFleets = [...fleets].sort((a: any, b: any) => {
@@ -78,6 +88,9 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
       setCommanderSuggestions([]);
       setFleetInput(""); // Reset fleet input
       setFleetSuggestions(sortedFleets); // Show all fleets by default
+      fetchLatest100Hits().then(setRecentHits);
+      setHitSuggestions([]);
+      setHitInput("");
     }
   }, [isOpen, patch]);
 
@@ -125,6 +138,24 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [fleetDropdownOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        hitInputRef.current &&
+        !hitInputRef.current.contains(event.target as Node)
+      ) {
+        setHitDropdownOpen(false);
+      }
+    }
+    if (hitDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [hitDropdownOpen]);
 
   if (!isOpen) return null;
 
@@ -240,6 +271,41 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
     }
   };
 
+  // New handlers for hit input
+  const handleHitInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setHitInput(value);
+    setHitDropdownOpen(true);
+    if (value.trim() === "") {
+      setHitSuggestions(recentHits);
+    } else {
+      setHitSuggestions(
+        recentHits.filter(hit =>
+          hit.title?.toLowerCase().includes(value.toLowerCase()) ||
+          hit.username?.toLowerCase().includes(value.toLowerCase())
+        )
+      );
+    }
+  };
+
+  const handleHitSelect = (hit: Hit) => {
+    // Add hit.id to associated_hits if not already present
+    if (!Array.isArray(form.associated_hits)) {
+      handleChange("associated_hits", [hit.id]);
+    } else if (!form.associated_hits.includes(hit.id)) {
+      handleChange("associated_hits", [...form.associated_hits, hit.id]);
+    }
+    setHitInput("");
+    setHitDropdownOpen(false);
+  };
+
+  const removeAssociatedHit = (id: string) => {
+    handleChange(
+      "associated_hits",
+      (form.associated_hits || []).filter((hitId: string) => hitId !== id)
+    );
+  };
+
   return (
     <Modal onClose={onClose}>
       <h2>Log Fleet Activity</h2>
@@ -291,27 +357,48 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
                       cursor: "pointer",
                       color: "#fff",
                       borderBottom: "1px solid #353a40",
-                      background: fleet.id === Number(form.fleet_id) ? "#2d7aee" : "transparent"
+                      background: fleet.id === Number(form.fleet_id) ? "#2d7aee" : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
                     }}
                     onMouseDown={() => handleFleetSelect(fleet)}
                   >
-                    <div style={{ fontWeight: "bold" }}>{fleet.name}</div>
-                    {fleet.commander_username && (
-                      <div style={{ fontSize: 12, color: "#aaa" }}>
-                        Commander: {fleet.commander_username}
-                      </div>
+                    {/* Fleet image */}
+                    {fleet.avatar && (
+                      <img
+                        src={fleet.avatar}
+                        alt={fleet.name}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          objectFit: "cover",
+                          borderRadius: 4,
+                          marginRight: 8,
+                          background: "#181a1b",
+                          border: "1px solid #353a40"
+                        }}
+                      />
                     )}
-                    {fleet.last_active && (
-                      <div style={{ fontSize: 12, color: "#aaa" }}>
-                        Last Active: {new Date(fleet.last_active).toLocaleString()}
-                      </div>
-                    )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: "bold" }}>{fleet.name}</div>
+                      {fleet.commander_username && (
+                        <div style={{ fontSize: 12, color: "#aaa" }}>
+                          Commander: {fleet.commander_username}
+                        </div>
+                      )}
+                      {fleet.last_active && (
+                        <div style={{ fontSize: 12, color: "#aaa" }}>
+                          Last Active: {new Date(fleet.last_active).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </label>
-          {/* Commander Autocomplete (unchanged) */}
+          {/* Commander Autocomplete */}
           <label style={{ flex: 1, minWidth: 0, position: "relative" }}>
             <input
               type="text"
@@ -348,6 +435,100 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
               </div>
             )}
           </label>
+          {/* Associated Hits */}
+          <label style={{ flex: 1, minWidth: 0, position: "relative" }}>
+            <input
+              ref={hitInputRef}
+              type="text"
+              value={hitInput}
+              onChange={handleHitInputChange}
+              onFocus={() => {
+                setHitDropdownOpen(true);
+                setHitSuggestions(recentHits);
+              }}
+              disabled={isSubmitting}
+              autoComplete="off"
+              style={{ width: "100%" }}
+              placeholder="Associated Hits"
+            />
+            {hitDropdownOpen && hitSuggestions.length > 0 && (
+              <div style={{
+                background: "#23272e",
+                border: "1px solid #353a40",
+                borderRadius: 4,
+                marginTop: 2,
+                position: "absolute",
+                zIndex: 20,
+                width: "100%",
+                maxHeight: 200,
+                overflowY: "auto"
+              }}>
+                {hitSuggestions.map(hit => (
+                  <div
+                    key={hit.id}
+                    style={{
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "#fff",
+                      borderBottom: "1px solid #353a40",
+                      background: (form.associated_hits || []).includes(hit.id) ? "#2d7aee" : "transparent",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                    }}
+                    onMouseDown={() => handleHitSelect(hit)}
+                  >
+                    <span style={{ fontWeight: "bold" }}>{hit.title}</span>
+                    <span style={{ fontSize: 12, color: "#aaa" }}>
+                      By: {hit.username} | {new Date(hit.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Show selected hits as chips */}
+            {(form.associated_hits || []).length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                {(form.associated_hits || []).map((id: string) => {
+                  const hit = recentHits.find(h => h.id === id);
+                  return (
+                    <span
+                      key={id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        background: "#181a1b",
+                        color: "#fff",
+                        borderRadius: 16,
+                        padding: "2px 10px",
+                        fontSize: 13,
+                        marginRight: 2,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {hit?.title || id}
+                      <button
+                        type="button"
+                        onClick={() => removeAssociatedHit(id)}
+                        style={{
+                          marginLeft: 6,
+                          color: "#ff6b6b",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 14,
+                          lineHeight: 1,
+                        }}
+                        aria-label={`Remove ${hit?.title || id}`}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </label>
         </div>
         {/* Start Time and End Time on the same line */}
         <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
@@ -372,6 +553,85 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             />
           </label>
         </div>
+        {/* Crew field moved here */}
+        <label style={{ position: "relative", display: "block" }}>
+          Crew:
+          <input
+            type="text"
+            value={crewInput}
+            onChange={handleCrewInputChange}
+            disabled={isSubmitting}
+            autoComplete="off"
+            style={{ width: "100%" }}
+            placeholder="Type to search and add crew members"
+          />
+          {crewSuggestions.length > 0 && (
+            <div style={{
+              background: "#23272e",
+              border: "1px solid #353a40",
+              borderRadius: 4,
+              marginTop: 2,
+              position: "absolute",
+              zIndex: 10,
+              width: 200
+            }}>
+              {crewSuggestions.map(user => (
+                <div
+                  key={user.id}
+                  style={{
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                    color: "#fff"
+                  }}
+                  onMouseDown={() => addCrewUser(user)}
+                >
+                  {user.username}
+                </div>
+              ))}
+            </div>
+          )}
+        </label>
+        {(form.crew_ids || []).length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0" }}>
+            {(form.crew_ids || []).map((id, idx) => {
+              const user = allUsers.find(u => Number(u.id) === id);
+              return (
+                <span
+                  key={id}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    background: "#181a1b",
+                    color: "#fff",
+                    borderRadius: 16,
+                    padding: "4px 12px",
+                    fontSize: 14,
+                    marginRight: 4,
+                    marginBottom: 4,
+                  }}
+                >
+                  {user?.username || id}
+                  <button
+                    type="button"
+                    onClick={() => removeCrewUser(id)}
+                    style={{
+                      marginLeft: 8,
+                      color: "#ff6b6b",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 16,
+                      lineHeight: 1,
+                    }}
+                    aria-label={`Remove ${user?.username || id}`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
         {/* Story as a large textarea */}
         <label style={{ width: "100%", display: "block" }}>
           Story:
@@ -498,84 +758,6 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             placeholder="Enter multiple links separated by commas"
           />
         </label>
-        <label style={{ position: "relative", display: "block" }}>
-          Crew:
-          <input
-            type="text"
-            value={crewInput}
-            onChange={handleCrewInputChange}
-            disabled={isSubmitting}
-            autoComplete="off"
-            style={{ width: "100%" }}
-            placeholder="Type to search and add crew members"
-          />
-          {crewSuggestions.length > 0 && (
-            <div style={{
-              background: "#23272e",
-              border: "1px solid #353a40",
-              borderRadius: 4,
-              marginTop: 2,
-              position: "absolute",
-              zIndex: 10,
-              width: 200
-            }}>
-              {crewSuggestions.map(user => (
-                <div
-                  key={user.id}
-                  style={{
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                    color: "#fff"
-                  }}
-                  onMouseDown={() => addCrewUser(user)}
-                >
-                  {user.username}
-                </div>
-              ))}
-            </div>
-          )}
-        </label>
-        {(form.crew_ids || []).length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0" }}>
-            {(form.crew_ids || []).map((id, idx) => {
-              const user = allUsers.find(u => Number(u.id) === id);
-              return (
-                <span
-                  key={id}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    background: "#181a1b",
-                    color: "#fff",
-                    borderRadius: 16,
-                    padding: "4px 12px",
-                    fontSize: 14,
-                    marginRight: 4,
-                    marginBottom: 4,
-                  }}
-                >
-                  {user?.username || id}
-                  <button
-                    type="button"
-                    onClick={() => removeCrewUser(id)}
-                    style={{
-                      marginLeft: 8,
-                      color: "#ff6b6b",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 16,
-                      lineHeight: 1,
-                    }}
-                    aria-label={`Remove ${user?.username || id}`}
-                  >
-                    ✕
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        )}
         {formError && <div style={{ color: "#ff6b6b", marginBottom: "1em" }}>{formError}</div>}
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Submitting..." : "Submit"}

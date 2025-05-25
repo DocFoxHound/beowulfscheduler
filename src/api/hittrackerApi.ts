@@ -42,6 +42,11 @@ export const fetchRecentOtherHits = async (): Promise<Hit[]> => {
   return response.data;
 };
 
+export const fetchLatest100Hits = async (): Promise<Hit[]> => {
+  const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/latest100`);
+  return response.data;
+};
+
 export const createHit = async (hit: Hit): Promise<Hit> => {
   const response = await axios.post<Hit>(`${API_BASE_URL}/api/hittracker/`, hit);
   return response.data;
