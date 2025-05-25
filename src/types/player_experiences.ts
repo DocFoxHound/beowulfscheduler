@@ -14,5 +14,8 @@ export interface PlayerExperience {
   cargo: boolean;
   multicrew: boolean;
   salvage: boolean;
-  leadership: boolean;
+  air_leadership: boolean;
+  ground_leadership: boolean;
+  commander: boolean;
+  type_of_experience: string; // example: "fleet", "piracy", "practice"
 }

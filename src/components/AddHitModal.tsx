@@ -58,7 +58,9 @@ type AssistUserWithExperience = User & {
   cargo: boolean;
   multicrew: boolean;
   salvage: boolean;
-  leadership: boolean;
+  air_leadership: boolean;
+  ground_leadership: boolean;
+  commander: boolean; // <-- Add this line
 };
 
 const AddHitModal: React.FC<AddHitModalProps> = (props) => {
@@ -196,7 +198,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               cargo: !!exp?.cargo,
               multicrew: !!exp?.multicrew,
               salvage: !!exp?.salvage,
-              leadership: !!exp?.leadership,
+              air_leadership: !!exp?.air_leadership,
+              ground_leadership: !!exp?.ground_leadership,
+              commander: !!exp?.commander, // <-- Add this
             };
           })
         );
@@ -226,7 +230,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             cargo: false,
             multicrew: false,
             salvage: false,
-            leadership: false,
+            air_leadership: false,
+            ground_leadership: false,
+            commander: false, // <-- Default to false
           },
           ...prev,
         ];
@@ -267,7 +273,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
     // If a fleet is tied, set user_id to fleet.id
     if (selectedFleets.length > 0) {
-      hitUserId = selectedFleets[0].id;
+      hitUserId = String(selectedFleets[0].id);
     }
 
     const totalValueNum = totalValue;
@@ -298,8 +304,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       additional_media_links: parseArray(form.additional_media_links),
       type_of_piracy: form.type_of_piracy,
       fleet_activity: selectedFleets.length > 0, // <-- true if any fleet selected
-      fleet_names: selectedFleets.map(f => f.name),
-      fleet_ids: selectedFleets.map(f => f.id),
+      fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
+      fleet_ids: selectedFleets.map(f => String(f.id)),
       victims: victimsArray,
     };
     console.log(hit)
@@ -343,7 +349,10 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             cargo: !!user.cargo,
             multicrew: !!user.multicrew,
             salvage: !!user.salvage,
-            leadership: !!user.leadership,
+            air_leadership: !!user.air_leadership,
+            ground_leadership: !!user.ground_leadership,
+            commander: !!user.commander, // <-- Add this
+            type_of_experience: "Piracy", // <-- Add this line (adjust value as needed)
           })
         )
       );
@@ -406,7 +415,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
     const suggestions = allFleets
       .filter(fleet =>
-        fleet.name.toLowerCase().includes(value.toLowerCase())
+        typeof fleet.name === "string" && fleet.name.toLowerCase().includes(value.toLowerCase())
       )
       .sort((a, b) => Number(b.last_active || 0) - Number(a.last_active || 0));
     setFleetSuggestions(suggestions.slice(0, 10));
@@ -422,7 +431,6 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
     ).toString();
   };
 
-  // Add this function here:
   const addAssistUser = (user: User) => {
     setAssistsUsers(prev => {
       if (prev.some(u => u.id === user.id)) return prev;
@@ -436,7 +444,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
           cargo: false,
           multicrew: false,
           salvage: false,
-          leadership: false,
+          air_leadership: false,
+          ground_leadership: false,
+          commander: false, // <-- Add this line
         }
       ];
     });
@@ -931,7 +941,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   <th style={{ color: "#ccc", padding: 6 }}>Cargo</th>
                   <th style={{ color: "#ccc", padding: 6 }}>Multicrew</th>
                   <th style={{ color: "#ccc", padding: 6 }}>Salvage</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Leadership</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Commander</th> {/* <-- Add this */}
                   <th></th>
                 </tr>
               </thead>
@@ -939,7 +951,17 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                 {assistsUsers.map((user, idx) => (
                   <tr key={user.id} style={{ background: idx % 2 ? "#202226" : "#23272e" }}>
                     <td style={{ color: "#fff", padding: 6 }}>{user.nickname || user.username}</td>
-                    {(["dogfighter", "marine", "snare", "cargo", "multicrew", "salvage", "leadership"] as Array<keyof AssistUserWithExperience>).map(field => (
+                    {([
+                      "dogfighter",
+                      "marine",
+                      "snare",
+                      "cargo",
+                      "multicrew",
+                      "salvage",
+                      "air_leadership",
+                      "ground_leadership",
+                      "commander" // <-- Add this
+                    ] as Array<keyof AssistUserWithExperience>).map(field => (
                       <td key={field} style={{ textAlign: "center", padding: 6 }}>
                         <input
                           type="checkbox"
@@ -1116,9 +1138,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   onMouseDown={() => {
                     // Validation: at least 1/3 of allowed_total_members must be present in assists, and assists > 8
                     const assistsIds = assistsUsers.map(u => String(u.id));
-                    const fleetMemberIds = fleet.members_ids.map(String);
+                    const fleetMemberIds = (fleet.members_ids ?? []).map(String);
                     const assistsInFleet = assistsIds.filter(id => fleetMemberIds.includes(id));
-                    const minRequired = Math.ceil(fleet.allowed_total_members / 3);
+                    const minRequired = Math.ceil((fleet.allowed_total_members ?? 0) / 3);
 
                     if (assistsUsers.length <= 7) {
                       setFormError("At least 7 assists are required to tie a fleet to a hit.");
@@ -1292,8 +1314,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   additional_media_links: parseArray(form.additional_media_links),
                   type_of_piracy: form.type_of_piracy,
                   fleet_activity: selectedFleets.length > 0,
-                  fleet_names: selectedFleets.map(f => f.name),
-                  fleet_ids: selectedFleets.map(f => f.id),
+                  fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
+                  fleet_ids: selectedFleets.map(f => String(f.id)),
                   victims: victimsArray,
                 };
 
@@ -1304,7 +1326,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   // 2. For each assistsUser, update or create experience
                   await Promise.all(
                     assistsUsers.map(async user => {
-                      const existing = existingExperiences.find(e => e.user_id === String(user.id));
+                      const existing = existingExperiences.find(
+                        exp => String(exp.user_id) === String(user.id)
+                      );
                       const expPayload = {
                         id: existing?.id ?? randomBigIntId(),
                         user_id: String(user.id),
@@ -1319,7 +1343,10 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                         cargo: !!user.cargo,
                         multicrew: !!user.multicrew,
                         salvage: !!user.salvage,
-                        leadership: !!user.leadership,
+                        air_leadership: !!user.air_leadership,
+                        ground_leadership: !!user.ground_leadership,
+                        commander: !!user.commander, // <-- Add this
+                        type_of_experience: "Piracy", // <-- Add this line (adjust value as needed)
                       };
                       if (existing) {
                         await editPlayerExperience(existing.id, expPayload);

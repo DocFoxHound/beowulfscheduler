@@ -11,10 +11,9 @@ import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAs
 import { Hit } from '../types/hittracker';
 import './Piracy.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
-import AddHitModal from '../components/AddHitModal';
+import LogFleetModal from '../components/LogFleetModal';
 import { getSummarizedItems } from '../api/summarizedItemApi';
 import { SummarizedItem } from '../types/items_summary';
-import KillOverviewBoard from '../components/KillOverviewBoard';
 import Navbar from '../components/Navbar';
 
 const Hittracker: React.FC = () => {
@@ -24,7 +23,7 @@ const Hittracker: React.FC = () => {
   const [recentHits, setRecentHits] = useState<Hit[]>([]);
   const [allPirateHits, setAllPirateHits] = useState<Hit[]>([]);
   const [allAssistHits, setAllAssistHits] = useState<Hit[]>([]);
-  const [showAddHitModal, setShowAddHitModal] = useState(false);
+  const [showLogFleetModal, setLogFleetModal] = useState(false);
   const [addHitForm, setAddHitForm] = useState({
     hitType: "",
     details: ""
@@ -34,6 +33,7 @@ const Hittracker: React.FC = () => {
   const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [fleets, setFleets] = useState<{ id: string; name: string }[]>([]);
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -133,6 +133,32 @@ const Hittracker: React.FC = () => {
     fetchSummaries();
   }, []);
 
+  // Fetch fleets for the user (replace with your actual API call)
+  useEffect(() => {
+    if (dbUser) {
+      axios
+        .get(`/api/fleets?user_id=${dbUser.id}`)
+        .then(res => setFleets(Array.isArray(res.data) ? res.data : []))
+        .catch(() => setFleets([]));
+    }
+  }, [dbUser]);
+
+  // Handler for submitting the fleet activity
+  const handleLogFleetActivity = async (activity: any) => {
+    setIsSubmitting(true);
+    setFormError(null);
+    try {
+      // Replace with your actual API endpoint
+      await axios.post("/api/fleet-activity", activity);
+      setLogFleetModal(false);
+      // Optionally refresh data here
+    } catch (err) {
+      setFormError("Failed to submit. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Optionally, show a loading state if dbUser is still being fetched
   if (!dbUser) {
     return (
@@ -173,8 +199,8 @@ const Hittracker: React.FC = () => {
 
       <main className="dashboard-content">
         <section className="dashboard-header">
-          <h1>Piracy</h1>
-          <p>Track your hits and performance.</p>
+          <h1>Fleets</h1>
+          <p>View, Join, and Manage fleets</p>
           {/* Move the selection box here, right under the title */}
           <div style={{
             display: "flex",
@@ -187,7 +213,7 @@ const Hittracker: React.FC = () => {
               flexDirection: "column",
               alignItems: "center"
             }}>
-              <Select
+              {/* <Select
                 inputId="user-select"
                 options={userOptions}
                 value={selectedOption}
@@ -237,22 +263,14 @@ const Hittracker: React.FC = () => {
                     neutral80: "#fff",
                   },
                 })}
-              />
+              /> */}
             </div>
           </div>
         </section>
 
         <div className="hittracker-layout">
+          {/* LEFT COLUMN: Log Fleet Activity (was center) */}
           <div className="column overview-panel-column">
-            <OverviewPanel
-              recentHits={recentHits}
-              pirateHits={allPirateHits}
-              assistHits={allAssistHits}
-              gameVersion={gameVersion}
-            />
-          </div>
-          <div className="column warehouse-items">
-            {/* Add New Hit Button - only show if viewer is selected */}
             {selectedUserId === dbUser.id && (
               <button
                 className="add-hit-btn"
@@ -267,28 +285,67 @@ const Hittracker: React.FC = () => {
                   borderRadius: '6px',
                   cursor: 'pointer'
                 }}
-                onClick={() => setShowAddHitModal(true)}
+                onClick={() => setLogFleetModal(true)}
               >
-                Add New Hit
+                Log Fleet Activity
               </button>
             )}
-            <div style={{ borderRadius: 8, minHeight: 200 }} className="column recent-pirate-hits">
-              <RecentPirateHits 
-                recentHits={recentHits} 
-                gameVersion={gameVersion} 
-                user_id={selectedUserId}
-                pirateHits={allPirateHits}
-                assistHits={allAssistHits}
-              />
+            <div
+              style={{
+                background: "#23272a",
+                color: "#fff",
+                borderRadius: 8,
+                minHeight: 200,
+                padding: "1.5rem",
+                marginTop: "0.5rem",
+                textAlign: "center",
+                fontSize: "1.2rem",
+                fontWeight: "bold"
+              }}
+            >
+              RECENT FLEET LOGS
             </div>
           </div>
+
+          {/* CENTER COLUMN: Placeholder for ACTIVE FLEETS */}
+          <div className="column warehouse-items">
+            <div
+              style={{
+                background: "#23272a",
+                color: "#fff",
+                borderRadius: 8,
+                minHeight: 200,
+                padding: "2rem",
+                textAlign: "center",
+                fontSize: "1.5rem",
+                fontWeight: "bold"
+              }}
+            >
+              ACTIVE FLEETS
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Placeholder for YOUR FLEET */}
           <div className="column recent-pirate-hits">
-            <KillOverviewBoard userId={selectedUserId ?? ""} patch={gameVersion ?? ""} />
+            <div
+              style={{
+                background: "#23272a",
+                color: "#fff",
+                borderRadius: 8,
+                minHeight: 200,
+                padding: "2rem",
+                textAlign: "center",
+                fontSize: "1.5rem",
+                fontWeight: "bold"
+              }}
+            >
+              YOUR FLEET
+            </div>
           </div>
         </div>
       </main>
       {/* Modal for Add Hit Form */}
-      {showAddHitModal && (
+      {/* {showAddHitModal && (
         <AddHitModal
           show={showAddHitModal}
           onClose={() => setShowAddHitModal(false)}
@@ -311,6 +368,20 @@ const Hittracker: React.FC = () => {
           isSubmitting={isSubmitting}
           formError={formError}
           setFormError={setFormError}
+        />
+      )} */}
+      {showLogFleetModal && (
+        <LogFleetModal
+          isOpen={showLogFleetModal}
+          onClose={() => setLogFleetModal(false)}
+          onSubmit={handleLogFleetActivity}
+          fleets={fleets.map(fleet => ({
+            id: Number(fleet.id),
+            name: fleet.name
+          }))}
+          userId={dbUser.id}
+          username={dbUser.username}
+          patch={gameVersion ?? ""} // <-- Add this line
         />
       )}
     </div>

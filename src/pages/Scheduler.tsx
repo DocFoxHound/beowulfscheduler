@@ -21,6 +21,7 @@ import { getWeeklySchedule, saveSchedule } from "../api/scheduleService";
 import { type Availability, type ScheduleEntry } from "../types/schedule";
 import { useUserContext } from "../context/UserContext"; // Import the context hook
 import { getUserById, getUserRank } from "../api/userService";
+import Navbar from "../components/Navbar";
 
 const ROLE_OPTIONS = [
   { label: "Blooded", ids: import.meta.env.VITE_BLOODED_ID.split(",").map((id: string) => id.trim()).filter(Boolean) },
@@ -303,15 +304,7 @@ export default function Scheduler() {
   return (
     <div className="dashboard-root">
       {/* Top Navigation */}
-      <header className="navbar">
-        <div className="navbar-title">IronPoint</div>
-        <nav className="navbar-links">
-          <a href="/dashboard">Dashboard</a>
-          <a href="/piracy">Piracy</a>
-          <a href="/scheduler">Training Scheduler</a>
-          <a href="/warehouse">Warehouse</a>
-        </nav>
-      </header>
+      <Navbar />
 
       {/* Main Content */}
       <main className="dashboard-content">

@@ -4,6 +4,7 @@ import "./Dashboard.css";
 import { getUserById, getUserRank } from "../api/userService";
 import { useUserContext } from "../context/UserContext"; // <-- Import the context hook
 import DashboardGraphs from "../components/DashboardGraphs"; // Add this import
+import Navbar from "../components/Navbar";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -42,15 +43,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-root">
-      <header className="navbar">
-        <div className="navbar-title">IronPoint</div>
-        <nav className="navbar-links">
-          <a href="/dashboard">Dashboard</a>
-          <a href="/piracy">Piracy</a>
-          <a href="/scheduler">Training Scheduler</a>
-          <a href="/warehouse">Warehouse</a>
-        </nav>
-      </header>
+      <Navbar />
 
       <main className="dashboard-content">
         <section className="dashboard-header">

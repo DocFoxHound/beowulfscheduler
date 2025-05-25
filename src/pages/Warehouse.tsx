@@ -13,6 +13,7 @@ import Modal from '../components/Modal'; // You may need to create this if it do
 import AddHitModal from '../components/AddHitModal';
 import { getSummarizedItems } from '../api/summarizedItemApi';
 import { SummarizedItem } from '../types/items_summary';
+import Navbar from '../components/Navbar';
 
 const Warehouse: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -123,15 +124,7 @@ const Warehouse: React.FC = () => {
 
   return (
     <div className="hittracker-root">
-      <header className="navbar">
-        <div className="navbar-title">IronPoint</div>
-        <nav className="navbar-links">
-          <a href="/dashboard">Dashboard</a>
-          <a href="/piracy">Piracy</a>
-          <a href="/scheduler">Training Scheduler</a>
-          <a href="/warehouse">Warehouse</a>
-        </nav>
-      </header>
+      <Navbar />
 
       <main className="dashboard-content">
         <section className="dashboard-header">
