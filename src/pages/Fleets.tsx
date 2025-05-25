@@ -15,6 +15,8 @@ import LogFleetModal from '../components/LogFleetModal';
 import { getSummarizedItems } from '../api/summarizedItemApi';
 import { SummarizedItem } from '../types/items_summary';
 import Navbar from '../components/Navbar';
+import { fetchAllFleets } from '../api/fleetApi'; // Add this import
+import { UserFleet } from '../types/fleet'; // Add this import
 
 const Hittracker: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -33,7 +35,7 @@ const Hittracker: React.FC = () => {
   const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [fleets, setFleets] = useState<{ id: string; name: string }[]>([]);
+  const [fleets, setFleets] = useState<UserFleet[]>([]);
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -135,12 +137,17 @@ const Hittracker: React.FC = () => {
 
   // Fetch fleets for the user (replace with your actual API call)
   useEffect(() => {
-    if (dbUser) {
-      axios
-        .get(`/api/fleets?user_id=${dbUser.id}`)
-        .then(res => setFleets(Array.isArray(res.data) ? res.data : []))
-        .catch(() => setFleets([]));
-    }
+    const fetchFleets = async () => {
+      if (dbUser) {
+        try {
+          const data = await fetchAllFleets();
+          setFleets(Array.isArray(data) ? data : []);
+        } catch {
+          setFleets([]);
+        }
+      }
+    };
+    fetchFleets();
   }, [dbUser]);
 
   // Handler for submitting the fleet activity
@@ -375,13 +382,10 @@ const Hittracker: React.FC = () => {
           isOpen={showLogFleetModal}
           onClose={() => setLogFleetModal(false)}
           onSubmit={handleLogFleetActivity}
-          fleets={fleets.map(fleet => ({
-            id: Number(fleet.id),
-            name: fleet.name
-          }))}
+          fleets={fleets} // Pass the full fleet objects
           userId={dbUser.id}
           username={dbUser.username}
-          patch={gameVersion ?? ""} // <-- Add this line
+          patch={gameVersion ?? ""}
         />
       )}
     </div>

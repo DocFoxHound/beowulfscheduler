@@ -23,4 +23,5 @@ export interface UserFleet {
   active?: boolean;
   original_commander?: string;
   original_commander_id?: number;
+  avatar: string;
 }

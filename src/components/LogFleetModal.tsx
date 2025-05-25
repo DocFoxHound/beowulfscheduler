@@ -1,19 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Modal from "./Modal";
 import { FleetLog } from "../types/fleet_log";
 import { createShipLog } from "../api/fleetLogApi";
 import { getAllUsers } from "../api/userService";
 import { User } from "../types/user";
-
-interface LogFleetModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (fleetLog: FleetLog) => Promise<void>;
-  fleets: { id: number; name: string }[];
-  userId: string;
-  username: string;
-  patch: string; // <-- Add this line
-}
+import { UserFleet } from "../types/fleet"; // Add this import
 
 const initialForm: Partial<FleetLog> = {
   title: "",
@@ -37,12 +28,22 @@ const initialForm: Partial<FleetLog> = {
 const parseArray = (str: string) =>
   str.split(",").map(s => s.trim()).filter(Boolean);
 
+interface LogFleetModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (fleetLog: FleetLog) => Promise<void>;
+  fleets: UserFleet[]; // Use UserFleet[]
+  userId: string;
+  username: string;
+  patch: string;
+}
+
 const LogFleetModal: React.FC<LogFleetModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
   fleets,
-  patch, // <-- Add this line
+  patch,
 }) => {
   const [form, setForm] = useState<Partial<FleetLog>>(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +53,18 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
   const [crewSuggestions, setCrewSuggestions] = useState<User[]>([]);
   const [commanderInput, setCommanderInput] = useState("");
   const [commanderSuggestions, setCommanderSuggestions] = useState<User[]>([]);
+  const [fleetInput, setFleetInput] = useState("");
+  const [fleetSuggestions, setFleetSuggestions] = useState<typeof fleets>([]);
+  const [fleetDropdownOpen, setFleetDropdownOpen] = useState(false);
+  const fleetInputRef = useRef<HTMLInputElement>(null);
+
+  // Sort fleets by last_active (most recent first)
+  const sortedFleets = [...fleets].sort((a: any, b: any) => {
+    if (!a.last_active && !b.last_active) return 0;
+    if (!a.last_active) return 1;
+    if (!b.last_active) return -1;
+    return new Date(b.last_active).getTime() - new Date(a.last_active).getTime();
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -63,8 +76,55 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
       getAllUsers().then(users => setAllUsers(Array.isArray(users) ? users : users ? [users] : []));
       setCommanderInput(""); // Reset commander input
       setCommanderSuggestions([]);
+      setFleetInput(""); // Reset fleet input
+      setFleetSuggestions(sortedFleets); // Show all fleets by default
     }
-  }, [isOpen, patch]); // <-- Add patch as dependency
+  }, [isOpen, patch]);
+
+  useEffect(() => {
+    setFleetSuggestions(sortedFleets);
+  }, [fleets]);
+
+  // Handle input changes for fleet search
+  const handleFleetInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFleetInput(value);
+    setFleetDropdownOpen(true);
+    if (value.trim() === "") {
+      setFleetSuggestions(sortedFleets); // Show all fleets if input is empty
+    } else {
+      const filtered = sortedFleets.filter(f =>
+        f.name?.toLowerCase().includes(value.toLowerCase())
+      );
+      setFleetSuggestions(filtered);
+    }
+  };
+
+  // Handle fleet selection
+  const handleFleetSelect = (fleet: UserFleet) => {
+    setFleetInput(fleet.name || "");
+    handleChange("fleet_id", fleet.id);
+    handleChange("fleet_name", fleet.name || "");
+    setFleetDropdownOpen(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        fleetInputRef.current &&
+        !fleetInputRef.current.contains(event.target as Node)
+      ) {
+        setFleetDropdownOpen(false);
+      }
+    }
+    if (fleetDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [fleetDropdownOpen]);
 
   if (!isOpen) return null;
 
@@ -195,23 +255,63 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
         </label>
         {/* Flex row for Fleet and Commander */}
         <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
-          <label style={{ flex: 1, minWidth: 0 }}>
-            <select
-              style={{ width: "100%" }}
-              value={form.fleet_id || ""}
-              onChange={e => {
-                const fleet = fleets.find(f => String(f.id) === e.target.value);
-                handleChange("fleet_id", fleet?.id);
-                handleChange("fleet_name", fleet?.name || "");
+          {/* Fleet Autocomplete */}
+          <label style={{ flex: 1, minWidth: 0, position: "relative" }}>
+            <input
+              ref={fleetInputRef}
+              type="text"
+              value={fleetInput}
+              onChange={handleFleetInputChange}
+              onFocus={() => {
+                setFleetDropdownOpen(true);
+                setFleetSuggestions(sortedFleets);
               }}
               disabled={isSubmitting}
-            >
-              <option value="">Select Fleet</option>
-              {fleets.map(f => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
+              autoComplete="off"
+              style={{ width: "100%" }}
+              placeholder="Select Fleet"
+            />
+            {fleetDropdownOpen && fleetSuggestions.length > 0 && (
+              <div style={{
+                background: "#23272e",
+                border: "1px solid #353a40",
+                borderRadius: 4,
+                marginTop: 2,
+                position: "absolute",
+                zIndex: 20,
+                width: "100%",
+                maxHeight: 200,
+                overflowY: "auto"
+              }}>
+                {fleetSuggestions.map(fleet => (
+                  <div
+                    key={fleet.id}
+                    style={{
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "#fff",
+                      borderBottom: "1px solid #353a40",
+                      background: fleet.id === Number(form.fleet_id) ? "#2d7aee" : "transparent"
+                    }}
+                    onMouseDown={() => handleFleetSelect(fleet)}
+                  >
+                    <div style={{ fontWeight: "bold" }}>{fleet.name}</div>
+                    {fleet.commander_username && (
+                      <div style={{ fontSize: 12, color: "#aaa" }}>
+                        Commander: {fleet.commander_username}
+                      </div>
+                    )}
+                    {fleet.last_active && (
+                      <div style={{ fontSize: 12, color: "#aaa" }}>
+                        Last Active: {new Date(fleet.last_active).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </label>
+          {/* Commander Autocomplete (unchanged) */}
           <label style={{ flex: 1, minWidth: 0, position: "relative" }}>
             <input
               type="text"
