@@ -7,6 +7,7 @@ import { User } from "../types/user";
 import { UserFleet } from "../types/fleet"; // Add this import
 import { fetchLatest100Hits } from "../api/hittrackerApi";
 import { Hit } from "../types/hittracker";
+import { createPlayerExperience } from "../api/playerExperiencesApi"; // <-- Add this import
 
 const initialForm: Partial<FleetLog> = {
   title: "",
@@ -33,6 +34,18 @@ const initialForm: Partial<FleetLog> = {
 const parseArray = (str: string) =>
   str.split(",").map(s => s.trim()).filter(Boolean);
 
+type CrewUserWithExperience = User & {
+  dogfighter: boolean;
+  marine: boolean;
+  snare: boolean;
+  cargo: boolean;
+  multicrew: boolean;
+  salvage: boolean;
+  air_leadership: boolean;
+  ground_leadership: boolean;
+  commander: boolean;
+};
+
 interface LogFleetModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -56,6 +69,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [crewInput, setCrewInput] = useState("");
   const [crewSuggestions, setCrewSuggestions] = useState<User[]>([]);
+  const [crewUsers, setCrewUsers] = useState<CrewUserWithExperience[]>([]);
   const [commanderInput, setCommanderInput] = useState("");
   const [commanderSuggestions, setCommanderSuggestions] = useState<User[]>([]);
   const [fleetInput, setFleetInput] = useState("");
@@ -67,6 +81,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
   const [recentHits, setRecentHits] = useState<Hit[]>([]);
   const fleetInputRef = useRef<HTMLInputElement>(null);
   const hitInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFleet, setSelectedFleet] = useState<UserFleet | null>(null);
 
   // Sort fleets by last_active (most recent first)
   const sortedFleets = [...fleets].sort((a: any, b: any) => {
@@ -119,6 +134,36 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
     handleChange("fleet_id", fleet.id);
     handleChange("fleet_name", fleet.name || "");
     setFleetDropdownOpen(false);
+    addFleetMembersToCrew(fleet);
+    setSelectedFleet(fleet);
+  };
+
+  const addFleetMembersToCrew = (fleet: UserFleet) => {
+    if (!fleet.members_ids || !fleet.members_usernames) return;
+    setCrewUsers(prev => {
+      // Avoid duplicates
+      const existingIds = new Set(prev.map(u => Number(u.id)));
+      const newUsers = fleet.members_ids!
+        .map((id, idx) => {
+          const username = fleet.members_usernames![idx];
+          const user = allUsers.find(u => Number(u.id) === id);
+          if (!user) return null;
+          return {
+            ...user,
+            dogfighter: false,
+            marine: false,
+            snare: false,
+            cargo: false,
+            multicrew: false,
+            salvage: false,
+            air_leadership: false,
+            ground_leadership: false,
+            commander: false,
+          };
+        })
+        .filter(u => u && !existingIds.has(Number(u.id))) as CrewUserWithExperience[];
+      return [...prev, ...newUsers];
+    });
   };
 
   // Close dropdown when clicking outside
@@ -195,22 +240,31 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
 
   // Crew suggestion select handler
   const addCrewUser = (user: User) => {
-    setForm(f => ({
-      ...f,
-      crew_ids: [...(f.crew_ids || []), Number(user.id)],
-      crew_usernames: [...(f.crew_usernames || []), user.username || ""],
-    }));
+    setCrewUsers(prev => {
+      if (prev.some(u => u.id === user.id)) return prev;
+      return [
+        ...prev,
+        {
+          ...user,
+          dogfighter: false,
+          marine: false,
+          snare: false,
+          cargo: false,
+          multicrew: false,
+          salvage: false,
+          air_leadership: false,
+          ground_leadership: false,
+          commander: false,
+        }
+      ];
+    });
     setCrewInput("");
     setCrewSuggestions([]);
   };
 
   // Remove crew member handler
   const removeCrewUser = (userId: number) => {
-    setForm(f => ({
-      ...f,
-      crew_ids: (f.crew_ids || []).filter(id => id !== userId),
-      crew_usernames: (f.crew_usernames || []).filter((_, idx) => (f.crew_ids || [])[idx] !== userId),
-    }));
+    setCrewUsers(list => list.filter(u => Number(u.id) !== Number(userId)));
   };
 
   const handleCommanderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -258,11 +312,40 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
     try {
       const fleetLog: FleetLog = {
         ...form,
-        id: Date.now(), // or let backend assign
+        crew_ids: crewUsers.map(u => Number(u.id)),
+        crew_usernames: crewUsers.map(u => u.username || ""),
+        id: Date.now(),
       } as FleetLog;
+
+      // Save player experiences for each crew member
+      await Promise.all(
+        crewUsers.map(user =>
+          createPlayerExperience({
+            id: Date.now().toString() + String(user.id), // or use uuid if available
+            user_id: String(user.id),
+            username: user.username,
+            operation_id: String(fleetLog.id),
+            operation_name: fleetLog.title || "",
+            operation_type: "Fleet", // or another type if you prefer
+            patch: fleetLog.patch || "",
+            dogfighter: !!user.dogfighter,
+            marine: !!user.marine,
+            snare: !!user.snare,
+            cargo: !!user.cargo,
+            multicrew: !!user.multicrew,
+            salvage: !!user.salvage,
+            air_leadership: !!user.air_leadership,
+            ground_leadership: !!user.ground_leadership,
+            commander: !!user.commander,
+            type_of_experience: "Fleet", // or "Operation"
+          })
+        )
+      );
+
       await createShipLog(fleetLog);
       await onSubmit(fleetLog);
       setForm(initialForm);
+      setCrewUsers([]);
       onClose();
     } catch (err) {
       setFormError("Failed to submit fleet log.");
@@ -553,7 +636,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             />
           </label>
         </div>
-        {/* Crew field moved here */}
+        {/* Crew field with experience table */}
         <label style={{ position: "relative", display: "block" }}>
           Crew:
           <input
@@ -591,45 +674,77 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             </div>
           )}
         </label>
-        {(form.crew_ids || []).length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0" }}>
-            {(form.crew_ids || []).map((id, idx) => {
-              const user = allUsers.find(u => Number(u.id) === id);
-              return (
-                <span
-                  key={id}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    background: "#181a1b",
-                    color: "#fff",
-                    borderRadius: 16,
-                    padding: "4px 12px",
-                    fontSize: 14,
-                    marginRight: 4,
-                    marginBottom: 4,
-                  }}
-                >
-                  {user?.username || id}
-                  <button
-                    type="button"
-                    onClick={() => removeCrewUser(id)}
-                    style={{
-                      marginLeft: 8,
-                      color: "#ff6b6b",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 16,
-                      lineHeight: 1,
-                    }}
-                    aria-label={`Remove ${user?.username || id}`}
-                  >
-                    ✕
-                  </button>
-                </span>
-              );
-            })}
+        {crewUsers.length > 0 && (
+          <div style={{ overflowX: "auto", margin: "12px 0" }}>
+            <table style={{ width: "100%", background: "#23272e", borderRadius: 6, borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Name</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Marine</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Snare</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Cargo</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Multicrew</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Salvage</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th>
+                  <th style={{ color: "#ccc", padding: 6 }}>Commander</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {crewUsers.map((user, idx) => (
+                  <tr key={user.id} style={{ background: idx % 2 ? "#202226" : "#23272e" }}>
+                    <td style={{ color: "#fff", padding: 6 }}>{user.nickname || user.username}</td>
+                    {([
+                      "dogfighter",
+                      "marine",
+                      "snare",
+                      "cargo",
+                      "multicrew",
+                      "salvage",
+                      "air_leadership",
+                      "ground_leadership",
+                      "commander"
+                    ] as Array<keyof CrewUserWithExperience>).map(field => (
+                      <td key={field} style={{ textAlign: "center", padding: 6 }}>
+                        <input
+                          type="checkbox"
+                          className="large-checkbox"
+                          checked={Boolean(user[field])}
+                          onChange={e => {
+                            setCrewUsers(list =>
+                              list.map(u =>
+                                u.id === user.id
+                                  ? { ...u, [field]: e.target.checked }
+                                  : u
+                              )
+                            );
+                          }}
+                        />
+                      </td>
+                    ))}
+                    <td style={{ textAlign: "center", padding: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => removeCrewUser(Number(user.id))}
+                        style={{
+                          color: "#ff6b6b",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 16,
+                          lineHeight: 1,
+                        }}
+                        aria-label={`Remove ${user.nickname || user.username}`}
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
         {/* Story as a large textarea */}
@@ -766,6 +881,46 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
           Cancel
         </button>
       </form>
+      {/* Fleet Card */}
+      {selectedFleet && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          background: "#23272e",
+          border: "1px solid #353a40",
+          borderRadius: 6,
+          padding: 12,
+          marginBottom: 16,
+          gap: 16,
+        }}>
+          {selectedFleet.avatar && (
+            <img
+              src={selectedFleet.avatar}
+              alt={selectedFleet.name}
+              style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover", border: "1px solid #353a40" }}
+            />
+          )}
+          <div>
+            <div style={{ fontWeight: "bold", fontSize: 18 }}>{selectedFleet.name}</div>
+            {selectedFleet.commander_username && (
+              <div style={{ color: "#aaa" }}>Commander: {selectedFleet.commander_username}</div>
+            )}
+            {selectedFleet.primary_mission && (
+              <div style={{ color: "#aaa" }}>Mission: {selectedFleet.primary_mission}</div>
+            )}
+            {selectedFleet.last_active && (
+              <div style={{ color: "#aaa" }}>
+                Last Active: {new Date(selectedFleet.last_active).toLocaleString()}
+              </div>
+            )}
+            {selectedFleet.total_kills !== undefined && (
+              <div style={{ color: "#aaa" }}>
+                Total Kills: {selectedFleet.total_kills}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </Modal>
   );
 };
