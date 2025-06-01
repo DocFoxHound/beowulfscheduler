@@ -1,10 +1,8 @@
 export interface UserFleet {
   id: number;
   name?: string;
-  commander_id?: number;
-  commander_username?: string;
-  members_ids?: number[];
-  members_usernames?: string[];
+  commander_id?: string | null; // <-- Add null here
+  members_ids?: string[];
   primary_mission?: string;
   secondary_mission?: string;
   total_kills?: number;
@@ -15,13 +13,11 @@ export interface UserFleet {
   total_events_patch?: number;
   last_active?: string; // ISO timestamp string
   commander_corsair_rank?: number;
-  allowed_total_members?: number;
   total_cargo_stolen?: number;
   total_cargo_stolen_patch?: number;
   total_value_stolen?: number;
   total_value_stolen_patch?: number;
   active?: boolean;
-  original_commander?: string;
-  original_commander_id?: number;
+  original_commander_id?: string;
   avatar: string;
 }

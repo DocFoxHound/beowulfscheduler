@@ -113,7 +113,7 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
           const isAuthor = selectedEntry?.author_id === currentUserId;
 
           // Determine if user can join this availability
-          const canJoin = !isSelected || allowedRanks.length === 0 || userRoleIds.some((roleId: string) => allowedRanks.includes(roleId));
+          const canJoin = !isSelected || allowedRanks.length === 0 || userRoleIds.some((roleId: any) => allowedRanks.includes(roleId));
 
           // Find all availabilities for this hour
           const hourEntries = selectedHours.filter(h => {
@@ -144,12 +144,12 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
             const colorStops = hourTypes.map((type, idx) => {
               const percent = Math.round((idx / hourTypes.length) * 100);
               const nextPercent = Math.round(((idx + 1) / hourTypes.length) * 100);
-              const color = typeToColor(type);
+              const color = typeToColor(type || "");
               return `${color} ${percent}%, ${color} ${nextPercent}%`;
             }).join(', ');
             hourCellBackground = `linear-gradient(90deg, ${colorStops})`;
           } else if (hourTypes.length === 1) {
-            hourCellBackground = typeToColor(hourTypes[0]);
+            hourCellBackground = typeToColor(hourTypes[0] || "");
           }
 
           return (
@@ -360,7 +360,7 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                     .map((entry, idx) => {
                       const isAuthor = entry.author_id === currentUserId;
                       const isAttendee = entry.attendees?.includes(currentUserId);
-                      const canJoin = entry.allowed_ranks?.length === 0 || userRoleIds.some((roleId: string) => entry.allowed_ranks?.includes(roleId));
+                      const canJoin = entry.allowed_ranks?.length === 0 || userRoleIds.some((roleId: any) => entry.allowed_ranks?.includes(roleId));
                       return (
                         <div
                           key={entry.id}
@@ -465,7 +465,7 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                               </div>
                               <div>
                                 <strong>Allowed Ranks:</strong>
-                                <CollapsibleList label="Allowed Ranks" items={entry.allowed_ranks_names} minimizedLabel="All" />
+                                <CollapsibleList label="Allowed Ranks" items={entry.allowed_ranks_names ?? []} minimizedLabel="All" />
                               </div>
                             </div>
                           )}

@@ -1,17 +1,28 @@
 /**
- * Represents a single day's schedule entry with available hours
+ * Represents a single schedule entry as stored in the database
  */
 export interface ScheduleEntry {
-  action: string; // e.g., "add", "remove"
   id: number;
-  author_id: number;
-  timestamp: string; // ISO 8601 string with timezone, e.g., "2024-05-10T14:00:00Z"
-  type: string;
+  author_id?: number;
+  type?: string;
   attendees: number[];
-  author_username: string;
+  author_username?: string;
   attendees_usernames: string[];
-  allowed_ranks: string[];
-  allowed_ranks_names: string[];
+  timestamp: string; // ISO 8601 string with timezone
+  action?: string;
+  allowed_ranks?: number[];
+  allowed_ranks_names?: string[];
+  title?: string;
+  description?: string;
+  start_time?: string; // ISO 8601 string with timezone
+  end_time?: string;   // ISO 8601 string with timezone
+  channel?: number;
+  appearance?: any; // JSON object
+  repeat?: boolean;
+  rsvp_options?: any; // JSON object
+  fleet?: number;
+  patch?: string;
+  active?: boolean;
 }
 
 /**

@@ -17,6 +17,11 @@ import { SummarizedItem } from '../types/items_summary';
 import Navbar from '../components/Navbar';
 import { fetchAllFleets } from '../api/fleetApi'; // Add this import
 import { UserFleet } from '../types/fleet'; // Add this import
+import { fetchAllShipLogs } from '../api/fleetLogApi';
+import { FleetLog } from '../types/fleet_log';
+import RecentFleetLogs from '../components/RecentFleetLogs';
+import ActiveFleets from '../components/ActiveFleets';
+import ManageFleet from '../components/ManageFleet';
 
 const Hittracker: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -150,7 +155,7 @@ const Hittracker: React.FC = () => {
     fetchFleets();
   }, [dbUser]);
 
-  // Handler for submitting the fleet activity
+  // This must be for posting back through the bot?
   const handleLogFleetActivity = async (activity: any) => {
     setIsSubmitting(true);
     setFormError(null);
@@ -199,6 +204,19 @@ const Hittracker: React.FC = () => {
       (user.id && user.id.toLowerCase().includes(search))
     );
   };
+
+  // Find the fleet the user owns (as commander)
+  const ownsFleet = fleets.find(fleet => fleet.commander_id === dbUser.id);
+
+  // Find the fleet the user is a member of (but not commander)
+  const memberOfFleet = fleets.find(
+    fleet =>
+      Array.isArray(fleet.members_ids) &&
+      fleet.members_ids.includes(dbUser.id) &&
+      fleet.commander_id !== dbUser.id
+  );
+
+  const isNotInAnyFleet = !ownsFleet && !memberOfFleet;
 
   return (
     <div className="hittracker-root">
@@ -297,57 +315,32 @@ const Hittracker: React.FC = () => {
                 Log Fleet Activity
               </button>
             )}
-            <div
-              style={{
-                background: "#23272a",
-                color: "#fff",
-                borderRadius: 8,
-                minHeight: 200,
-                padding: "1.5rem",
-                marginTop: "0.5rem",
-                textAlign: "center",
-                fontSize: "1.2rem",
-                fontWeight: "bold"
-              }}
-            >
-              RECENT FLEET LOGS
-            </div>
+            <RecentFleetLogs fleets={fleets} />
           </div>
 
           {/* CENTER COLUMN: Placeholder for ACTIVE FLEETS */}
           <div className="column warehouse-items">
-            <div
-              style={{
-                background: "#23272a",
-                color: "#fff",
-                borderRadius: 8,
-                minHeight: 200,
-                padding: "2rem",
-                textAlign: "center",
-                fontSize: "1.5rem",
-                fontWeight: "bold"
-              }}
-            >
-              ACTIVE FLEETS
-            </div>
+            <ActiveFleets 
+              fleets={fleets}
+              allUsers={userList}
+              userId={dbUser.id}
+              isNotInAnyFleet={isNotInAnyFleet}
+              dbUser={dbUser}
+              />
           </div>
 
-          {/* RIGHT COLUMN: Placeholder for YOUR FLEET */}
+          {/* RIGHT COLUMN: YOUR FLEET */}
           <div className="column recent-pirate-hits">
-            <div
-              style={{
-                background: "#23272a",
-                color: "#fff",
-                borderRadius: 8,
-                minHeight: 200,
-                padding: "2rem",
-                textAlign: "center",
-                fontSize: "1.5rem",
-                fontWeight: "bold"
-              }}
-            >
-              YOUR FLEET
-            </div>
+            <ManageFleet
+              ownsFleet={!!ownsFleet}
+              ownedFleet={ownsFleet || null}
+              memberOfFleet={!!memberOfFleet}
+              memberFleet={memberOfFleet || null}
+              userId={dbUser.id}
+              allUsers={userList} 
+              dbUser={dbUser}
+              fleets={fleets}
+            />
           </div>
         </div>
       </main>
@@ -386,6 +379,7 @@ const Hittracker: React.FC = () => {
           userId={dbUser.id}
           username={dbUser.username}
           patch={gameVersion ?? ""}
+          allUsers={userList}
         />
       )}
     </div>

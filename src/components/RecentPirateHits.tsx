@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Hit } from '../types/hittracker';
 import PiracyHitCard from "./PiracyHitCard";
+import { User } from '../types/user';
 
 interface Props {
   gameVersion: string | null;
@@ -8,11 +9,12 @@ interface Props {
   recentHits: Hit[];
   pirateHits: Hit[];
   assistHits: Hit[];
+  allUsers: User[];
 }
 
 const PAGE_SIZE = 5;
 
-const RecentPirateHits: React.FC<Props> = ({ gameVersion, user_id, recentHits, pirateHits, assistHits }) => {
+const RecentPirateHits: React.FC<Props> = ({ gameVersion, user_id, recentHits, pirateHits, assistHits, allUsers }) => {
   const [page, setPage] = useState(0);
 
   // Helper to format cargo as a list
@@ -58,7 +60,11 @@ const RecentPirateHits: React.FC<Props> = ({ gameVersion, user_id, recentHits, p
       <h3>Recent Pirate Hits {gameVersion && `(v${gameVersion})`}</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {paginatedHits.map(hit => (
-          <PiracyHitCard key={hit.id} hit={hit} userId={user_id ?? ''} />
+          <PiracyHitCard 
+            key={hit.id} 
+            hit={hit} 
+            userId={user_id ?? ''}
+            allUsers={allUsers} />
         ))}
       </div>
       <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>

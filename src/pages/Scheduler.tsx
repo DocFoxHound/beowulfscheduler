@@ -22,6 +22,7 @@ import { type Availability, type ScheduleEntry } from "../types/schedule";
 import { useUserContext } from "../context/UserContext"; // Import the context hook
 import { getUserById, getUserRank } from "../api/userService";
 import Navbar from "../components/Navbar";
+import CreateEventModal from "../components/CreateEventModal"; // Import your modal component
 
 const ROLE_OPTIONS = [
   { label: "Blooded", ids: import.meta.env.VITE_BLOODED_ID.split(",").map((id: string) => id.trim()).filter(Boolean) },
@@ -63,10 +64,14 @@ export default function Scheduler() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [availabilityType, setAvailabilityType] = useState<string>("Dogfighting"); // Default type
   const [weekRange, setWeekRange] = useState<{ start: Date; end: Date } | null>(null);
+  const [viewMode, setViewMode] = useState<"normal" | "events">("normal"); // NEW
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [eventModalDate, setEventModalDate] = useState<Date | null>(null);
+  const [eventModalHour, setEventModalHour] = useState<number | null>(null);
   const hasLoadedInitialWeek = useRef(false);
   const { dbUser, setDbUser, userRank, setUserRank } = useUserContext();
 
-  const availabilityTypes = ["Dogfighting", "Piracy", "FPS", "Fleet", "Poll"];
+  const availabilityTypes = ["Dogfighting", "Piracy", "FPS", "Fleet", "Poll", "Event"]; // Add "Event"
 
   const [allowedRanks, setAllowedRanks] = useState<string[]>(ROLE_OPTIONS.map(r => r.label));
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -138,6 +143,11 @@ export default function Scheduler() {
     }
   }, [user, weekRange]);
 
+  // Filtered availability for calendar
+  const filteredAvailability = viewMode === "events"
+    ? availability.filter(a => a.type === "Event")
+    : availability.filter(a => a.type !== "Event");
+
   // Handle toggling an hour in the availability
   const handleToggleHour = (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean, availabilityId?: string }) => {
     const localDate = new Date(date);
@@ -196,7 +206,7 @@ export default function Scheduler() {
 
       if (existingIndexGeneral >= 0 && !options?.forceAdd) {
         const existingEntry = previous[existingIndexGeneral];
-        // If user is author or DocHound, allow delete or re-add
+        // If user is author or DocHound, allow delete or re-adding
         if (existingEntry.author_id === user.id || user.id === 664023164350627843) {
           if (existingEntry.action === "add") {
             previous.splice(existingIndexGeneral, 1);
@@ -219,7 +229,7 @@ export default function Scheduler() {
           const userRoleIds = dbUser?.roles || [];
           const allowedRanks = existingEntry.allowed_ranks || [];
           console.log("Allowed ranks:", allowedRanks);
-          const canJoin = allowedRanks.length === 0 || userRoleIds.some((roleId: string) => allowedRanks.includes(roleId));
+          const canJoin = allowedRanks.length === 0 || userRoleIds.some((roleId: any) => allowedRanks.includes(roleId));
           if (!canJoin) {
             setSaveStatus("You do not have permission to join this availability.");
             return previous;
@@ -293,6 +303,17 @@ export default function Scheduler() {
     }
   };
 
+  // New handler for event creation
+  const handleDayCellClick = (date: Date, hour: number) => {
+    if (viewMode === "events") {
+      setEventModalDate(date);
+      setEventModalHour(hour);
+      setEventModalOpen(true);
+    } else {
+      handleToggleHour(date, hour);
+    }
+  };
+
   if (!user) {
     return (
       <div className="centered-screen">
@@ -313,33 +334,77 @@ export default function Scheduler() {
           <p>Create and sign up for training availabilities.</p>
         </section>
 
+        {/* VIEW MODE TOGGLE */}
+        <div style={{ marginBottom: 16 }}>
+          <button
+            onClick={() => setViewMode("normal")}
+            style={{
+              marginRight: 8,
+              fontWeight: viewMode === "normal" ? "bold" : "normal",
+              background: viewMode === "normal" ? "#444" : "#222",
+              color: "#fff",
+              border: "1px solid #666",
+              borderRadius: 4,
+              padding: "4px 12px",
+              cursor: "pointer"
+            }}
+          >
+            Normal Schedule
+          </button>
+          <button
+            onClick={() => setViewMode("events")}
+            style={{
+              fontWeight: viewMode === "events" ? "bold" : "normal",
+              background: viewMode === "events" ? "#444" : "#222",
+              color: "#fff",
+              border: "1px solid #666",
+              borderRadius: 4,
+              padding: "4px 12px",
+              cursor: "pointer"
+            }}
+          >
+            Events
+          </button>
+        </div>
+
         {/* Calendar UI */}
         <section className="calendar-container">
-          <div className="availability-type-selector">
-            {availabilityTypes.map((type) => (
-              <label
-                key={type}
-                className={`type-option ${typeColorClass(type)}${availabilityType === type ? ' active' : ''}`}
-                style={{
-                  // Optional: make the active one stand out more
-                  border: availabilityType === type ? "2px solid #fff" : undefined,
-                }}
-              >
-                <input
-                  type="radio"
-                  name="availabilityType"
-                  value={type}
-                  checked={availabilityType === type}
-                  onChange={() => setAvailabilityType(type)}
-                />
-                {type}
-              </label>
-            ))}
+          {/* Always show type selector, but grey out and disable in events view */}
+          <div className="availability-type-selector" style={{ opacity: viewMode === "events" ? 0.5 : 1, pointerEvents: viewMode === "events" ? "none" : "auto" }}>
+            {availabilityTypes
+              .filter(type => type !== "Event")
+              .map((type) => (
+                <label
+                  key={type}
+                  className={`type-option ${typeColorClass(type)}${availabilityType === type ? ' active' : ''}`}
+                  style={{
+                    border: availabilityType === type ? "2px solid #fff" : undefined,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="availabilityType"
+                    value={type}
+                    checked={availabilityType === type}
+                    onChange={() => setAvailabilityType(type)}
+                    disabled={viewMode === "events"}
+                  />
+                  {type}
+                </label>
+              ))}
           </div>
 
           {canCreateAvailability && (
-            <div className="allowed-ranks-dropdown" style={{ display: "inline-block", marginLeft: 16 }}>
-              <button type="button" onClick={() => setDropdownOpen(v => !v)}>
+            <div
+              className="allowed-ranks-dropdown"
+              style={{
+                display: "inline-block",
+                marginLeft: 16,
+                opacity: viewMode === "events" ? 0.5 : 1,
+                pointerEvents: viewMode === "events" ? "none" : "auto"
+              }}
+            >
+              <button type="button" onClick={() => setDropdownOpen(v => !v)} disabled={viewMode === "events"}>
                 Allowed Ranks ▾
               </button>
               {dropdownOpen && (
@@ -356,6 +421,7 @@ export default function Scheduler() {
                               : [...prev, role.label]
                           );
                         }}
+                        disabled={viewMode === "events"}
                       />
                       {role.label}
                     </label>
@@ -371,8 +437,8 @@ export default function Scheduler() {
             <>
               <Calendar
                 initialDate={weekRange ? weekRange.start : undefined}
-                availability={availability}
-                onToggleHour={handleToggleHour}
+                availability={filteredAvailability}
+                onToggleHour={handleDayCellClick} 
                 onWeekChange={handleWeekChange}
                 currentUserId={user.id}
                 currentUsername={user.username}
@@ -393,6 +459,24 @@ export default function Scheduler() {
                   {saving ? 'Saving...' : 'Save Availability'}
                 </button>
               </div>
+
+              {/* Event Modal */}
+              {eventModalOpen && (
+                <CreateEventModal
+                  open={eventModalOpen}
+                  onClose={() => setEventModalOpen(false)}
+                  onCreate={(event) => {
+                    // Optionally add the new event to your state or refetch events
+                    setEventModalOpen(false);
+                    // You may want to refresh the schedule here
+                  }}
+                  defaultDate={eventModalDate!}
+                  defaultHour={eventModalHour!}
+                  currentUserId={user.id}
+                  currentUsername={user.username}
+                  userRoleIds={dbUser?.roles || []}
+                />
+              )}
             </>
           )}
         </section>

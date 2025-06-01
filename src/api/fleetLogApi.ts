@@ -105,3 +105,11 @@ export const fetchShipLogsTopDamages = async (): Promise<FleetLog[]> => {
   const response = await axios.get<FleetLog[]>(`${API_BASE_URL}/api/shiplog/top-damages`);
   return response.data;
 };
+
+// Fetch ship logs for a fleet within the last 3 months
+export const fetchRecentShipLogsByFleet = async (fleet_id: string): Promise<FleetLog[]> => {
+  const response = await axios.get<FleetLog[]>(`${API_BASE_URL}/api/shiplog/recent-by-fleet`, {
+    params: { fleet_id },
+  });
+  return response.data;
+};

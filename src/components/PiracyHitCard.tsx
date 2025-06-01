@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { Hit } from "../types/hittracker";
 import { fetchPlayerFleet } from "../api/fleetApi"; // <-- import this
 import AddHitModal from "./AddHitModal"; // Import your modal
+import { User } from "../types/user";
 
 interface PiracyHitCardProps {
   hit: Hit;
   userId: string;
+  allUsers: User[]
 }
 
-const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId }) => {
+const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers }) => {
   const [showCargoTooltip, setShowCargoTooltip] = useState(false);
   const [isFleetCommander, setIsFleetCommander] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -20,7 +22,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId }) => {
         try {
           const fleets = await fetchPlayerFleet(userId);
           // Check if any of the user's commanded fleets are in hit.fleet_ids
-          const commandsFleet = fleets.some(fleet => hit.fleet_ids.includes(fleet.id));
+          const commandsFleet = fleets.some(fleet => hit.fleet_ids.includes(String(fleet.id)));
           if (!ignore) setIsFleetCommander(commandsFleet);
         } catch (e) {
           if (!ignore) setIsFleetCommander(false);
@@ -254,6 +256,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId }) => {
           username={hit.username}
           isEditMode={true}
           hit={hit}
+          allUsers={allUsers}
           onUpdate={async (updatedHit) => {
             // Call your update API here
             // await updateHit(updatedHit);

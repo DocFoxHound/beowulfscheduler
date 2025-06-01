@@ -279,6 +279,7 @@ const Hittracker: React.FC = () => {
                 user_id={selectedUserId}
                 pirateHits={allPirateHits}
                 assistHits={allAssistHits}
+                allUsers={userList}
               />
             </div>
           </div>
@@ -296,6 +297,7 @@ const Hittracker: React.FC = () => {
           userId={dbUser.id}
           username={dbUser.username}
           summarizedItems={summarizedItems}
+          allUsers={userList}
           onSubmit={async (hit) => {
             setIsSubmitting(true);
             setFormError(null);

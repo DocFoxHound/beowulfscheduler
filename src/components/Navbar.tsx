@@ -8,7 +8,7 @@ const Navbar: React.FC = () => (
       <a href="/dashboard">Dashboard</a>
       <a href="/piracy">Piracy</a>
       <a href="/fleets">Fleets</a>
-      <a href="/scheduler">Training Scheduler</a>
+      <a href="/scheduler">Scheduler</a>
       <a href="/warehouse">Warehouse</a>
     </nav>
   </header>

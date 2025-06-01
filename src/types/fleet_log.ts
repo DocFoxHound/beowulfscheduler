@@ -18,6 +18,7 @@ export interface FleetLog {
   total_kills?: number;
   value_stolen?: number;
   damages_value?: number;
+  total_cargo?: number;
   fleet_id?: number;
   fleet_name?: string;
   video_link: string;

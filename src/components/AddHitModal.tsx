@@ -29,6 +29,7 @@ interface AddHitModalProps {
   hit?: Hit;
   onUpdate?: (hit: Hit) => Promise<void>;
   onDelete?: () => Promise<void>;
+  allUsers: User[];
 }
 
 const initialForm = {
@@ -75,6 +76,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
     formError,
     setFormError,
     summarizedItems,
+    allUsers
   } = props;
 
   const [form, setForm] = useState(initialForm);
@@ -93,7 +95,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   const addItemBtnRef = useRef<HTMLButtonElement>(null);
 
   // Users state
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allUsersState, setAllUsersState] = useState<User[]>([]);
   const [assistSuggestions, setAssistSuggestions] = useState<User[]>([]);
   const [assistsUsers, setAssistsUsers] = useState<AssistUserWithExperience[]>([]);
 
@@ -132,7 +134,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   useEffect(() => {
     if (show) {
       getAllUsers().then(users => {
-        setAllUsers(Array.isArray(users) ? users : users ? [users] : []);
+        setAllUsersState(Array.isArray(users) ? users : users ? [users] : []);
       });
       fetchAllFleets().then(fleets => {
         setAllFleets(Array.isArray(fleets) ? fleets : fleets ? [fleets] : []);
@@ -390,7 +392,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       return;
     }
     // Simple case-insensitive substring match
-    const suggestions = allUsers.filter(user => {
+    const suggestions = allUsersState.filter(user => {
       const nickname = typeof user.nickname === "string" ? user.nickname : "";
       const username = typeof user.username === "string" ? user.username : "";
       const search = value.toLowerCase();
@@ -852,7 +854,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   onMouseDown={async () => {
                     // Add assists as before
                     g.user_ids
-                      .map((id, i) => allUsers.find(u => String(u.id) === String(id)))
+                      .map((id, i) => allUsersState.find(u => String(u.id) === String(id)))
                       .filter((u): u is User => !!u)
                       .forEach(addAssistUser);
                     setShowGatheringsMenu(false);
@@ -1136,11 +1138,10 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     color: "#fff"
                   }}
                   onMouseDown={() => {
-                    // Validation: at least 1/3 of allowed_total_members must be present in assists, and assists > 8
                     const assistsIds = assistsUsers.map(u => String(u.id));
                     const fleetMemberIds = (fleet.members_ids ?? []).map(String);
                     const assistsInFleet = assistsIds.filter(id => fleetMemberIds.includes(id));
-                    const minRequired = Math.ceil((fleet.allowed_total_members ?? 0) / 3);
+                    const minRequired = 3;
 
                     if (assistsUsers.length <= 7) {
                       setFormError("At least 7 assists are required to tie a fleet to a hit.");
@@ -1163,7 +1164,12 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                 >
                   {fleet.name}
                   <span style={{ color: "#aaa", fontSize: 12, marginLeft: 8 }}>
-                    {fleet.commander_username}
+                    {
+                      (() => {
+                        const commander = allUsers.find(u => String(u.id) === String(fleet.commander_id));
+                        return commander ? commander.username : "Unknown";
+                      })()
+                    }
                   </span>
                 </div>
               ))}

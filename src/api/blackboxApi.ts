@@ -65,3 +65,13 @@ export const fetchUserKillsBeforeTimestamp = async (
   });
   return response.data;
 };
+
+export const fetchBlackBoxesBetweenTimestamps = async (
+  start: string,
+  end: string
+): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/between`, {
+    params: { start, end }
+  });
+  return response.data;
+};

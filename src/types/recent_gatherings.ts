@@ -3,7 +3,7 @@
 export interface RecentGathering {
   id: string;
   channel_id: string;
-  channel_name: number;
+  channel_name: string;
   user_ids: string[];
   usernames: string[];
   timestamp: string;

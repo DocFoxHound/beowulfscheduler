@@ -35,7 +35,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, children }) => {
           padding: 2rem 2.5rem 2rem 2.5rem;
           border-radius: 14px;
           min-width: 850px;
-          max-width: 1000px;
+          max-width: 1100px;
           width: 100%;
           position: relative;
           box-shadow: 0 8px 32px rgba(0,0,0,0.32), 0 1.5px 6px rgba(0,0,0,0.18);
