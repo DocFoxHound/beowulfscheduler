@@ -2,7 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import Modal from "./Modal";
 import { saveSchedule } from "../api/scheduleService";
 import { ScheduleEntry } from "../types/schedule";
+import { fetchAllFleets } from "../api/fleetApi"; // <-- Import this
 import "emoji-picker-element";
+import { UserFleet } from "../types/fleet"; // <-- Add this import
+import { getLatestPatch } from "../api/patchApi"; // Add this import
 
 // Allow usage of <emoji-picker> as a JSX element
 declare namespace JSX {
@@ -55,6 +58,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   const [appearanceImage, setAppearanceImage] = useState("");
   const [repeat, setRepeat] = useState(false);
   const [repeatFrequency, setRepeatFrequency] = useState("weekly");
+  const [repeatEndDate, setRepeatEndDate] = useState<string | undefined>(undefined);
 
   const [emojiPickerIdx, setEmojiPickerIdx] = useState<number | null>(null);
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState<DOMRect | null>(null);
@@ -62,6 +66,32 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   const [fleetAssociation, setFleetAssociation] = useState(false);
   const [fleetSelection, setFleetSelection] = useState("");
+  const [fleets, setFleets] = useState<UserFleet[]>([]);
+  const [showFleetPicker, setShowFleetPicker] = useState(false);
+  const [selectedFleets, setSelectedFleets] = useState<UserFleet[]>([]);
+
+  // Validation state
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Fetch fleets on open
+  useEffect(() => {
+    if (!open) return;
+    fetchAllFleets()
+      .then(fleets => {
+        console.log("Fleets fetched:", fleets);
+        // Sort by last_active descending (most recent first)
+        const sorted = [...fleets].sort((a, b) => {
+          if (!a.last_active && !b.last_active) return 0;
+          if (!a.last_active) return 1;
+          if (!b.last_active) return -1;
+          return new Date(b.last_active).getTime() - new Date(a.last_active).getTime();
+        });
+        setFleets(sorted);
+        // Debug: log fleets to verify
+        // console.log("Sorted fleets:", sorted);
+      })
+      .catch(() => setFleets([]));
+  }, [open]);
 
   const handleRsvpChange = (idx: number, field: "emoji" | "name", value: string) => {
     setRsvpOptions(options =>
@@ -74,38 +104,123 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const eventData = {
-      id: new Date().getTime(),
+
+    // Validation
+    if (!title.trim()) {
+      setValidationError("Title is required.");
+      return;
+    }
+    if (!channel) {
+      setValidationError("Channel is required.");
+      return;
+    }
+    if (!startTime) {
+      setValidationError("Start time is required.");
+      return;
+    }
+    if (!description.trim()) {
+      setValidationError("Description is required.");
+      return;
+    }
+    if (rsvpOptions.length === 0 || rsvpOptions.some(opt => !opt.emoji || !opt.name.trim())) {
+      setValidationError("At least one RSVP position with both emoji and name is required.");
+      return;
+    }
+
+    setValidationError(null); // Clear error if all validations pass
+
+    // Fetch latest patch version
+    let patchVersion = "";
+    try {
+      const patchObject = await getLatestPatch();
+      patchVersion = patchObject.version;
+    } catch (err) {
+      alert("Failed to fetch latest patch version.");
+      return;
+    }
+
+    // Save appearance as JSON
+    const appearance = {
+      color: appearanceColor,
+      image: appearanceImage
+    };
+
+    // Helper to generate a single event object
+    const makeEvent = (start: string, repeatSeries: number = 0) => ({
+      id: Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000,
       author_id: currentUserId,
       type: "Event",
       attendees: [],
       author_username: currentUsername,
       attendees_usernames: [],
-      timestamp: new Date(startTime).toISOString(),
+      timestamp: new Date(start).toISOString(),
       action: "add",
       allowed_ranks: [],
       allowed_ranks_names: [],
-      title: title,
-      description: description,
-      start_time: new Date(startTime).toISOString(),
+      title,
+      description,
+      start_time: new Date(start).toISOString(),
       end_time: endTime ? new Date(endTime).toISOString() : undefined,
       channel: Number(channel),
-      appearance: null,
-      repeat: false,
-      rsvp_options: "test",
-      fleet: 0,
-      patch: "",
-      active: true, 
-    };
+      appearance,
+      repeat,
+      repeat_end_date: repeat ? repeatEndDate : undefined,
+      repeat_frequency: repeat ? repeatFrequency : undefined,
+      rsvp_options: JSON.stringify(rsvpOptions),
+      fleet: fleetAssociation && selectedFleets.length > 0
+        ? selectedFleets.map(f => f.id)
+        : [],
+      patch: patchVersion,
+      active: true,
+      repeat_series: repeatSeries,
+    });
+
+    let events: any[] = [];
+
+    // Calculate duration in milliseconds
+    const durationMs =
+      endTime && startTime
+        ? new Date(endTime).getTime() - new Date(startTime).getTime()
+        : 0;
+
+    if (repeat && repeatEndDate && repeatFrequency) {
+      // Generate a random 8-digit repeat_series number
+      const repeatSeries = Math.floor(Math.random() * 90_000_000) + 10_000_000;
+
+      // Generate all repeat events
+      let current = new Date(startTime);
+      const end = new Date(repeatEndDate);
+      while (current <= end) {
+        const eventStart = new Date(current);
+        const eventEnd =
+          durationMs > 0 ? new Date(eventStart.getTime() + durationMs) : undefined;
+        const event = makeEvent(eventStart.toISOString(), repeatSeries);
+        event.start_time = eventStart.toISOString();
+        event.end_time = eventEnd ? eventEnd.toISOString() : undefined;
+        events.push(event);
+
+        if (repeatFrequency === "daily") {
+          current.setDate(current.getDate() + 1);
+        } else if (repeatFrequency === "weekly") {
+          current.setDate(current.getDate() + 7);
+        } else if (repeatFrequency === "monthly") {
+          current.setMonth(current.getMonth() + 1);
+        }
+      }
+    } else {
+      // One-off event
+      events = [makeEvent(startTime)];
+    }
 
     try {
-      const saved = await saveSchedule([eventData]);
+      const saved = await saveSchedule(events);
       if (saved && saved.length > 0) {
         onCreate(saved[0]);
       }
       onClose();
+      window.location.reload(); // <-- Add this line to refresh the page
     } catch (error) {
-      alert("Failed to create event.");
+      setValidationError("Failed to create event(s).");
     }
   };
 
@@ -394,15 +509,27 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 </span>
               </label>
               {repeat && (
-                <select
-                  value={repeatFrequency}
-                  onChange={e => setRepeatFrequency(e.target.value)}
-                  style={{ width: "100%", marginBottom: 12, height: 36, fontSize: 15 }}
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
+                <>
+                  <select
+                    value={repeatFrequency}
+                    onChange={e => setRepeatFrequency(e.target.value)}
+                    style={{ width: "100%", marginBottom: 12, height: 36, fontSize: 15 }}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                  <label style={{ marginTop: 8 }}>
+                    End Date
+                    <input
+                      type="date"
+                      value={repeatEndDate || ""}
+                      onChange={e => setRepeatEndDate(e.target.value || undefined)}
+                      style={{ width: "100%", marginTop: 4 }}
+                      min={startTime ? startTime.slice(0, 10) : undefined}
+                    />
+                  </label>
+                </>
               )}
               <label
                 style={{
@@ -436,22 +563,190 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 </span>
               </label>
               {fleetAssociation && (
-                <select
-                  value={fleetSelection}
-                  onChange={e => setFleetSelection(e.target.value)}
-                  style={{ width: "100%", height: 36, fontSize: 15 }}
-                >
-                  <option value="">Select Fleet</option>
-                  <option value="fleet1">Fleet 1</option>
-                  <option value="fleet2">Fleet 2</option>
-                  <option value="fleet3">Fleet 3</option>
-                </select>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowFleetPicker(true)}
+                    style={{ marginBottom: 8 }}
+                  >
+                    Select Fleets
+                  </button>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                    {selectedFleets.map(fleet => (
+                      <div
+                        key={fleet.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          padding: "4px 12px 4px 4px",
+                          borderRadius: 20,
+                          border: "2px solid #5865F2",
+                          background: "#5865F222",
+                          minWidth: 0,
+                          marginRight: 8,
+                        }}
+                      >
+                        <img
+                          src={fleet.avatar}
+                          alt={fleet.name || `Fleet #${fleet.id}`}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            marginRight: 8,
+                            border: "1px solid #ccc",
+                            background: "#fff"
+                          }}
+                          onError={e => (e.currentTarget.style.display = "none")}
+                        />
+                        <span style={{
+                          fontWeight: 500,
+                          fontSize: 15,
+                          color: "#fff",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: 100
+                        }}>
+                          {fleet.name || `Fleet #${fleet.id}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFleets(selectedFleets.filter(f => f.id !== fleet.id))}
+                          style={{
+                            marginLeft: 8,
+                            color: "#c00",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontWeight: 700,
+                            fontSize: 16,
+                          }}
+                          aria-label="Remove fleet"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Fleet Picker Modal/Area */}
+                  {showFleetPicker && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100vw",
+                        height: "100vh",
+                        background: "rgba(0,0,0,0.6)",
+                        zIndex: 2000,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                      onClick={() => setShowFleetPicker(false)}
+                    >
+                      <div
+                        style={{
+                          background: "#23272a",
+                          borderRadius: 12,
+                          padding: 24,
+                          minWidth: 340,
+                          maxWidth: 600,
+                          maxHeight: "70vh",
+                          overflowY: "auto",
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <h3 style={{ color: "#fff", marginBottom: 16 }}>Select Fleets</h3>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                          {fleets.map(fleet => (
+                            <div
+                              key={fleet.id}
+                              onClick={() => {
+                                if (!selectedFleets.some(f => f.id === fleet.id)) {
+                                  setSelectedFleets([...selectedFleets, fleet]);
+                                }
+                              }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                padding: "4px 12px 4px 4px",
+                                borderRadius: 20,
+                                border: selectedFleets.some(f => f.id === fleet.id)
+                                  ? "2px solid #5865F2"
+                                  : "1px solid #444",
+                                background: selectedFleets.some(f => f.id === fleet.id)
+                                  ? "#5865F222"
+                                  : "#23272a",
+                                cursor: selectedFleets.some(f => f.id === fleet.id)
+                                  ? "not-allowed"
+                                  : "pointer",
+                                opacity: selectedFleets.some(f => f.id === fleet.id)
+                                  ? 0.5
+                                  : 1,
+                                minWidth: 0,
+                                marginBottom: 8,
+                                transition: "border 0.2s, background 0.2s",
+                              }}
+                            >
+                              <img
+                                src={fleet.avatar}
+                                alt={fleet.name || `Fleet #${fleet.id}`}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: "50%",
+                                  objectFit: "cover",
+                                  marginRight: 10,
+                                  border: "1px solid #ccc",
+                                  background: "#fff"
+                                }}
+                                onError={e => (e.currentTarget.style.display = "none")}
+                              />
+                              <span style={{
+                                fontWeight: 500,
+                                fontSize: 15,
+                                color: "#fff",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                maxWidth: 120
+                              }}>
+                                {fleet.name || `Fleet #${fleet.id}`}
+                              </span>
+                              {selectedFleets.some(f => f.id === fleet.id) && (
+                                <span style={{ marginLeft: 8, color: "#5865F2", fontWeight: 700 }}>✓</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowFleetPicker(false)}
+                          style={{ marginTop: 16 }}
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
+        {validationError && (
+          <div style={{ color: "#c00", marginBottom: 12, fontWeight: 500, textAlign: "center" }}>
+            {validationError}
+          </div>
+        )}
         <div style={{ marginTop: 16 }}>
-          <button type="submit">Create Event</button>
+          <button type="submit">
+            Create Event
+          </button>
           <button type="button" onClick={onClose} style={{ marginLeft: 8 }}>
             Cancel
           </button>

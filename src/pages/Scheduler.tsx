@@ -314,6 +314,19 @@ export default function Scheduler() {
     }
   };
 
+  // Add this function inside your Scheduler component
+  const refreshSchedule = async () => {
+    if (weekRange) {
+      setLoading(true);
+      try {
+        const fresh = await getWeeklySchedule(weekRange.start, weekRange.end);
+        setAvailability(fresh);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   if (!user) {
     return (
       <div className="centered-screen">
@@ -438,11 +451,13 @@ export default function Scheduler() {
               <Calendar
                 initialDate={weekRange ? weekRange.start : undefined}
                 availability={filteredAvailability}
-                onToggleHour={handleDayCellClick} 
+                onToggleHour={handleDayCellClick}
                 onWeekChange={handleWeekChange}
                 currentUserId={user.id}
                 currentUsername={user.username}
                 userRoleIds={dbUser?.roles || []}
+                viewMode={viewMode}
+                onScheduleUpdated={refreshSchedule} // <-- Pass this prop
               />
 
               <div className="save-container">
@@ -456,7 +471,7 @@ export default function Scheduler() {
                   onClick={handleSave}
                   disabled={saving}
                 >
-                  {saving ? 'Saving...' : 'Save Availability'}
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
 

@@ -401,6 +401,11 @@
   box-shadow: 0 0 4px 0 rgba(255,255,255,0.15);
 }
 
+.hour-cell.has-event {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
 .attendees-icon {
   vertical-align: middle;
   margin-right: 2px;

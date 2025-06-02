@@ -7,14 +7,16 @@ export interface CalendarProps {
   availability: Availability;
   onToggleHour: (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean, availabilityId?: string }) => void;
   onWeekChange: (startOfWeek: Date, endOfWeek: Date) => void;
-  currentUserId: number;
+  currentUserId: string;
   currentUsername: string;
   userRoleIds: string[]; // Fix type here
+  viewMode: string;
+  onScheduleUpdated?: () => void; // Add this
 }
 
 const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggleHour, onWeekChange, currentUserId, currentUsername, userRoleIds }) => {
+const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggleHour, onWeekChange, currentUserId, currentUsername, userRoleIds, viewMode, onScheduleUpdated }) => {
   const [currentDate, setCurrentDate] = useState(() =>
     initialDate ? new Date(initialDate) : new Date()
   );
@@ -30,7 +32,7 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
 
   // Whenever currentDate changes, update weekDates and notify parent
   useEffect(() => {
-    const startOfWeek = new Date(currentDate);
+    const startOfWeek = new Date(currentDate); 
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
@@ -100,6 +102,8 @@ const Calendar: React.FC<CalendarProps> = ({ initialDate, availability, onToggle
             currentUsername={currentUsername}
             userRoleIds={userRoleIds}
             calendarRef={calendarRef}
+            viewMode={viewMode}
+            onScheduleUpdated={onScheduleUpdated} // Pass down
           />
         ))}
       </div>

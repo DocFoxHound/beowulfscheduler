@@ -1,14 +1,17 @@
 import React, { useState, RefObject } from 'react';
 import { ScheduleEntry } from '../types/schedule';
+import { updateSchedule } from '../api/scheduleService'; // Add this import at the top
 
 export interface DayCellProps {
   date: Date;
   selectedHours: ScheduleEntry[];
   onToggleHour: (date: Date, hour: number, options?: { forceAdd?: boolean, removeOwn?: boolean, availabilityId?: string }) => void;
-  currentUserId: number;
+  currentUserId: string;
   currentUsername: string;
   userRoleIds?: string[]; // Pass this from Scheduler if needed
   calendarRef: React.RefObject<HTMLDivElement | null>;
+  viewMode: string; 
+  onScheduleUpdated?: () => void; // Add this
 }
 
 const CollapsibleList: React.FC<{ label: string, items: string[], minimizedLabel?: string }> = ({ label, items, minimizedLabel }) => {
@@ -53,11 +56,96 @@ const typeToColor = (type: string) => {
   }
 };
 
-const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, currentUserId, currentUsername, userRoleIds = [], calendarRef }) => {
+const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
+const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
+const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+const EVENT_CREATOR_IDS = [...CREW_IDS, ...MARAUDER_IDS, ...BLOODED_IDS];
+
+function canCreateEvent(userRoleIds: string[]) {
+  return userRoleIds.some(roleId => EVENT_CREATOR_IDS.includes(roleId));
+}
+
+const DayCell: React.FC<DayCellProps> = ({
+  date,
+  selectedHours,
+  onToggleHour,
+  currentUserId,
+  currentUsername,
+  userRoleIds = [],
+  calendarRef,
+  viewMode,
+  onScheduleUpdated,
+}) => {
   const dayNumber = date.getDate();
   const [hoveredHour, setHoveredHour] = useState<number | null>(null);
   const [popoverDirection, setPopoverDirection] = useState<'down' | 'up'>('down');
   const [hoveredPopoverEntry, setHoveredPopoverEntry] = useState<number | null>(null);
+  const [localRsvp, setLocalRsvp] = useState<{ [eventId: number]: string | undefined }>({});
+
+  // Helper to get the user's RSVP name for this event
+  const getUserRsvp = (entry: ScheduleEntry, userId: string) => {
+    if (!Array.isArray(entry.event_members)) return undefined;
+    const userIdStr = String(userId);
+    for (const m of entry.event_members) {
+      try {
+        const obj = typeof m === "string" ? JSON.parse(m) : m;
+        if (obj.user_id === userIdStr) return obj.name;
+      } catch {}
+    }
+    return undefined;
+  };
+
+  const handleRsvp = async (entry: ScheduleEntry, rsvpName: string, currentUserId: string) => {
+    // Parse event_members as array of { user_id: string, name: string }
+    let members: { name: string; user_id: string }[] = [];
+    if (Array.isArray(entry.event_members)) {
+      members = entry.event_members.map(m => {
+        try {
+          return typeof m === "string" ? JSON.parse(m) : m;
+        } catch {
+          return null;
+        }
+      }).filter(Boolean);
+    }
+    const userIdStr = String(currentUserId);
+    const existingIdx = members.findIndex(m => m.user_id === userIdStr);
+    const currentMember = existingIdx !== -1 ? members[existingIdx] : undefined;
+
+    // Check if user is already RSVP'd for this option
+    const alreadySelected = currentMember && currentMember.name === rsvpName;
+
+    let updatedMembers = [...members];
+    let updatedAttendees: string[] = entry.attendees ? entry.attendees.map(String) : [];
+
+    if (alreadySelected) {
+      // Remove user from event_members and attendees
+      updatedMembers = updatedMembers.filter(m => m.user_id !== userIdStr);
+      updatedAttendees = updatedAttendees.filter(id => String(id) !== userIdStr);
+      setLocalRsvp(prev => ({ ...prev, [entry.id]: undefined }));
+    } else {
+      // Update or add RSVP
+      if (currentMember) {
+        updatedMembers[existingIdx] = { ...currentMember, name: rsvpName };
+      } else {
+        updatedMembers.push({ user_id: userIdStr, name: rsvpName });
+      }
+      // Ensure user is in attendees
+      if (!updatedAttendees.map(String).includes(userIdStr)) {
+        updatedAttendees.push(userIdStr);
+      }
+      setLocalRsvp(prev => ({ ...prev, [entry.id]: rsvpName }));
+    }
+
+    try {
+      await updateSchedule(entry.id, {
+        event_members: updatedMembers.map(m => JSON.stringify(m)),
+        attendees: updatedAttendees
+      });
+      if (onScheduleUpdated) onScheduleUpdated(); // <-- Refresh after update
+    } catch (error) {
+      console.error("Failed to update RSVP", error);
+    }
+  };
 
   return (
     <div className="day-cell">
@@ -179,26 +267,36 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
             >
               <div
                 key={hour}
-                className={`hour-cell${isSelected ? ` selected ${type.toLowerCase()}` : ''}${isAttendee ? ' attendee' : ''}${!canJoin && isSelected ? ' locked' : ''}${isAuthor ? ' author-ring' : ''}`}
-                onClick={() =>
-                  canJoin && hourEventsCount <= 1
-                    ? onToggleHour(date, hour)
-                    : undefined
-                }
+                className={`hour-cell${isSelected ? ` selected ${type.toLowerCase()}` : ''}${isAttendee ? ' attendee' : ''}${!canJoin && isSelected ? ' locked' : ''}${isAuthor ? ' author-ring' : ''}${viewMode === "events" && isAttendee ? ' gold-attendee' : ''}${viewMode === "events" && hourEventsCount > 0 ? ' has-event' : ''}`}
+                onClick={() => {
+                  // Only allow click if user can create event (for events) or can join (for availabilities)
+                  if (
+                    (viewMode === "events" && canCreateEvent(userRoleIds)) ||
+                    (viewMode !== "events" && canJoin)
+                  ) {
+                    if (canJoin && hourEventsCount <= 1) {
+                      onToggleHour(date, hour);
+                    }
+                  }
+                }}
                 style={{
                   ...{
                     position: "relative",
                     opacity: !canJoin && isSelected ? 0.5 : 1,
-                    cursor: !canJoin && isSelected
-                      ? "not-allowed"
-                      : hourEventsCount > 1
+                    cursor:
+                      !canJoin && isSelected
                         ? "not-allowed"
-                        : "pointer",
+                        : hourEventsCount > 1
+                          ? "not-allowed"
+                          : "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 2,
                     padding: 0,
+                    ...(viewMode === "events" && isAttendee
+                      ? { boxShadow: "0 0 0 2px gold, 0 0 8px gold", borderRadius: 6 }
+                      : {}),
                   },
                   ...(hourCellBackground ? { background: hourCellBackground } : {}),
                 }}
@@ -272,12 +370,32 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                           }}
                           onClick={e => {
                             e.stopPropagation();
-                            if (canJoin) onToggleHour(date, hour, { forceAdd: true });
+                            // For events, require special roles
+                            if (
+                              (viewMode === "events" && canCreateEvent(userRoleIds)) ||
+                              (viewMode !== "events" && canJoin)
+                            ) {
+                              onToggleHour(date, hour, { forceAdd: true });
+                            }
                           }}
-                          disabled={!canJoin}
+                          disabled={
+                            (viewMode === "events" && !canCreateEvent(userRoleIds)) ||
+                            (viewMode !== "events" && !canJoin)
+                          }
                           tabIndex={-1}
                         >
-                          <span style={{ color: "#fff", fontWeight: "bold" }} title="Join this availability">🞥</span>
+                          <span
+                            style={{ color: "#fff", fontWeight: "bold" }}
+                            title={
+                              viewMode === "events"
+                                ? canCreateEvent(userRoleIds)
+                                  ? "Create event"
+                                  : "You do not have permission to create events"
+                                : canJoin
+                                  ? "Join this availability"
+                                  : "You do not have permission"
+                            }
+                          >🞥</span>
                           {/* Vertical divider */}
                           <span
                             className="hour-cell-divider"
@@ -305,11 +423,11 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                 )}
                 {/* Attendees icon space */}
                 <span style={{ width: 0, display: "inline-block", textAlign: "center" }}>
-                  {totalAttendees > 0 ? (
+                  {viewMode === "events" && hourEntries.some(e => (e.attendees?.length ?? 0) > 0) && (
                     <span className="attendees-icon" style={{ fontSize: 14, color: "#fff" }}>
                       𐙞
                     </span>
-                  ) : null}
+                  )}
                 </span>
                 {/* Centered hour number */}
                 <span style={{ flex: 1, textAlign: "center" }}>
@@ -494,20 +612,81 @@ const DayCell: React.FC<DayCellProps> = ({ date, selectedHours, onToggleHour, cu
                     onMouseEnter={() => setHoveredHour(hour)}
                     onMouseLeave={() => setHoveredHour(null)}
                   >
-                    <div><strong>Type:</strong> {type}</div>
-                    <div><strong>Author:</strong> {author}</div>
-                    <div>
-                      <strong>Attendees:</strong>
-                      <ul>
-                        {attendees.length > 0 ? attendees.map((name, idx) => (
-                          <li key={idx}>{name}</li>
-                        )) : <li>None</li>}
-                      </ul>
-                    </div>
-                    <div>
-                      <strong>Allowed Ranks:</strong>
-                      <CollapsibleList label="Allowed Ranks" items={allowedRanksNames} minimizedLabel="All" />
-                    </div>
+                    {viewMode === "events" ? (
+                      <>
+                        <div><strong>Title:</strong> {selectedEntry?.title || "No title"}</div>
+                        <div><strong>Description:</strong> {selectedEntry?.description || "No description"}</div>
+                        {selectedEntry?.appearance?.image && (
+                          <div style={{ margin: "8px 0" }}>
+                            <img src={selectedEntry.appearance.image} alt="Event" style={{ maxWidth: 180, borderRadius: 4 }} />
+                          </div>
+                        )}
+                        {/* RSVP Buttons */}
+                        {(() => {
+                          let rsvpOptions = selectedEntry?.rsvp_options;
+                          if (typeof rsvpOptions === "string") {
+                            try {
+                              rsvpOptions = JSON.parse(rsvpOptions);
+                            } catch {
+                              rsvpOptions = [];
+                            }
+                          }
+                          if (Array.isArray(rsvpOptions) && rsvpOptions.length > 0) {
+                            const userRsvp = localRsvp[selectedEntry.id] !== undefined
+                              ? localRsvp[selectedEntry.id]
+                              : getUserRsvp(selectedEntry, currentUserId);
+                            return (
+                              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                                {rsvpOptions.map((opt, idx) => {
+                                  const isSelected = userRsvp === opt.name;
+                                  return (
+                                    <button
+                                      key={idx}
+                                      style={{
+                                        padding: "4px 10px",
+                                        borderRadius: 4,
+                                        border: isSelected ? "2px solid gold" : "1px solid #444",
+                                        background: "#333",
+                                        color: "#fff",
+                                        fontSize: 16,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        boxShadow: isSelected ? "0 0 8px gold" : undefined,
+                                        outline: isSelected ? "2px solid gold" : undefined,
+                                      }}
+                                      onClick={() => handleRsvp(selectedEntry, opt.name, currentUserId)}
+                                    >
+                                      <span>{opt.emoji}</span>
+                                      <span style={{ fontSize: 13 }}>{opt.name}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </>
+                    ) : (
+                      <>
+                        <div><strong>Type:</strong> {type}</div>
+                        <div><strong>Author:</strong> {author}</div>
+                        <div>
+                          <strong>Attendees:</strong>
+                          <ul>
+                            {attendees.length > 0 ? attendees.map((name, idx) => (
+                              <li key={idx}>{name}</li>
+                            )) : <li>None</li>}
+                          </ul>
+                        </div>
+                        <div>
+                          <strong>Allowed Ranks:</strong>
+                          <CollapsibleList label="Allowed Ranks" items={allowedRanksNames} minimizedLabel="All" />
+                        </div>
+                      </>
+                    )}
                   </div>
                 )
               )}

@@ -3,9 +3,9 @@
  */
 export interface ScheduleEntry {
   id: number;
-  author_id?: number;
+  author_id?: string;
   type?: string;
-  attendees: number[];
+  attendees: string[];
   author_username?: string;
   attendees_usernames: string[];
   timestamp: string; // ISO 8601 string with timezone
@@ -20,9 +20,13 @@ export interface ScheduleEntry {
   appearance?: any; // JSON object
   repeat?: boolean;
   rsvp_options?: any; // JSON object
-  fleet?: number;
+  fleet?: number[];
   patch?: string;
   active?: boolean;
+  repeat_end_date?: string; // ISO 8601 string with timezone
+  repeat_frequency?: string; // e.g., "daily", "weekly", "monthly"
+  repeat_series?: number; // Number of occurrences
+  event_members?: string[];
 }
 
 /**
