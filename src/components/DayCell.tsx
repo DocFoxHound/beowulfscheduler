@@ -140,7 +140,7 @@ const DayCell: React.FC<DayCellProps> = ({
       await updateSchedule(entry.id, {
         event_members: updatedMembers.map(m => JSON.stringify(m)),
         attendees: updatedAttendees
-      });
+      }, true);
       if (onScheduleUpdated) onScheduleUpdated(); // <-- Refresh after update
     } catch (error) {
       console.error("Failed to update RSVP", error);

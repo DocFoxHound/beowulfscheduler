@@ -41,13 +41,18 @@ export const fetchFleetById = async (fleet_id: string): Promise<UserFleet[]> => 
   return response.data;
 };
 
-export const fetchFleetByMembers = async (user_id: string): Promise<UserFleet[]> => {
-  const response = await axios.get<UserFleet[]>(`${API_BASE_URL}/api/fleet/members`, {
-    params: {
-      user_id: user_id,
-    },
-  });
-  return response.data;
+export const fetchFleetByMember = async (user_id: string): Promise<UserFleet | null> => {
+  try {
+    const response = await axios.get<UserFleet>(`${API_BASE_URL}/api/fleet/members`, {
+      params: { user_id }
+    });
+    return response.data;
+  } catch (error: any) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 };
 
 export const fetchFleetActiveOrNot = async (activeOrNot: boolean): Promise<UserFleet[]> => {

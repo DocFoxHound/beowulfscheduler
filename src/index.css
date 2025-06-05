@@ -23,21 +23,13 @@ a:hover {
 }
 
 html, body, #root {
-  height: 100%;
+  min-height: 100vh;
+  height: auto;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-}
-
-body {
-  flex: 1; /* Allow the body to grow and fill the available space */
-}
-
-#root {
-  flex: 1; /* Ensure the root element takes up the full height */
-  display: flex;
-  flex-direction: column;
+  background-color: #181a20; /* Ensure your dark background is here */
 }
 
 h1 {

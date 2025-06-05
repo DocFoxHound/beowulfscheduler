@@ -60,3 +60,20 @@ export const updateHit = async (hit: Hit): Promise<Hit> => {
 export const deleteHit = async (id: string): Promise<void> => {
   await axios.delete(`${API_BASE_URL}/api/hittracker/${id}`);
 };
+
+export const fetchHitEntryCount = async (): Promise<number> => {
+  const response = await axios.get<{ count: number }>(`${API_BASE_URL}/api/hittracker/count`);
+  return response.data.count;
+};
+
+export const fetchTotalValueStolenSum = async (): Promise<number> => {
+  const response = await axios.get<{ total_sum: number }>(`${API_BASE_URL}/api/hittracker/totalsum`);
+  return response.data.total_sum;
+};
+
+export const fetchTop10TotalCutValueByPatch = async (patch: string): Promise<{ user_id: string, total_cut_sum: number }[]> => {
+  const response = await axios.get<{ user_id: string, total_cut_sum: number }[]>(`${API_BASE_URL}/api/hittracker/top10totalcutvalue`, {
+    params: { patch }
+  });
+  return response.data;
+};

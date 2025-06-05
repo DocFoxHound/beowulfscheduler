@@ -37,47 +37,17 @@ export const getWeeklySchedule = async (startOfWeek: Date, endOfWeek: Date): Pro
 
 /**
  * Saves the user's availability to the API
- * @param availability - The availability data to save
+ * @param availability - The availability data to save (array of events)
  * @returns Promise with the saved availability data
  */
 export const saveSchedule = async (availability: Availability): Promise<Availability> => {
   try {
-    const results = await Promise.all(
-      availability.map(async (item) => {
-        if (item.action === "add") {
-          item.action = "";
-          // POST to create new availability
-          //create new availability entry
-          const response = await axios.post(`${API_URL}/schedule`, item, {
-            withCredentials: true,
-            headers: { 'Content-Type': 'application/json' }
-          });
-          return response.data;
-        } else if (item.action === "delete") {
-          // DELETE by id or timestamp
-          const itemById = await axios.get(`${API_URL}/schedule/${item.id}`, {
-            withCredentials: true,
-          });
-          const response = await axios.delete(`${API_URL}/schedule/${item.id}`, {
-            withCredentials: true,
-          });
-          return { ...item, deleted: true };
-        } else if (item.action === "update") {
-          item.action = "";
-          // PUT or PATCH to update existing availability
-          const response = await axios.put(`${API_URL}/schedule/${item.id}`, item, {
-            withCredentials: true,
-            headers: { 'Content-Type': 'application/json' }
-          });
-          return response.data;
-        } else {
-          // Unknown action, skip or throw error
-          return null;
-        }
-      })
-    );
-    // Filter out nulls and deleted items if needed
-    return results.filter(Boolean) as Availability;
+    // Send the entire array in one POST request
+    const response = await axios.post(`${API_URL}/schedule`, availability, {
+      withCredentials: true,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.data;
   } catch (error) {
     console.error('Error saving schedule:', error);
     throw error;
@@ -108,15 +78,43 @@ export const saveScheduleRepeat = async (entry: ScheduleEntry): Promise<Schedule
  * @param data - The updated schedule entry data
  * @returns Promise with the updated schedule entry
  */
-export const updateSchedule = async (id: number, data: Partial<ScheduleEntry>): Promise<ScheduleEntry> => {
+export const updateSchedule = async (
+  id: number,
+  data: Partial<ScheduleEntry>,
+  notify: boolean
+): Promise<ScheduleEntry> => {
   try {
-    const response = await axios.put(`${API_URL}/schedule/${id}`, data, {
-      withCredentials: true,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const response = await axios.put(
+      `${API_URL}/schedule/${id}`,
+      { ...data, notify }, // Add notify to the body
+      {
+        withCredentials: true,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
     return response.data;
   } catch (error) {
     console.error('Error updating schedule:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches the next upcoming schedule entry for a given repeat_series
+ * @param repeatSeries - The repeat_series ID
+ * @returns Promise with the next schedule entry or null if not found
+ */
+export const getNextScheduleByRepeatSeries = async (repeatSeries: string) => {
+  try {
+    const response = await axios.get(`${API_URL}/schedule/repeatseries/${repeatSeries}/next`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      return null; // No upcoming schedule found
+    }
+    console.error('Error fetching next schedule by repeat_series:', error);
     throw error;
   }
 };

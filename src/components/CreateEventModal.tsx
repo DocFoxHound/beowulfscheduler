@@ -36,7 +36,19 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   currentUsername,
   userRoleIds
 }) => {
-  const [title, setTitle] = useState("");
+  const isLive = import.meta.env.VITE_IS_LIVE === "true";
+
+  const PUBLIC_EVENTS_CHANNEL = isLive
+    ? import.meta.env.VITE_PUBLIC_EVENTS_CHANNEL
+    : import.meta.env.VITE_TEST_PUBLIC_EVENTS_CHANNEL;
+  const CREW_EVENTS_CHANNEL = isLive
+    ? import.meta.env.VITE_CREW_EVENTS_CHANNEL
+    : import.meta.env.VITE_TEST_CREW_EVENTS_CHANNEL;
+  const MARAUDER_EVENTS_CHANNEL = isLive
+    ? import.meta.env.VITE_MARAUDER_EVENTS_CHANNEL
+    : import.meta.env.VITE_TEST_MARAUDER_EVENTS_CHANNEL;
+
+  const [title, setTitle] = useState("Event Title");
   const [description, setDescription] = useState("");
   const [startTime, setStartTime] = useState(() => {
     const d = new Date(defaultDate);
@@ -48,7 +60,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     d.setHours(defaultHour + 1, 0, 0, 0);
     return d.toISOString().slice(0, 16);
   });
-  const [channel, setChannel] = useState("1178563149079777352"); // Default to Public Events
+  const [channel, setChannel] = useState(""); // Default to Public Events
   const [rsvpOptions, setRsvpOptions] = useState([
     { emoji: "✅", name: "Yes" },
     { emoji: "❔", name: "Maybe" },
@@ -161,7 +173,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
       description,
       start_time: new Date(start).toISOString(),
       end_time: endTime ? new Date(endTime).toISOString() : undefined,
-      channel: Number(channel),
       appearance,
       repeat,
       repeat_end_date: repeat ? repeatEndDate : undefined,
@@ -171,8 +182,11 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
         ? selectedFleets.map(f => f.id)
         : [],
       patch: patchVersion,
-      active: true,
+      active: false,
       repeat_series: repeatSeries,
+      discord_channel: String(channel),
+      first_notice: false,
+      second_notice: false
     });
 
     let events: any[] = [];
@@ -286,9 +300,9 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 <option value="" disabled>
                     Channel Selection
                 </option>
-                <option value="1178563149079777352">Public Events</option>
-                <option value="1222195799249911909">Crew Events</option>
-                <option value="1195840959284514926">Marauder Events</option>
+                <option value={PUBLIC_EVENTS_CHANNEL}>Public Events</option>
+                <option value={CREW_EVENTS_CHANNEL}>Crew Events</option>
+                <option value={MARAUDER_EVENTS_CHANNEL}>Marauder Events</option>
             </select>
           </label>
         </div>

@@ -5,10 +5,13 @@ import { getUserById, getUserRank } from "../api/userService";
 import { useUserContext } from "../context/UserContext"; // <-- Import the context hook
 import DashboardGraphs from "../components/DashboardGraphs"; // Add this import
 import Navbar from "../components/Navbar";
+import { fetchFleetByMember } from "../api/fleetApi"; // Add this import
+import DashboardTopPlayers from "../components/DashboardTopPlayers"; // Add this import
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const { dbUser, setDbUser, userRank, setUserRank } = useUserContext(); 
+  const [fleet, setFleet] = useState<any>(null); // Add fleet state
 
   useEffect(() => {
     axios
@@ -32,6 +35,14 @@ export default function Dashboard() {
         .catch(() => setUserRank(null));
     }
   }, [dbUser, setUserRank]);
+
+  useEffect(() => {
+    if (user && user.id) {
+      fetchFleetByMember(user.id)
+        .then((fleet) => setFleet(fleet))
+        .catch(() => setFleet(null));
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -62,31 +73,40 @@ export default function Dashboard() {
             <DashboardGraphs />
           </div>
 
-          {/* Existing cards */}
-          <div className="card">
-            <h2>Fleet Assignment</h2>
-            <h4>IronPoint Main</h4>
-            <p>Current Task: Disrupt trade in Stanton and Pyro systems.</p>
+          {/* Middle column: Top Players */}
+          <div className="card fleet-performance">
+            <DashboardTopPlayers />
           </div>
 
-          {/* Right column: Fleet Performance */}
-          <div className="card fleet-performance">
-            <h2>Fleet Performance</h2>
-            <ul>
-              <li>
-                <strong>Alpha Squadron</strong>
-                <p>Intercepted 3 convoys in Pyro this week.</p>
-              </li>
-              <li>
-                <strong>Bravo Wing</strong>
-                <p>Provided escort for mining ops in Stanton.</p>
-              </li>
-              <li>
-                <strong>Recon Team</strong>
-                <p>Scouted new jump points, no enemy contact.</p>
-              </li>
-            </ul>
+          {/* Right Column: Fleet Assignment card */}
+          <div className="card">
+            <h2>Fleet Assignment</h2>
+            {fleet ? (
+              <>
+                <h4>{fleet.name}</h4>
+                {fleet.avatar && (
+                  <img
+                    src={fleet.avatar}
+                    alt="Fleet Avatar"
+                    style={{ width: "64px", height: "64px", borderRadius: "8px", marginBottom: "8px" }}
+                  />
+                )}
+                <p>
+                  <strong>Primary Mission:</strong> {fleet.primary_mission || "N/A"}
+                </p>
+                <p>
+                  <strong>Secondary Mission:</strong> {fleet.secondary_mission || "N/A"}
+                </p>
+                {fleet.commander_id === user.id && (
+                  <p style={{ color: "green", fontWeight: "bold" }}>You are the Fleet Commander</p>
+                )}
+              </>
+            ) : (
+              <p>No fleet assignment found.</p>
+            )}
           </div>
+
+          
         </section>
       </main>
     </div>

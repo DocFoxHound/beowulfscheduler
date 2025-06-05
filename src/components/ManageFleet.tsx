@@ -134,7 +134,11 @@ const ManageFleet: React.FC<ManageFleetProps> = ({
       )}
       {isOriginalCommander
         ? "To create another fleet, contact an admin."
-        : "You are not part of any fleet."
+        : (
+          <div style={{ whiteSpace: "pre-line" }}>
+            {"Fleet Rules:\n\n1. A CORSAIR may only ever create a single fleet. All additional creations must be handled by an admin. \n2. Fleet Logs must have 4, or more, members from your fleet active to count.\n3. The Fleet MUST have a commanding/leading role in the event or activity.\n4. Multiple fleets can claim the same event, but only if they had significant leadership roles in the event. The members of the event must be split evenly when both fleets make a Fleet Log."}
+          </div>
+        )
       }
     </div>
   );

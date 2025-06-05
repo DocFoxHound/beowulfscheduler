@@ -16,7 +16,6 @@ export interface ScheduleEntry {
   description?: string;
   start_time?: string; // ISO 8601 string with timezone
   end_time?: string;   // ISO 8601 string with timezone
-  channel?: number;
   appearance?: any; // JSON object
   repeat?: boolean;
   rsvp_options?: any; // JSON object
@@ -27,6 +26,8 @@ export interface ScheduleEntry {
   repeat_frequency?: string; // e.g., "daily", "weekly", "monthly"
   repeat_series?: number; // Number of occurrences
   event_members?: string[];
+  discord_channel?: string;
+  discord_buttons?: string[];
 }
 
 /**

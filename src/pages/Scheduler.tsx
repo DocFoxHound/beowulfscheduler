@@ -362,7 +362,7 @@ export default function Scheduler() {
               cursor: "pointer"
             }}
           >
-            Normal Schedule
+            Training
           </button>
           <button
             onClick={() => setViewMode("events")}

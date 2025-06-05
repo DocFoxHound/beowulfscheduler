@@ -113,3 +113,11 @@ export const fetchRecentShipLogsByFleet = async (fleet_id: string): Promise<Flee
   });
   return response.data;
 };
+
+// Fetch top fleets by patch
+export const fetchTopFleetsByPatch = async (patch: string): Promise<{ fleet_id: string, entry_count: number }[]> => {
+  const response = await axios.get<{ fleet_id: string, entry_count: number }[]>(`${API_BASE_URL}/api/shiplog/top-fleets`, {
+    params: { patch },
+  });
+  return response.data;
+};

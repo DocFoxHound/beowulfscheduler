@@ -141,6 +141,7 @@ const ActiveFleetCard: React.FC<Props> = ({
                     ...fleet,
                     commander_id: dbUser.id,
                     commander_corsair_rank: dbUser.corsair_level,
+                    members_ids: [ dbUser.id ],
                     active: true,
                     last_active: new Date().toISOString(),
                   });

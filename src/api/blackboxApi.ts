@@ -75,3 +75,56 @@ export const fetchBlackBoxesBetweenTimestamps = async (
   });
   return response.data;
 };
+
+export const fetchACGameModeCount = async (): Promise<number> => {
+  const response = await axios.get<{ count: number }>(`${API_BASE_URL}/api/blackbox/acgamemodecount`);
+  return response.data.count;
+};
+
+export const fetchPUGameModeCount = async (): Promise<number> => {
+  const response = await axios.get<{ count: number }>(`${API_BASE_URL}/api/blackbox/pugamemodecount`);
+  return response.data.count;
+};
+
+export const fetchShipKillCount = async (): Promise<number> => {
+  const response = await axios.get<{ count: number }>(`${API_BASE_URL}/api/blackbox/shipkillcount`);
+  return response.data.count;
+};
+
+export const fetchFPSKillCount = async (): Promise<number> => {
+  const response = await axios.get<{ count: number }>(`${API_BASE_URL}/api/blackbox/fpskillcount`);
+  return response.data.count;
+};
+
+export const fetchTotalValueDestroyedSum = async (): Promise<number> => {
+  const response = await axios.get<{ total_sum: number }>(`${API_BASE_URL}/api/blackbox/totalsum`);
+  return response.data.total_sum;
+};
+
+export const fetchTop10ACShipKillersByPatch = async (patch: string): Promise<any[]> => {
+  const response = await axios.get<any[]>(`${API_BASE_URL}/api/blackbox/top10acshipkillers`, {
+    params: { patch }
+  });
+  return response.data;
+};
+
+export const fetchTop10ACFPSKillersByPatch = async (patch: string): Promise<any[]> => {
+  const response = await axios.get<any[]>(`${API_BASE_URL}/api/blackbox/top10acfpskillers`, {
+    params: { patch }
+  });
+  return response.data;
+};
+
+export const fetchTop10PUShipKillersByPatch = async (patch: string): Promise<any[]> => {
+  const response = await axios.get<any[]>(`${API_BASE_URL}/api/blackbox/top10pushipkillers`, {
+    params: { patch }
+  });
+  return response.data;
+};
+
+export const fetchTop10PUFPSKillersByPatch = async (patch: string): Promise<any[]> => {
+  const response = await axios.get<any[]>(`${API_BASE_URL}/api/blackbox/top10pufpskillers`, {
+    params: { patch }
+  });
+  return response.data;
+};

@@ -7,6 +7,7 @@ import Scheduler from './pages/Scheduler';
 import Fleet from './pages/Fleets';
 import Hittracker from './pages/Piracy';
 import Warehouse from "./pages/Warehouse";
+import Info from './pages/Info';
 import { UserProvider } from "./context/UserContext";
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/info" element={<Info />} />
         <Route path="/piracy" element={<Hittracker />} />
         <Route path="/fleets" element={<Fleet />} />
         <Route path="/scheduler" element={<Scheduler />} />

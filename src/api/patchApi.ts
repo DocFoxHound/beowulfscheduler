@@ -8,3 +8,8 @@ export const getLatestPatch = async (): Promise<Patch> => {
   const response = await axios.get<Patch>(`${API_BASE_URL}/api/gameversion/`);
   return response.data;
 };
+
+export const getAllGameVersions = async (): Promise<Patch[]> => {
+  const response = await axios.get<Patch[]>(`${API_BASE_URL}/api/gameversion/`);
+  return response.data;
+};

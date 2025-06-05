@@ -296,7 +296,7 @@ const Hittracker: React.FC = () => {
         <div className="hittracker-layout">
           {/* LEFT COLUMN: Log Fleet Activity (was center) */}
           <div className="column overview-panel-column">
-            {selectedUserId === dbUser.id && (
+            {selectedUserId === dbUser.id && fleets.some(fleet => fleet.commander_id === dbUser.id) && (
               <button
                 className="add-hit-btn"
                 style={{

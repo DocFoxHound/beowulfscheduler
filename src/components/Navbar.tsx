@@ -6,6 +6,7 @@ const Navbar: React.FC = () => (
     <div className="navbar-title">IronPoint</div>
     <nav className="navbar-links">
       <a href="/dashboard">Dashboard</a>
+      <a href="/info">Info</a>
       <a href="/piracy">Piracy</a>
       <a href="/fleets">Fleets</a>
       <a href="/scheduler">Scheduler</a>
