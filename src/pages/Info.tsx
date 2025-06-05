@@ -180,6 +180,11 @@ const badgeDescriptions: Record<string, string> = {
     "Forward Deployed": "Get 5 sub-commands under your belt. (10pts)",
     "Tactical Master": "Get 10 sub-commands under your belt. (20pts)",
     "Strategist": "Get 20 sub-commands under your belt. (50pts)",
+    "Duck Hunter": "100 FPS kills. (10pts)",
+    "Digital Gunner": "500 FPS kills. (20pts)",
+    "Cyber Terror": "1000 FPS kills. (50pts)",
+    "Ocelot": "3000 FPS kills. (90pts)",
+    "Megalomania": "10000 FPS kills. (title)",
 };
 
 const raptorBadgeCategories = [
@@ -267,6 +272,15 @@ const raiderBadgeCategories = [
             "Headhunter",
             "Enforcer",
             "Wetwork",
+        ],
+    },
+    {
+        category: "AC FPS Kills",
+        badges: [
+            "Duck Hunter",
+            "Cyber Terror",
+            "Ocelot",
+            "Megalomania",
         ],
     },
     {
