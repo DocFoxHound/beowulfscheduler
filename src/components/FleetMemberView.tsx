@@ -21,12 +21,12 @@ const FleetMemberView: React.FC<FleetMemberViewProps> = ({ fleet, userId, userna
       // Remove userId from members_ids
       const newMembersIds = (fleet.members_ids || []).filter(id => id !== userId);
 
-      const updatedFleet: UserFleet = {
+      await editFleet(String(fleet.id), {
         ...fleet,
         members_ids: newMembersIds,
-      };
-
-      await editFleet(String(fleet.id), updatedFleet);
+        action: "remove_member",
+        changed_user_id: userId,
+      });
       window.location.reload(); // Refresh the page after leaving
     } catch (e) {
       setError("Failed to leave fleet.");

@@ -69,7 +69,7 @@ export const createFleet = async (fleet: UserFleet): Promise<UserFleet> => {
   return response.data;
 }
 
-export const editFleet = async (id: string, item: UserFleet): Promise<UserFleet> => {
+export const editFleet = async (id: string, item: Partial<UserFleet> & { action?: string; changed_user_id?: string }): Promise<UserFleet> => {
   const response = await axios.put<UserFleet>(
     `${API_BASE_URL}/api/fleet/${id}`,
     item,

@@ -98,7 +98,11 @@ const FleetOwnerManageView: React.FC<FleetOwnerManageViewProps> = ({
     }
 
     try {
-      await editFleet(String(fleet.id), updatedFleet);
+      await editFleet(String(fleet.id), {
+        ...updatedFleet,
+        action: isClosing ? "close_fleet" : "edit_fleet",
+        changed_user_id: dbUser?.id,
+      });
       setIsEditing(false);
       setShowAvatarInput(false);
       setIsClosing(false);

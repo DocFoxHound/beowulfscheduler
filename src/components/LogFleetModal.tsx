@@ -477,7 +477,11 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
           active: true, // <-- Set active to true
         };
 
-        await editFleet(String(selectedFleet.id), updatedFleet);
+        await editFleet(String(selectedFleet.id), {
+        ...updatedFleet,
+        action: "log_fleet_activity",
+        changed_user_id: String(form.commander_id),
+      });
       }
       // --- End fleet stats update ---
 

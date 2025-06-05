@@ -57,7 +57,8 @@ const ActiveFleetCard: React.FC<Props> = ({
     }
     const newMembers = [...currentMembers, userId];
     try {
-      await editFleet(String(fleet.id), { ...fleet, members_ids: newMembers });
+      // await editFleet(String(fleet.id), { ...fleet, members_ids: newMembers });
+      await editFleet(String(fleet.id), { ...fleet, members_ids: newMembers, action: "add_member", changed_user_id: userId });
       window.location.reload();
     } catch (err) {
       alert("Failed to join fleet.");
@@ -144,6 +145,8 @@ const ActiveFleetCard: React.FC<Props> = ({
                     members_ids: [ dbUser.id ],
                     active: true,
                     last_active: new Date().toISOString(),
+                    action: "take_command",
+                    changed_user_id: dbUser.id,
                   });
                   window.location.reload();
                 } catch (err) {
