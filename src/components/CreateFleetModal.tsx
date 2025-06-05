@@ -68,6 +68,7 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
         members_ids: [String(dbUser.id)],
         last_active: new Date().toISOString(),
         commander_corsair_rank: dbUser.corsair_level,
+        updated_at: new Date().toISOString(),
         // Add any other required UserFleet fields here if needed
       } as UserFleet);
 

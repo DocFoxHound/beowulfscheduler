@@ -12,7 +12,7 @@ import { fetchAllRecentGatherings } from "../api/recentGatheringsApi";
 import { RecentGathering } from "../types/recent_gatherings";
 import { fetchBlackBoxesBetweenTimestamps } from "../api/blackboxApi";
 import { fetchPlayerExperiencesByUserId } from "../api/playerExperiencesApi"; // You need to implement this API call if not present
-import { editFleet } from "../api/fleetApi"; // <-- Add this import
+import { editFleet, fetchFleetById } from "../api/fleetApi"; // <-- Add this import
 
 const initialForm: Partial<FleetLog> = {
   title: "",
@@ -451,6 +451,15 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
 
       // --- Fleet stats update logic ---
       if (selectedFleet) {
+        // Fetch the latest fleet object from the database
+        let latestFleet = selectedFleet;
+        try {
+          const [freshFleet] = await fetchFleetById(String(selectedFleet.id));
+          if (freshFleet) latestFleet = freshFleet;
+        } catch (err) {
+          // Optionally handle fetch error (fallback to selectedFleet)
+        }
+
         // Patch values (if undefined, treat as 0)
         const kills = Number(form.total_kills) || 0;
         const valueStolen = Number(form.value_stolen) || 0;
@@ -462,29 +471,34 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             .reduce((sum, hit) => sum + Number(hit?.total_scu || 0), 0);
 
         const updatedFleet = {
-          ...selectedFleet,
-          total_kills: (selectedFleet.total_kills || 0) + kills,
-          patch_kills: (selectedFleet.patch_kills || 0) + kills,
-          total_value_stolen: (selectedFleet.total_value_stolen || 0) + valueStolen,
-          total_value_stolen_patch: (selectedFleet.total_value_stolen_patch || 0) + valueStolen,
-          total_cargo_stolen: (selectedFleet.total_cargo_stolen || 0) + cargo,
-          total_cargo_stolen_patch: (selectedFleet.total_cargo_stolen_patch || 0) + cargo,
-          total_damages: (selectedFleet.total_damages || 0) + damages,
-          total_damages_patch: (selectedFleet.total_damages_patch || 0) + damages,
-          last_active: new Date().toISOString(), // <-- Set last_active to now
-          total_events: Number(selectedFleet.total_events || 0) + 1, // <-- Increment as number
-          total_events_patch: Number(selectedFleet.total_events_patch || 0) + 1, // <-- Increment as number
-          active: true, // <-- Set active to true
+          ...latestFleet,
+          total_kills: (latestFleet.total_kills || 0) + kills,
+          patch_kills: (latestFleet.patch_kills || 0) + kills,
+          total_value_stolen: (latestFleet.total_value_stolen || 0) + valueStolen,
+          total_value_stolen_patch: (latestFleet.total_value_stolen_patch || 0) + valueStolen,
+          total_cargo_stolen: (latestFleet.total_cargo_stolen || 0) + cargo,
+          total_cargo_stolen_patch: (latestFleet.total_cargo_stolen_patch || 0) + cargo,
+          total_damages: (latestFleet.total_damages || 0) + damages,
+          total_damages_patch: (latestFleet.total_damages_patch || 0) + damages,
+          last_active: new Date().toISOString(),
+          total_events: Number(latestFleet.total_events || 0) + 1,
+          total_events_patch: Number(latestFleet.total_events_patch || 0) + 1,
+          active: true,
         };
-
-        await editFleet(String(selectedFleet.id), {
-        ...updatedFleet,
-        action: "log_fleet_activity",
-        changed_user_id: String(form.commander_id),
-      });
+        try {
+          await editFleet(String(selectedFleet.id), {
+            ...updatedFleet,
+            action: "log_fleet_activity",
+            changed_user_id: String(form.commander_id),
+          });
+        } catch (err: any) {
+          if (err.response && err.response.status === 409) {
+            alert("Another user has updated this fleet. Please refresh the page and try again.");
+          } else {
+            alert("Failed to take command.");
+          }
+        }
       }
-      // --- End fleet stats update ---
-
       await createShipLog(fleetLog);
       await onSubmit(fleetLog);
       setForm(initialForm);

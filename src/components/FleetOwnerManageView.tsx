@@ -108,8 +108,12 @@ const FleetOwnerManageView: React.FC<FleetOwnerManageViewProps> = ({
       setIsClosing(false);
       window.location.reload(); // <-- Add this line to refresh the page
       // Optionally, refresh fleet data here
-    } catch (e) {
-      alert("Failed to save changes.");
+    } catch (err: any) {
+      if (err.response && err.response.status === 409) {
+        alert("Another user has updated this fleet. Please refresh the page and try again.");
+      } else {
+        alert("Failed to save changes.");
+      }
     }
     setSaving(false);
   };

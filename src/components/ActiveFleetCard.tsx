@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { UserFleet } from "../types/fleet";
 import { FleetLog } from "../types/fleet_log";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { editFleet } from "../api/fleetApi"; // Add this import
+import { editFleet, fetchFleetById } from "../api/fleetApi";
 
 interface Props {
   fleet: UserFleet;
@@ -50,18 +50,31 @@ const ActiveFleetCard: React.FC<Props> = ({
     e.stopPropagation();
     console.log("UserId:", userId);
     if (!userId) return;
-    const currentMembers = Array.isArray(fleet.members_ids) ? fleet.members_ids : [];
+
+    // Fetch the latest fleet object from the database
+    let latestFleet = fleet;
+    try {
+      const [freshFleet] = await fetchFleetById(String(fleet.id));
+      if (freshFleet) latestFleet = freshFleet;
+    } catch (err) {
+      // Optionally handle fetch error (fallback to local fleet)
+    }
+
+    const currentMembers = Array.isArray(latestFleet.members_ids) ? latestFleet.members_ids : [];
     if (currentMembers.includes(userId)) {
       alert("You are already a member of this fleet.");
       return;
     }
     const newMembers = [...currentMembers, userId];
     try {
-      // await editFleet(String(fleet.id), { ...fleet, members_ids: newMembers });
-      await editFleet(String(fleet.id), { ...fleet, members_ids: newMembers, action: "add_member", changed_user_id: userId });
+      await editFleet(String(fleet.id), { ...latestFleet, members_ids: newMembers, action: "add_member", changed_user_id: userId });
       window.location.reload();
-    } catch (err) {
-      alert("Failed to join fleet.");
+    } catch (err: any) {
+      if (err.response && err.response.status === 409) {
+        alert("Another user has updated this fleet. Please refresh the page and try again.");
+      } else {
+        alert("Failed to join fleet.");
+      }
     }
   };
 
@@ -149,8 +162,12 @@ const ActiveFleetCard: React.FC<Props> = ({
                     changed_user_id: dbUser.id,
                   });
                   window.location.reload();
-                } catch (err) {
-                  alert("Failed to take command.");
+                } catch (err: any) {
+                  if (err.response && err.response.status === 409) {
+                    alert("Another user has updated this fleet. Please refresh the page and try again.");
+                  } else {
+                    alert("Failed to take command.");
+                  }
                 }
               }}
               style={{

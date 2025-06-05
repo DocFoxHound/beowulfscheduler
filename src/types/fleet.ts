@@ -20,4 +20,5 @@ export interface UserFleet {
   active?: boolean;
   original_commander_id?: string;
   avatar: string;
+  updated_at?: string;
 }

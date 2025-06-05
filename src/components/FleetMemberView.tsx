@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { UserFleet } from "../types/fleet";
-import { editFleet } from "../api/fleetApi";
+import { editFleet, fetchFleetById } from "../api/fleetApi";
 
 interface FleetMemberViewProps {
   fleet: UserFleet;
@@ -18,19 +18,32 @@ const FleetMemberView: React.FC<FleetMemberViewProps> = ({ fleet, userId, userna
     setLeaving(true);
     setError(null);
     try {
+      // Fetch the latest fleet object from the database
+      let latestFleet = fleet;
+      try {
+        const [freshFleet] = await fetchFleetById(String(fleet.id));
+        if (freshFleet) latestFleet = freshFleet;
+      } catch (err) {
+        // Optionally handle fetch error (fallback to local fleet)
+      }
+
       // Remove userId from members_ids
-      const newMembersIds = (fleet.members_ids || []).filter(id => id !== userId);
+      const newMembersIds = (latestFleet.members_ids || []).filter(id => id !== userId);
 
       await editFleet(String(fleet.id), {
-        ...fleet,
+        ...latestFleet,
         members_ids: newMembersIds,
         action: "remove_member",
         changed_user_id: userId,
       });
       window.location.reload(); // Refresh the page after leaving
-    } catch (e) {
-      setError("Failed to leave fleet.");
-      setLeaving(false);
+    } catch (err: any) {
+      if (err.response && err.response.status === 409) {
+        alert("Another user has updated this fleet. Please refresh the page and try again.");
+      } else {
+        setError("Failed to leave fleet.");
+        setLeaving(false);
+      }
     }
   };
 
