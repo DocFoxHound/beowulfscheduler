@@ -9,6 +9,7 @@ const Navbar: React.FC = () => (
       <a href="/info">Info</a>
       <a href="/piracy">Piracy</a>
       <a href="/fleets">Fleets</a>
+      <a href="/leaderboards">Leaderboards</a>
       <a href="/scheduler">Scheduler</a>
       <a href="/warehouse">Warehouse</a>
     </nav>

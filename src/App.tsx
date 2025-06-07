@@ -8,6 +8,7 @@ import Fleet from './pages/Fleets';
 import Hittracker from './pages/Piracy';
 import Warehouse from "./pages/Warehouse";
 import Info from './pages/Info';
+import Leaderboards from './pages/Leaderboards';
 import { UserProvider } from "./context/UserContext";
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
         <Route path="/info" element={<Info />} />
         <Route path="/piracy" element={<Hittracker />} />
         <Route path="/fleets" element={<Fleet />} />
+        <Route path="/leaderboards" element={<Leaderboards />} />
         <Route path="/scheduler" element={<Scheduler />} />
         <Route path="/warehouse" element={<Warehouse />} />
       </Routes>

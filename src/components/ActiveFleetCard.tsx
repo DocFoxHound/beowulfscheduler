@@ -13,10 +13,11 @@ interface Props {
   isNotInAnyFleet?: boolean;
   userId?: string;
   dbUser?: any;
+  onActionComplete?: () => void; // <-- Add this line
 }
 
 const ActiveFleetCard: React.FC<Props> = ({
-  fleet, fleetLogs, commander_username, members_usernames, original_commander_username, isNotInAnyFleet, userId, dbUser
+  fleet, fleetLogs, commander_username, members_usernames, original_commander_username, isNotInAnyFleet, userId, dbUser, onActionComplete
 }) => {
   const [showMembers, setShowMembers] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -48,17 +49,13 @@ const ActiveFleetCard: React.FC<Props> = ({
   // Add join handler
   const handleJoin = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log("UserId:", userId);
     if (!userId) return;
 
-    // Fetch the latest fleet object from the database
     let latestFleet = fleet;
     try {
       const [freshFleet] = await fetchFleetById(String(fleet.id));
       if (freshFleet) latestFleet = freshFleet;
-    } catch (err) {
-      // Optionally handle fetch error (fallback to local fleet)
-    }
+    } catch {}
 
     const currentMembers = Array.isArray(latestFleet.members_ids) ? latestFleet.members_ids : [];
     if (currentMembers.includes(userId)) {
@@ -68,7 +65,7 @@ const ActiveFleetCard: React.FC<Props> = ({
     const newMembers = [...currentMembers, userId];
     try {
       await editFleet(String(fleet.id), { ...latestFleet, members_ids: newMembers, action: "add_member", changed_user_id: userId });
-      window.location.reload();
+      if (typeof onActionComplete === "function") onActionComplete(); // <-- Use callback
     } catch (err: any) {
       if (err.response && err.response.status === 409) {
         alert("Another user has updated this fleet. Please refresh the page and try again.");
@@ -161,7 +158,7 @@ const ActiveFleetCard: React.FC<Props> = ({
                     action: "take_command",
                     changed_user_id: dbUser.id,
                   });
-                  window.location.reload();
+                  if (typeof onActionComplete === "function") onActionComplete(); // <-- Use callback
                 } catch (err: any) {
                   if (err.response && err.response.status === 409) {
                     alert("Another user has updated this fleet. Please refresh the page and try again.");

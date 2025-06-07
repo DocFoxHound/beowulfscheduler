@@ -163,7 +163,7 @@ const Hittracker: React.FC = () => {
       // Replace with your actual API endpoint
       // await axios.post("/api/fleet-activity", activity);
       setLogFleetModal(false);
-      // Optionally refresh data here
+      window.location.reload(); // <-- Add this line to refresh the page
     } catch (err) {
       setFormError("Failed to submit. Please try again.");
     } finally {

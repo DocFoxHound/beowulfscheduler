@@ -108,7 +108,8 @@ const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAn
               members_usernames={members_usernames}
               isNotInAnyFleet={isNotInAnyFleet}
               userId={String(userId)}
-              dbUser={dbUser} // <-- Add this line
+              dbUser={dbUser}
+              onActionComplete={() => window.location.reload()} // <-- Add this line
             />
           );
         })}
