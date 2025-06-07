@@ -232,15 +232,15 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
     setForm(f => ({ ...f, [field]: value }));
   };
 
-  const handleCrewChange = (userId: number, checked: boolean) => {
+  const handleCrewChange = (userId: string, checked: boolean) => {
     setForm(f => ({
       ...f,
       crew_ids: checked
         ? [...(f.crew_ids || []), userId]
-        : (f.crew_ids || []).filter(id => id !== userId),
+        : (f.crew_ids || []).filter(id => String(id) !== userId),
       crew_usernames: checked
-        ? [...(f.crew_usernames || []), allUsers.find(u => Number(u.id) === userId)?.username || ""]
-        : (f.crew_usernames || []).filter((_, idx) => (f.crew_ids || []).map(id => Number(id))[idx] !== userId),
+        ? [...(f.crew_usernames || []), allUsers.find(u => String(u.id) === userId)?.username || ""]
+        : (f.crew_usernames || []).filter((_, idx) => (f.crew_ids || []).map(id => String(id))[idx] !== userId),
     }));
   };
 
@@ -396,9 +396,9 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
       const fpsSubUsers = crewUsers.filter(u => u.ground_leadership);
 
       const air_sub_usernames = airSubUsers.map(u => u.username || "");
-      const air_sub_ids = airSubUsers.map(u => Number(u.id));
+      const air_sub_ids = airSubUsers.map(u => String(u.id));
       const fps_sub_usernames = fpsSubUsers.map(u => u.username || "");
-      const fps_sub_ids = fpsSubUsers.map(u => Number(u.id));
+      const fps_sub_ids = fpsSubUsers.map(u => String(u.id));
 
       // --- Set fleet_id and fleet_name if no fleet is selected ---
       const fleet_id = selectedFleet ? selectedFleet.id : undefined;
@@ -406,7 +406,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
 
       const fleetLog: FleetLog = {
         ...form,
-        crew_ids: crewUsers.map(u => Number(u.id)),
+        crew_ids: crewUsers.map(u => String(u.id)),
         crew_usernames: crewUsers.map(u => u.username || ""),
         air_sub_usernames,
         air_sub_ids,

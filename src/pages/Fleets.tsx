@@ -161,7 +161,7 @@ const Hittracker: React.FC = () => {
     setFormError(null);
     try {
       // Replace with your actual API endpoint
-      await axios.post("/api/fleet-activity", activity);
+      // await axios.post("/api/fleet-activity", activity);
       setLogFleetModal(false);
       // Optionally refresh data here
     } catch (err) {

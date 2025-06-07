@@ -170,6 +170,7 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
             disabled={isSubmitting}
             placeholder="Describe your fleet's main focus (e.g. Pirate Stanton, Blockade Hathors, Kill People...)"
             style={{ width: "100%", marginBottom: 12 }}
+            maxLength={1000}
           />
         </label>
 
@@ -183,6 +184,7 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
             disabled={isSubmitting}
             placeholder="Describe your fleet's secondary focus"
             style={{ width: "100%", marginBottom: 12 }}
+            maxLength={1000}
           />
         </label>
 

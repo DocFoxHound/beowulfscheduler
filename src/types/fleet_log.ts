@@ -10,16 +10,16 @@ export interface FleetLog {
   link?: string;
   title?: string;
   commander_username?: string;
-  air_sub_ids?: number[];
-  fps_sub_ids?: number[];
-  crew_ids?: number[];
+  air_sub_ids?: string[];
+  fps_sub_ids?: string[];
+  crew_ids?: string[];
   start_time?: string; // ISO timestamp string, nullable
   end_time?: string;   // ISO timestamp string, nullable
   total_kills?: number;
   value_stolen?: number;
   damages_value?: number;
   total_cargo?: number;
-  fleet_id?: number;
+  fleet_id?: string;
   fleet_name?: string;
   video_link: string;
   media_links: string[];

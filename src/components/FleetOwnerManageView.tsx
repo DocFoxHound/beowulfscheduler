@@ -200,6 +200,7 @@ const FleetOwnerManageView: React.FC<FleetOwnerManageViewProps> = ({
                   color: "#fff",
                   resize: "vertical"
                 }}
+                maxLength={1000}
               />
             </div>
             <div>
@@ -219,6 +220,7 @@ const FleetOwnerManageView: React.FC<FleetOwnerManageViewProps> = ({
                   color: "#fff",
                   resize: "vertical"
                 }}
+                maxLength={1000}
               />
             </div>
           </div>
