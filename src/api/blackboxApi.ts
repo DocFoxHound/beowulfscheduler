@@ -160,3 +160,11 @@ export const fetchNewest100ShipKillsByPatch = async (patch: string): Promise<Bla
   });
   return response.data;
 };
+
+// Get all BlackBoxes by patch
+export const fetchBlackBoxesByPatch = async (patch: string): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/patch`, {
+    params: { patch }
+  });
+  return response.data;
+};

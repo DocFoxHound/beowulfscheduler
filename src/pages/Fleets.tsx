@@ -41,6 +41,11 @@ const Hittracker: React.FC = () => {
   const [userList, setUserList] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [fleets, setFleets] = useState<UserFleet[]>([]);
+  const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
+  const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
+  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+  const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+  const isMember = dbUser?.roles?.some((role: string) => CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -296,7 +301,7 @@ const Hittracker: React.FC = () => {
         <div className="hittracker-layout">
           {/* LEFT COLUMN: Log Fleet Activity (was center) */}
           <div className="column overview-panel-column">
-            {selectedUserId === dbUser.id && fleets.some(fleet => fleet.commander_id === dbUser.id) && (
+            {isMember && (
               <button
                 className="add-hit-btn"
                 style={{

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { fetchSBAllPlayerSummaries } from "../api/leaderboardApi";
 import { fetchPiracyLeaderboardByPatchEnriched } from "../api/leaderboardPiracyApi";
+import { fetchBlackboxLeaderboardByPatchEnriched } from "../api/leaderboardBlackboxApi";
+import { fetchFleetlogLeaderboardByPatchEnriched } from "../api/leaderboardFleetlogApi";
 import { getAllGameVersions } from "../api/patchApi";
 import { SBLeaderboardPlayerSummary } from "../types/sb_leaderboard_summary";
 import Navbar from "../components/Navbar";
@@ -8,10 +10,14 @@ import LeaderboardTable, { LeaderboardColumn } from "../components/LeaderboardTa
 import { computeRankingScore } from "../utils/sb_ranking_function";
 import 'katex/dist/katex.min.css';
 import { BlockMath } from 'react-katex';
+import sbColumns from "../columns/dogfightingColumns";
+import piracyColumns from "../columns/piracyColumns";
+import killTrackerColumns from "../columns/killTrackerColumns";
+import fleetColumns from "../columns/fleetColumns"; // Assuming you have a fleetColumns file
 
 const PAGE_SIZE = 100;
 
-type LeaderboardMode = "dogfighting" | "piracy";
+type LeaderboardMode = "dogfighting" | "piracy" | "killtracker" | "fleets";
 
 const Leaderboards: React.FC = () => {
   const [mode, setMode] = useState<LeaderboardMode>("dogfighting");
@@ -48,16 +54,30 @@ const Leaderboards: React.FC = () => {
         .then((data) => {
           const withScores = data.map((player: any) => ({
             ...player,
-            ranking_score: computeRankingScore(player, data),
+            ranking_score: (computeRankingScore(player, data)*100),
           }));
-          const sorted = [...withScores].sort((a, b) => b.ranking_score - a.ranking_score);
+          const sorted = [...withScores].sort((a, b) => b.avg_rank - a.avg_rank);
           setPlayers(sorted);
         })
         .finally(() => setLoading(false));
-    } else {
+    } else if (mode === "piracy") {
       fetchPiracyLeaderboardByPatchEnriched(selectedPatch)
         .then((data) => {
           const sorted = [...data].sort((a, b) => b.total_value - a.total_value);
+          setPlayers(sorted);
+        })
+        .finally(() => setLoading(false));
+    } else if (mode === "killtracker") {
+      fetchBlackboxLeaderboardByPatchEnriched(selectedPatch)
+        .then((data) => {
+          const sorted = [...data].sort((a, b) => b.fps_kills_total - a.fps_kills_total);
+          setPlayers(sorted);
+        })
+        .finally(() => setLoading(false));
+    } else if (mode === "fleets") {
+      fetchFleetlogLeaderboardByPatchEnriched(selectedPatch)
+        .then((data) => {
+          const sorted = [...data].sort((a, b) => b.total_activity - a.total_activity);
           setPlayers(sorted);
         })
         .finally(() => setLoading(false));
@@ -72,158 +92,17 @@ const Leaderboards: React.FC = () => {
     setPage(0);
   }, [selectedPlayer, players]);
 
-  // Columns for dogfighting leaderboard
-  const sbColumns: LeaderboardColumn<any>[] = [
-    {
-      key: "rank",
-      title: "#",
-      align: "center",
-      render: (_row, idx) => idx + 1,
-    },
-    {
-      key: "account_media",
-      title: "",
-      align: "center",
-      render: row =>
-        row.account_media ? (
-          <img
-            src={row.account_media}
-            alt="Account"
-            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }}
-          />
-        ) : null,
-    },
-    {
-      key: "displayname",
-      title: "Display Name",
-      render: row => row.displayname,
-    },
-    {
-      key: "org_media",
-      title: "Org",
-      align: "left",
-      render: row =>
-        row.org_media ? (
-          <img
-            src={row.org_media}
-            alt="Org"
-            title={row.symbol}
-            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }}
-          />
-        ) : null,
-    },
-    {
-      key: "total_kills",
-      title: "Kills",
-      render: row =>
-        row.total_kills != null
-          ? Number(row.total_kills).toLocaleString()
-          : "-",
-      sortable: true,
-      sortAccessor: row => row.total_kills,
-    },
-    {
-      key: "total_deaths",
-      title: "Deaths",
-      render: row =>
-        row.total_deaths != null
-          ? Number(row.total_deaths).toLocaleString()
-          : "-",
-      sortable: true,
-      sortAccessor: row => row.total_deaths,
-    },
-    {
-      key: "avg_score",
-      title: "Avg Score",
-      render: row =>
-        row.avg_score != null
-          ? Number(row.avg_score).toLocaleString()
-          : "-",
-      sortable: true,
-      sortAccessor: row => row.avg_score,
-    },
-    {
-      key: "avg_rank",
-      title: "Avg RSI Rank",
-      render: row => row.avg_rank ?? "-",
-      sortable: true,
-      sortAccessor: row => row.avg_rank,
-    },
-    {
-      key: "ranking_score",
-      title: "IronPoint Score",
-      render: row => row.ranking_score?.toFixed(3) ?? "-",
-      sortable: true,
-      sortAccessor: row => row.ranking_score,
-    },
-  ];
-
-  // Columns for piracy leaderboard
-  const piracyColumns: LeaderboardColumn<any>[] = [
-    {
-      key: "rank",
-      title: "#",
-      align: "center",
-      render: (_row, idx) => idx + 1,
-    },
-    {
-      key: "username",
-      title: "Username",
-      render: row => row.username || row.nickname || row.player_id,
-    },
-    {
-      key: "hits_created",
-      title: "Hits",
-      render: row => row.hits_created ?? "-",
-      sortable: true,
-      sortAccessor: row => row.hits_created,
-    },
-    {
-      key: "air_count",
-      title: "Air",
-      render: row => row.air_count ?? "-",
-      sortable: true,
-      sortAccessor: row => row.air_count,
-    },
-    {
-      key: "ground_count",
-      title: "Ground",
-      render: row => row.ground_count ?? "-",
-      sortable: true,
-      sortAccessor: row => row.ground_count,
-    },
-    {
-      key: "mixed_count",
-      title: "Mixed",
-      render: row => row.mixed_count ?? "-",
-      sortable: true,
-      sortAccessor: row => row.mixed_count,
-    },
-    {
-      key: "brute_force_count",
-      title: "Brute Force",
-      render: row => row.brute_force_count ?? "-",
-      sortable: true,
-      sortAccessor: row => row.brute_force_count,
-    },
-    {
-      key: "extortion_count",
-      title: "Extortion",
-      render: row => row.extortion_count ?? "-",
-      sortable: true,
-      sortAccessor: row => row.extortion_count,
-    },
-    {
-      key: "total_value",
-      title: "Total Value",
-      render: row => row.total_value?.toLocaleString() ?? "-",
-      sortable: true,
-      sortAccessor: row => row.total_value,
-    },
-  ];
-
   // Choose columns based on mode
-  const columns = mode === "dogfighting" ? sbColumns : piracyColumns;
+  const columns =
+    mode === "dogfighting"
+      ? sbColumns
+      : mode === "piracy"
+      ? piracyColumns
+      : mode === "killtracker"
+      ? killTrackerColumns
+      : mode === "fleets"
+      ? fleetColumns
+      : [];
 
   // Patch selector UI
   const patchSelector = (
@@ -235,13 +114,16 @@ const Leaderboards: React.FC = () => {
         id="patch-select"
         value={selectedPatch}
         onChange={e => setSelectedPatch(e.target.value)}
+        disabled={mode === "dogfighting"}
         style={{
           padding: "0.5rem 1rem",
           borderRadius: 8,
           border: "1px solid #444",
-          background: "#23272a",
+          background: mode === "dogfighting" ? "#444" : "#23272a",
           color: "#fff",
           fontSize: 16,
+          opacity: mode === "dogfighting" ? 0.5 : 1,
+          cursor: mode === "dogfighting" ? "not-allowed" : "pointer",
         }}
       >
         {patches.map(patch => (
@@ -258,12 +140,21 @@ const Leaderboards: React.FC = () => {
         <section className="dashboard-header" style={{ textAlign: "center", marginBottom: "2rem" }}>
           <h1>Leaderboards</h1>
           <p>
-            {mode === "dogfighting"
-              ? <>Players sorted by <b>IronPoint Score</b> (highest first)</>
-              : <>Players sorted by <b>Total Value</b> (highest first)</>
-            }
+            {mode === "dogfighting" && (
+              <>Players sorted by <b>CiG Average Score</b> (highest first)</>
+            )}
+            {mode === "piracy" && (
+              <>Players sorted by <b>Total Value</b> (highest first)</>
+            )}
+            {mode === "killtracker" && (
+              <>Players sorted by <b>FPS Kills (Total)</b> (highest first)</>
+            )}
+            {mode === "fleets" && (
+              <>Players sorted by <b>Total Fleet Activity</b> (highest first)</>
+            )}
           </p>
         </section>
+        {/* View option buttons */}
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "2rem", marginBottom: "1.5rem" }}>
           <button
             onClick={() => setMode("dogfighting")}
@@ -285,8 +176,26 @@ const Leaderboards: React.FC = () => {
             <img src="https://i.imgur.com/9wMuyX1.png" alt="Dogfighting" style={{ width: 48, height: 48, marginBottom: 8 }} />
             <span style={{ fontSize: 20, fontWeight: 700 }}>Dogfighting</span>
           </button>
-          {mode === "piracy" && patchSelector}
-          <div style={{ flex: 1, maxWidth: 500 }} />
+          <button
+            onClick={() => setMode("fleets")}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              background: mode === "fleets" ? "#2d7aee" : "#23272a",
+              color: "#fff",
+              border: "none",
+              borderRadius: 12,
+              padding: "1rem 2rem",
+              cursor: "pointer",
+              boxShadow: mode === "fleets" ? "0 2px 8px #2d7aee88" : "0 2px 8px #0008",
+              minWidth: 160,
+              transition: "background 0.2s",
+            }}
+          >
+            <img src="https://i.imgur.com/O6TpgjD.png" alt="Fleets" style={{ width: 48, height: 48, marginBottom: 8 }} />
+            <span style={{ fontSize: 20, fontWeight: 700 }}>Fleets</span>
+          </button>
           <button
             onClick={() => setMode("piracy")}
             style={{
@@ -307,6 +216,30 @@ const Leaderboards: React.FC = () => {
             <img src="https://i.imgur.com/FNBpkfz.png" alt="Piracy" style={{ width: 48, height: 48, marginBottom: 8 }} />
             <span style={{ fontSize: 20, fontWeight: 700 }}>Piracy</span>
           </button>
+          <button
+            onClick={() => setMode("killtracker")}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              background: mode === "killtracker" ? "#2d7aee" : "#23272a",
+              color: "#fff",
+              border: "none",
+              borderRadius: 12,
+              padding: "1rem 2rem",
+              cursor: "pointer",
+              boxShadow: mode === "killtracker" ? "0 2px 8px #2d7aee88" : "0 2px 8px #0008",
+              minWidth: 160,
+              transition: "background 0.2s",
+            }}
+          >
+            <img src="https://i.imgur.com/UoZsrrM.png" alt="Kill Tracker" style={{ width: 48, height: 48, marginBottom: 8 }} />
+            <span style={{ fontSize: 20, fontWeight: 700 }}>Kill Tracker</span>
+          </button>
+        </div>
+        {/* Patch selector below the buttons */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
+          {patchSelector}
         </div>
         <div style={{ display: "flex", justifyContent: "center" }}>
           <LeaderboardTable
@@ -318,7 +251,7 @@ const Leaderboards: React.FC = () => {
             pageCount={pageCount}
             onPageChange={setPage}
             pageSize={PAGE_SIZE}
-            columns={mode === "dogfighting" ? sbColumns : piracyColumns}
+            columns={columns}
           />
         </div>
       </main>
