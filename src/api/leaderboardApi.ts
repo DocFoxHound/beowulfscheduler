@@ -4,7 +4,7 @@ import { SBLeaderboardPlayerSummary } from '../types/sb_leaderboard_summary'
 const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
 
 // Fetch all player summaries
-export const fetchAllPlayerSummaries = async (): Promise<SBLeaderboardPlayerSummary[]> => {
+export const fetchSBAllPlayerSummaries = async (): Promise<SBLeaderboardPlayerSummary[]> => {
   const response = await axios.get(`${API_BASE_URL}/api/leaderboardsbsummary/`);
   // Flatten if response is nested
   const rawPlayers = Array.isArray(response.data[0]) ? response.data.flat() : response.data;
