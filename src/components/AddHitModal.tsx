@@ -13,6 +13,7 @@ import { fetchAllRecentGatherings } from "../api/recentGatheringsApi";
 import { RecentGathering } from "../types/recent_gatherings";
 import { createPlayerExperience, editPlayerExperience, deletePlayerExperience, fetchPlayerExperiencesByOperationId } from "../api/playerExperiencesApi";
 import { fetchBlackBoxsByUserId } from "../api/blackboxApi";
+import { getSummarizedItems } from "../api/summarizedItemApi";
 
 interface AddHitModalProps {
   show: boolean;
@@ -24,7 +25,6 @@ interface AddHitModalProps {
   isSubmitting: boolean;
   formError: string | null;
   setFormError: React.Dispatch<React.SetStateAction<string | null>>;
-  summarizedItems: SummarizedItem[];
   isEditMode?: boolean;
   hit?: Hit;
   onUpdate?: (hit: Hit) => Promise<void>;
@@ -75,11 +75,13 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
     isSubmitting,
     formError,
     setFormError,
-    summarizedItems,
     allUsers
   } = props;
 
   const [form, setForm] = useState(initialForm);
+
+  // Summarized items state
+  const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
 
   // Cargo state
   const [cargoList, setCargoList] = useState<CargoItem[]>([]);
@@ -140,6 +142,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
         setAllFleets(Array.isArray(fleets) ? fleets : fleets ? [fleets] : []);
       });
       fetchAllRecentGatherings().then(setRecentGatherings);
+      getSummarizedItems().then(items => {
+        setSummarizedItems(Array.isArray(items) ? items : []);
+      });
     }
   }, [show]);
 
@@ -162,7 +167,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   }, [showGatheringsMenu]);
 
   useEffect(() => {
-    if (props.isEditMode && props.hit) {
+    if (show && props.isEditMode && props.hit) {
       const h = props.hit;
       setForm({
         assists: "",
@@ -209,7 +214,14 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       });
       // ...set other fields as needed...
     }
-  }, [props.isEditMode, props.hit]);
+    // Optionally, reset form when closing modal
+    if (!show) {
+      setForm(initialForm);
+      setCargoList([]);
+      setWarehouseFlags([]);
+      setVictimsArray([]);
+    }
+  }, [show, props.isEditMode, props.hit]);
 
   useEffect(() => {
     if (show && !props.isEditMode) {
@@ -259,7 +271,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       return;
     }
 
-    setSubmitting(true); // <-- Disable submit button
+    setSubmitting(true);
 
     // Prepare assists arrays
     let assistsArr = assistsUsers.map(u => u.username);
@@ -361,13 +373,16 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
       setForm(initialForm);
       setCargoList([]);
-      setShowSuccess(true); // <-- Show success popup
-      setTimeout(() => setShowSuccess(false), 2000); // Hide after 2s
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
       onClose();
+
+      // Force page refresh after successful submit
+      window.location.reload();
     } catch (err) {
       setFormError("Failed to submit hit. Please try again.");
     } finally {
-      setSubmitting(false); // <-- Re-enable submit button
+      setSubmitting(false);
     }
   };
 
@@ -1351,8 +1366,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                         salvage: !!user.salvage,
                         air_leadership: !!user.air_leadership,
                         ground_leadership: !!user.ground_leadership,
-                        commander: !!user.commander, // <-- Add this
-                        type_of_experience: "Piracy", // <-- Add this line (adjust value as needed)
+                        commander: !!user.commander,
+                        type_of_experience: "Piracy",
                       };
                       if (existing) {
                         await editPlayerExperience(existing.id, expPayload);
@@ -1367,6 +1382,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
                   // 4. Call parent update handler
                   await props.onUpdate(updatedHit);
+
+                  // Force page refresh after successful update
+                  window.location.reload();
                 } catch (err) {
                   setFormError("Failed to update hit or player experiences. Please try again.");
                 }

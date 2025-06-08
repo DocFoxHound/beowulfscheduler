@@ -263,16 +263,10 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
           hit={hit}
           allUsers={allUsers}
           onUpdate={async (updatedHit) => {
-            // Call your update API here
-            // await updateHit(updatedHit);
             setShowEditModal(false);
-            // Optionally refresh hit list
           }}
           onDelete={async () => {
-            // Call your delete API here
-            // await deleteHit(hit.id);
             setShowEditModal(false);
-            // Optionally refresh hit list
           }}
           onSubmit={async () => {
             // Dummy submit handler for edit mode
@@ -280,7 +274,6 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
           isSubmitting={false}
           formError={null}
           setFormError={() => {}}
-          summarizedItems={[]}
         />
       )}
     </div>

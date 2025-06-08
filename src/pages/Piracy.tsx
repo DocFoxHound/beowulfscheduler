@@ -9,12 +9,10 @@ import { useUserContext } from "../context/UserContext";
 import axios from "axios";
 import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAssistHits, fetchAllHitsByPatch, fetchAllHitsByUserIdAndPatch } from '../api/hittrackerApi';
 import { Hit } from '../types/hittracker';
+import KillOverviewBoard from '../components/KillOverviewBoard';
 import './Piracy.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
 import AddHitModal from '../components/AddHitModal';
-import { getSummarizedItems } from '../api/summarizedItemApi';
-import { SummarizedItem } from '../types/items_summary';
-import KillOverviewBoard from '../components/KillOverviewBoard';
 import Navbar from '../components/Navbar';
 
 const Hittracker: React.FC = () => {
@@ -31,7 +29,6 @@ const Hittracker: React.FC = () => {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   // REMOVE selectedUserId state
   // const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -127,18 +124,6 @@ const Hittracker: React.FC = () => {
     };
     fetchAllHits();
   }, [gameVersion]);
-
-  useEffect(() => {
-    const fetchSummaries = async () => {
-      try {
-        const data = await getSummarizedItems();
-        setSummarizedItems(Array.isArray(data) ? data : []);
-      } catch (e) {
-        setSummarizedItems([]);
-      }
-    };
-    fetchSummaries();
-  }, []);
 
   // Optionally, show a loading state if dbUser is still being fetched
   if (!dbUser) {
@@ -264,23 +249,43 @@ const Hittracker: React.FC = () => {
           <div className="column warehouse-items">
             {/* Add New Hit Button - only show if viewer is selected */}
             {isMember && (
-              <button
-                className="add-hit-btn"
-                style={{
-                  width: '100%',
-                  marginBottom: '1rem',
-                  padding: '0.75rem',
-                  fontSize: '1.1rem',
-                  background: '#2d7aee',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setShowAddHitModal(true)}
-              >
-                Add New Hit
-              </button>
+              <>
+                <button
+                  className="add-hit-btn"
+                  style={{
+                    width: '100%',
+                    marginBottom: '1rem',
+                    padding: '0.75rem',
+                    fontSize: '1.1rem',
+                    background: '#2d7aee',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setShowAddHitModal(true)}
+                >
+                  Add New Hit
+                </button>
+                {showAddHitModal && (
+                  <AddHitModal
+                    show={showAddHitModal}
+                    onClose={() => setShowAddHitModal(false)}
+                    gameVersion={gameVersion}
+                    userId={dbUser?.id}
+                    username={dbUser?.username}
+                    isEditMode={false}
+                    hit={undefined} // <-- Fix here
+                    allUsers={userList}
+                    onUpdate={async () => {}}
+                    onDelete={async () => {}}
+                    onSubmit={async () => {}}
+                    isSubmitting={isSubmitting}
+                    formError={formError}
+                    setFormError={setFormError}
+                  />
+                )}
+              </>
             )}
             {/* Remove Add New Hit Button (since no user context) */}
             <div style={{ borderRadius: 8, minHeight: 200 }} className="column recent-pirate-hits">
