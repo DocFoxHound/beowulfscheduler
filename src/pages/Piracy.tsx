@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select'; // <-- Add this import
-import OverviewPanel from '../components/OverviewPanel';
+import OverviewPanel from '../components/PiracyOverviewPanel';
 import RecentPirateHits from '../components/RecentPirateHits';
 import WarehouseItems from '../components/WarehouseItems';
-import { getLatestPatch } from '../api/patchApi';
+import { getLatestPatch, getAllGameVersions } from '../api/patchApi';
 import { getUserById, getAllUsers } from "../api/userService";
 import { useUserContext } from "../context/UserContext";
 import axios from "axios";
-import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAssistHits } from '../api/hittrackerApi';
+import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAssistHits, fetchAllHitsByPatch, fetchAllHitsByUserIdAndPatch } from '../api/hittrackerApi';
 import { Hit } from '../types/hittracker';
 import './Piracy.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
@@ -33,7 +33,14 @@ const Hittracker: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  // REMOVE selectedUserId state
+  // const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [gameVersions, setGameVersions] = useState<{ value: string, label: string }[]>([]);
+  const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
+  const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
+  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+  const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+  const isMember = dbUser?.roles?.some((role: string) => CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -58,8 +65,6 @@ const Hittracker: React.FC = () => {
     const fetchVersion = async () => {
       try {
         const patches = await getLatestPatch();
-        // If getLatestPatch returns a single Patch object, use patches.version
-        // If it returns an array, use patches[0].version
         if (Array.isArray(patches) && patches.length > 0) {
           setGameVersion(patches[0].version);
         } else if (patches && typeof patches.version === "string") {
@@ -81,45 +86,47 @@ const Hittracker: React.FC = () => {
       .catch(() => setUserList([]));
   }, []);
 
-  // Set default selected user to viewer's user
+  // Fetch all game versions for the dropdown
   useEffect(() => {
-    if (dbUser && !selectedUserId) {
-      setSelectedUserId(dbUser.id);
-    }
-  }, [dbUser, selectedUserId]);
+    getAllGameVersions()
+      .then(versions => {
+        if (Array.isArray(versions)) {
+          setGameVersions(
+            versions.map(v => ({ value: v.version, label: v.version }))
+          );
+        }
+      })
+      .catch(() => setGameVersions([]));
+  }, []);
 
-  // Fetch stats for selected user
+  // Fetch stats for all users only
   useEffect(() => {
     const getRecentPirateHits = async () => {
-      if (!selectedUserId || !gameVersion) return;
-      const coupling = { user_id: selectedUserId, gameVersion };
-      const hits = await fetchPlayerRecentPirateHits(coupling);
-      setRecentHits(hits);
+      if (!gameVersion) return;
+      try {
+        const hits = await fetchAllHitsByPatch(gameVersion);
+        setRecentHits(Array.isArray(hits) ? hits : []);
+      } catch (e) {
+        setRecentHits([]);
+      }
     };
     getRecentPirateHits();
-  }, [selectedUserId, gameVersion]);
+  }, [gameVersion]);
 
   useEffect(() => {
     const fetchAllHits = async () => {
-      if (!selectedUserId || !gameVersion) return;
-      const coupling = { user_id: selectedUserId, gameVersion };
-
+      if (!gameVersion) return;
       try {
-        const pirateHits = await fetchAllPlayerPirateHits(coupling);
+        const pirateHits = await fetchAllHitsByPatch(gameVersion) || [];
         setAllPirateHits(pirateHits);
       } catch (e) {
         setAllPirateHits([]);
       }
-
-      try {
-        const assistHits = await fetchAllPlayerAssistHits(coupling);
-        setAllAssistHits(assistHits);
-      } catch (e) {
-        setAllAssistHits([]);
-      }
+      // No endpoint for all assists by patch, so clear assists
+      setAllAssistHits([]);
     };
     fetchAllHits();
-  }, [selectedUserId, gameVersion]);
+  }, [gameVersion]);
 
   useEffect(() => {
     const fetchSummaries = async () => {
@@ -142,6 +149,9 @@ const Hittracker: React.FC = () => {
     );
   }
 
+  // 1. Add an "All Users" option to the select dropdown
+  const ALL_USERS_OPTION = { value: null, label: "All Users" };
+
   // Helper to map users to react-select options
   const userToOption = (user: any) => ({
     value: user.id,
@@ -149,15 +159,16 @@ const Hittracker: React.FC = () => {
     user,
   });
 
-  // Prepare options for react-select
-  const userOptions = userList.map(userToOption);
+  // Prepare options for react-select (prepend All Users)
+  const userOptions = [ALL_USERS_OPTION, ...userList.map(userToOption)];
 
   // Find the currently selected option
-  const selectedOption = userOptions.find(opt => opt.value === selectedUserId);
+  const selectedOption = userOptions.find(opt => opt.value === null);
 
   // Custom filter for react-select to match username or nickname
   const filterOption = (option: any, inputValue: string) => {
     const { user } = option.data;
+    if (!user) return false; // Prevent error for "All Users" option
     const search = inputValue.toLowerCase();
     return (
       (user.username && user.username.toLowerCase().includes(search)) ||
@@ -167,20 +178,23 @@ const Hittracker: React.FC = () => {
     );
   };
 
+  // Find the currently selected game version option
+  const selectedGameVersionOption = gameVersions.find(opt => opt.value === gameVersion);
+
   return (
     <div className="hittracker-root">
       <Navbar />
-
       <main className="dashboard-content">
         <section className="dashboard-header">
           <h1>Piracy</h1>
           <p>Track your hits and performance.</p>
-          {/* Move the selection box here, right under the title */}
+          {/* Only show Game Version selector */}
           <div style={{
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            margin: "1.5rem 0 0.5rem 0"
+            margin: "1.5rem 0 0.5rem 0",
+            gap: "1rem"
           }}>
             <div style={{
               display: "flex",
@@ -188,13 +202,13 @@ const Hittracker: React.FC = () => {
               alignItems: "center"
             }}>
               <Select
-                inputId="user-select"
-                options={userOptions}
-                value={selectedOption}
-                onChange={opt => setSelectedUserId(opt?.value ?? null)}
-                placeholder="Type a username or nickname..."
+                inputId="gameversion-select"
+                options={gameVersions}
+                value={selectedGameVersionOption}
+                onChange={opt => setGameVersion(opt?.value ?? null)}
+                placeholder="Select game version..."
                 isSearchable
-                filterOption={filterOption}
+                isClearable={false}
                 styles={{
                   control: (base) => ({
                     ...base,
@@ -203,8 +217,7 @@ const Hittracker: React.FC = () => {
                     color: "#fff",
                     minHeight: 44,
                     fontSize: 16,
-                    width: 500,
-                    maxWidth: 700,
+                    width: 200,
                   }),
                   menu: (base) => ({
                     ...base,
@@ -245,15 +258,12 @@ const Hittracker: React.FC = () => {
         <div className="hittracker-layout">
           <div className="column overview-panel-column">
             <OverviewPanel
-              recentHits={recentHits}
-              pirateHits={allPirateHits}
-              assistHits={allAssistHits}
               gameVersion={gameVersion}
             />
           </div>
           <div className="column warehouse-items">
             {/* Add New Hit Button - only show if viewer is selected */}
-            {selectedUserId === dbUser.id && (
+            {isMember && (
               <button
                 className="add-hit-btn"
                 style={{
@@ -272,50 +282,25 @@ const Hittracker: React.FC = () => {
                 Add New Hit
               </button>
             )}
+            {/* Remove Add New Hit Button (since no user context) */}
             <div style={{ borderRadius: 8, minHeight: 200 }} className="column recent-pirate-hits">
               <RecentPirateHits 
                 recentHits={recentHits} 
                 gameVersion={gameVersion} 
-                user_id={selectedUserId}
+                user_id={null}
                 pirateHits={allPirateHits}
                 assistHits={allAssistHits}
                 allUsers={userList}
-                dbUser={dbUser} // <-- pass dbUser here
+                dbUser={dbUser}
               />
             </div>
           </div>
           <div className="column recent-pirate-hits">
-            <KillOverviewBoard userId={selectedUserId ?? ""} patch={gameVersion ?? ""} />
+            <KillOverviewBoard patch={gameVersion ?? ""} allUsers={userList} />
           </div>
         </div>
       </main>
-      {/* Modal for Add Hit Form */}
-      {showAddHitModal && (
-        <AddHitModal
-          show={showAddHitModal}
-          onClose={() => setShowAddHitModal(false)}
-          gameVersion={gameVersion}
-          userId={dbUser.id}
-          username={dbUser.username}
-          summarizedItems={summarizedItems}
-          allUsers={userList}
-          onSubmit={async (hit) => {
-            setIsSubmitting(true);
-            setFormError(null);
-            try {
-              // await your API call here
-              setShowAddHitModal(false);
-            } catch (err) {
-              setFormError("Failed to submit. Please try again.");
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
-          isSubmitting={isSubmitting}
-          formError={formError}
-          setFormError={setFormError}
-        />
-      )}
+      {/* Remove AddHitModal */}
     </div>
   );
 };

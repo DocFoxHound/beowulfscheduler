@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import OverviewPanel from '../components/OverviewPanel';
+import OverviewPanel from '../components/PiracyOverviewPanel';
 import RecentPirateHits from '../components/RecentPirateHits';
 import WarehouseItems from '../components/WarehouseItems';
 import { getLatestPatch } from '../api/patchApi';

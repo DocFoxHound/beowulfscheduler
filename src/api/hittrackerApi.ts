@@ -77,3 +77,27 @@ export const fetchTop10TotalCutValueByPatch = async (patch: string): Promise<{ u
   });
   return response.data;
 };
+
+export const fetchAllHitsByPatch = async (patch: string): Promise<Hit[]> => {
+  const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/patch`, {
+    params: { patch }
+  });
+  return response.data;
+};
+
+export const fetchAllHitsByUserIdAndPatch = async (user_id: string, patch: string): Promise<Hit[]> => {
+  const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/userandpatch`, {
+    params: { user_id, patch }
+  });
+  return response.data;
+};
+
+/**
+ * Fetch org overview summary for all patches.
+ * @returns The overview summary array from the backend (raw JSON from Postgres view)
+ */
+export const fetchOrgOverviewSummaryByPatch = async (): Promise<any[]> => {
+  const response = await axios.get<any[]>(`${API_BASE_URL}/api/hittracker/hitoverviewbypatch`);
+  return response.data;
+};
+

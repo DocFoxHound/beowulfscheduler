@@ -128,3 +128,35 @@ export const fetchTop10PUFPSKillersByPatch = async (patch: string): Promise<any[
   });
   return response.data;
 };
+
+// Get all FPS kills by patch
+export const fetchAllFPSKillsByPatch = async (patch: string): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/allfpskillsbypatch`, {
+    params: { patch }
+  });
+  return response.data;
+};
+
+// Get all ship kills by patch (excluding FPS)
+export const fetchAllShipKillsByPatch = async (patch: string): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/allshipkillsbypatch`, {
+    params: { patch }
+  });
+  return response.data;
+};
+
+// Get newest 100 FPS kills by patch
+export const fetchNewest100FPSKillsByPatch = async (patch: string): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/newest100fpskillsbypatch`, {
+    params: { patch }
+  });
+  return response.data;
+};
+
+// Get newest 100 ship kills by patch (excluding FPS)
+export const fetchNewest100ShipKillsByPatch = async (patch: string): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/newest100shipkillsbypatch`, {
+    params: { patch }
+  });
+  return response.data;
+};

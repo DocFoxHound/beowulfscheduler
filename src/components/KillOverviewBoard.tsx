@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { fetchBlackBoxsByUserIdPatchGameMode } from "../api/blackboxApi";
+import { fetchNewest100FPSKillsByPatch, fetchNewest100ShipKillsByPatch } from "../api/blackboxApi";
 import { BlackBox } from "../types/blackbox";
+import { User } from "../types/user";
 
 interface KillOverviewBoardProps {
-  userId: string;
   patch: string;
+  allUsers: User[];
 }
 
 const PAGE_SIZE = 20;
 
-const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) => {
+const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ patch, allUsers }) => {
   const [kills, setKills] = useState<BlackBox[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -18,17 +19,30 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) 
     const fetchKills = async () => {
       setLoading(true);
       try {
-        const data = await fetchBlackBoxsByUserIdPatchGameMode(userId, patch, "PU");
-        setKills(data || []);
-        setPage(0); // Reset to first page on user/patch change
+        // Fetch both FPS and Ship kills, then combine and sort by timestamp desc
+        const [fpsKills, shipKills] = await Promise.all([
+          fetchNewest100FPSKillsByPatch(patch),
+          fetchNewest100ShipKillsByPatch(patch)
+        ]);
+        const allKills = [...(fpsKills || []), ...(shipKills || [])];
+        allKills.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setKills(allKills);
+        setPage(0); // Reset to first page on patch change
       } catch {
         setKills([]);
       } finally {
         setLoading(false);
       }
     };
-    if (userId && patch) fetchKills();
-  }, [userId, patch]);
+    if (patch) fetchKills();
+  }, [patch]);
+
+  // Helper to get display name from userId
+  const getDisplayName = (userId: string) => {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) return userId;
+    return user.nickname || user.username || user.id;
+  };
 
   const totalKills = kills.length;
   const fpsKills = kills.filter(k => k.ship_killed === "FPS").length;
@@ -62,7 +76,7 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) 
                   background: "#23272a"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span>{kill.victims}</span>
+                    <span>💀{kill.victims}</span>
                     <span
                       style={{
                         color: kill.ship_killed === "FPS" ? "#ff3b3b" : "#2d7aee",
@@ -73,7 +87,7 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ userId, patch }) 
                       {kill.ship_killed}
                     </span>
                   </div>
-                  <div>{new Date(kill.timestamp).toLocaleString()}</div>
+                  <div>{getDisplayName(kill.user_id)}</div>
                 </div>
               ))}
               {kills.length === 0 && <div>No kills found.</div>}

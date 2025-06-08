@@ -98,8 +98,8 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
             fontSize: '1.1rem',
             color: '#2d7aee',
             letterSpacing: 1,
-            // Reserve space for Edit button if it's visible for any reason
-            paddingRight: (hit.user_id === userId || isFleetCommander) ? 70 : 0
+            // Add more padding if Edit button is visible
+            paddingRight: (hit.user_id === userId || isFleetCommander || isModerator) ? 70 : 0
           }}
         >
           {hit.type_of_piracy?.toUpperCase()}
