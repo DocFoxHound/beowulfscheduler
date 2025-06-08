@@ -41,6 +41,9 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   const PUBLIC_EVENTS_CHANNEL = isLive
     ? import.meta.env.VITE_PUBLIC_EVENTS_CHANNEL
     : import.meta.env.VITE_TEST_PUBLIC_EVENTS_CHANNEL;
+  const PROSPECT_EVENTS_CHANNEL = isLive
+    ? import.meta.env.VITE_PROSPECT_EVENTS_CHANNEL
+    : import.meta.env.VITE_TEST_PROSPECT_EVENTS_CHANNEL;
   const CREW_EVENTS_CHANNEL = isLive
     ? import.meta.env.VITE_CREW_EVENTS_CHANNEL
     : import.meta.env.VITE_TEST_CREW_EVENTS_CHANNEL;
@@ -301,6 +304,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                     Channel Selection
                 </option>
                 <option value={PUBLIC_EVENTS_CHANNEL}>Public Events</option>
+                <option value={PROSPECT_EVENTS_CHANNEL}>Prospect Events</option>
                 <option value={CREW_EVENTS_CHANNEL}>Crew Events</option>
                 <option value={MARAUDER_EVENTS_CHANNEL}>Marauder Events</option>
             </select>

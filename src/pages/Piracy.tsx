@@ -280,6 +280,7 @@ const Hittracker: React.FC = () => {
                 pirateHits={allPirateHits}
                 assistHits={allAssistHits}
                 allUsers={userList}
+                dbUser={dbUser} // <-- pass dbUser here
               />
             </div>
           </div>

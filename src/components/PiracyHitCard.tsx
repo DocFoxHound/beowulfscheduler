@@ -7,13 +7,18 @@ import { User } from "../types/user";
 interface PiracyHitCardProps {
   hit: Hit;
   userId: string;
-  allUsers: User[]
+  allUsers: User[];
+  dbUser?: User;
 }
 
-const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers }) => {
+
+const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, dbUser }) => {
   const [showCargoTooltip, setShowCargoTooltip] = useState(false);
   const [isFleetCommander, setIsFleetCommander] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
+  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+  const isModerator = dbUser?.roles?.some(role => BLOODED_IDS.includes(role)) ?? false;
 
   useEffect(() => {
     let ignore = false;
@@ -62,7 +67,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers }) 
       }}
     >
       {/* Edit button, only if user owns this hit or is fleet commander */}
-      {(hit.user_id === userId || isFleetCommander) && (
+      {(hit.user_id === userId || isFleetCommander || isModerator) && (
         <button
           style={{
             position: "absolute",
