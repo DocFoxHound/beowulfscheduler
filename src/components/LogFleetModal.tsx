@@ -673,7 +673,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
 
   return (
     <Modal onClose={onClose}>
-      <h2>Log Fleet Activity</h2>
+      <h2>Log Activity</h2>
       <form onSubmit={handleSubmit}>
         <label>
           Title:

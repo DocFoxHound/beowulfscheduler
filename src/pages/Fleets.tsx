@@ -299,7 +299,7 @@ const Hittracker: React.FC = () => {
         </section>
 
         <div className="hittracker-layout">
-          {/* LEFT COLUMN: Log Fleet Activity (was center) */}
+          {/* LEFT COLUMN: Log Activity (was center) */}
           <div className="column overview-panel-column">
             {isMember && (
               <button
@@ -317,9 +317,12 @@ const Hittracker: React.FC = () => {
                 }}
                 onClick={() => setLogFleetModal(true)}
               >
-                Log Fleet Activity
+                Log Activity
               </button>
             )}
+            <div style={{ fontSize: "0.95rem", color: "#aaa", marginBottom: "1.5rem", textAlign: "center" }}>
+              Activities don't require Fleet's to count, but to count towards an existing Fleet they must have at least 3 of their own members involved.
+            </div>
             <RecentFleetLogs fleets={fleets} />
           </div>
 
