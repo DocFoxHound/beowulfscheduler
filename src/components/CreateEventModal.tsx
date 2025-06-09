@@ -51,17 +51,21 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     ? import.meta.env.VITE_MARAUDER_EVENTS_CHANNEL
     : import.meta.env.VITE_TEST_MARAUDER_EVENTS_CHANNEL;
 
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const getLocalDateTimeString = (date: Date, hour: number) => {
+    const d = new Date(date);
+    d.setHours(hour, 0, 0, 0);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
+  };
+
   const [title, setTitle] = useState("Event Title");
   const [description, setDescription] = useState("");
-  const [startTime, setStartTime] = useState(() => {
-    const d = new Date(defaultDate);
-    d.setHours(defaultHour, 0, 0, 0);
-    return d.toISOString().slice(0, 16);
-  });
+  const [startTime, setStartTime] = useState(() =>
+    getLocalDateTimeString(defaultDate, defaultHour)
+  );
   const [endTime, setEndTime] = useState<string | undefined>(() => {
-    const d = new Date(defaultDate);
-    d.setHours(defaultHour + 1, 0, 0, 0);
-    return d.toISOString().slice(0, 16);
+    return getLocalDateTimeString(defaultDate, defaultHour + 1);
   });
   const [channel, setChannel] = useState(""); // Default to Public Events
   const [rsvpOptions, setRsvpOptions] = useState([
@@ -169,11 +173,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
       author_username: currentUsername,
       attendees_usernames: [],
       timestamp: new Date(start).toISOString(),
-      action: "add",
-      allowed_ranks: [],
-      allowed_ranks_names: [],
-      title,
-      description,
       start_time: new Date(start).toISOString(),
       end_time: endTime ? new Date(endTime).toISOString() : undefined,
       appearance,

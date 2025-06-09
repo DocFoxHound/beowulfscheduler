@@ -286,8 +286,11 @@ export default function Scheduler() {
     setSaving(true);
     setSaveStatus(null);
 
+    // Only send new availabilities (action === "add")
+    const newAvailabilities = availability.filter(a => a.action === "add");
+
     try {
-      await saveSchedule(availability);
+      await saveSchedule(newAvailabilities);
       setSaveStatus("Schedule saved successfully!");
 
       // Re-fetch the latest schedule after saving

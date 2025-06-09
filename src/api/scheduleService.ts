@@ -42,8 +42,10 @@ export const getWeeklySchedule = async (startOfWeek: Date, endOfWeek: Date): Pro
  */
 export const saveSchedule = async (availability: Availability): Promise<Availability> => {
   try {
-    // Send the entire array in one POST request
-    const response = await axios.post(`${API_URL}/schedule`, availability, {
+    // Set .action to null on all availability objects before saving
+    const cleaned = availability.map(a => ({ ...a, action: null }));
+
+    const response = await axios.post(`${API_URL}/schedule`, cleaned, {
       withCredentials: true,
       headers: { 'Content-Type': 'application/json' }
     });

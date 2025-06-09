@@ -117,6 +117,7 @@ function LeaderboardTable<T extends { [key: string]: any }>({
           onChange={opt => setSelectedPlayer(opt?.player ?? null)}
           placeholder="Type a nickname or display name..."
           isSearchable
+          isClearable // <-- Add this line to make the search bar clearable
           filterOption={filterOption}
           styles={{
             control: (base) => ({
@@ -225,8 +226,24 @@ function LeaderboardTable<T extends { [key: string]: any }>({
                 justifyContent: "center",
                 marginTop: "1.5rem",
                 gap: "1rem",
+                alignItems: "center",
               }}
             >
+              <button
+                onClick={() => onPageChange(0)}
+                disabled={page === 0}
+                style={{
+                  background: "#2d7aee",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "8px 16px",
+                  cursor: page === 0 ? "not-allowed" : "pointer",
+                  opacity: page === 0 ? 0.5 : 1,
+                }}
+              >
+                First
+              </button>
               <button
                 onClick={() => onPageChange(page - 1)}
                 disabled={page === 0}
@@ -243,7 +260,26 @@ function LeaderboardTable<T extends { [key: string]: any }>({
                 Previous
               </button>
               <span style={{ color: "#fff", alignSelf: "center" }}>
-                Page {page + 1} of {pageCount}
+                Page{" "}
+                <select
+                  value={page}
+                  onChange={e => onPageChange(Number(e.target.value))}
+                  style={{
+                    background: "#23272a",
+                    color: "#fff",
+                    border: "1px solid #2d7aee",
+                    borderRadius: 4,
+                    padding: "4px 8px",
+                    margin: "0 4px",
+                  }}
+                >
+                  {Array.from({ length: pageCount }, (_, i) => (
+                    <option key={i} value={i}>
+                      {i + 1}
+                    </option>
+                  ))}
+                </select>
+                of {pageCount}
               </span>
               <button
                 onClick={() => onPageChange(page + 1)}
@@ -259,6 +295,21 @@ function LeaderboardTable<T extends { [key: string]: any }>({
                 }}
               >
                 Next
+              </button>
+              <button
+                onClick={() => onPageChange(pageCount - 1)}
+                disabled={page + 1 >= pageCount}
+                style={{
+                  background: "#2d7aee",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "8px 16px",
+                  cursor: page + 1 >= pageCount ? "not-allowed" : "pointer",
+                  opacity: page + 1 >= pageCount ? 0.5 : 1,
+                }}
+              >
+                Last
               </button>
             </div>
           )}

@@ -27,5 +27,8 @@ export interface SBLeaderboardPlayerSummary {
   avg_win_loss_ratio: number;
   avg_accuracy: number;
   avg_rank: number;
-
+  total_rating: number;
+  modified_rating: number;
+  total_score: number;
+  killsteal_modified_rating: number;
 }

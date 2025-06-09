@@ -5,7 +5,7 @@ const sbColumns: LeaderboardColumn<any>[] = [
     key: "rank",
     title: "#",
     align: "center",
-    render: (_row, idx) => idx + 1,
+    render: (row) => row.rank ?? "-",
   },
   {
     key: "account_media",
@@ -40,6 +40,13 @@ const sbColumns: LeaderboardColumn<any>[] = [
       ) : null,
   },
   {
+    key: "total_rating",
+    title: "RSI Rating",
+    render: row => row.total_rating ?? "-",
+    sortable: true,
+    sortAccessor: row => Number(row.total_rating) || 0,
+  },
+  {
     key: "total_kills",
     title: "Kills",
     render: row =>
@@ -70,29 +77,26 @@ const sbColumns: LeaderboardColumn<any>[] = [
     sortAccessor: row => Number(row.avg_kill_death_ratio) || 0,
   },
   {
-    key: "avg_score",
-    title: "Avg Score",
-    render: row =>
-      row.avg_score != null
-        ? Number(row.avg_score).toLocaleString()
-        : "-",
-    sortable: true,
-    sortAccessor: row => Number(row.avg_score) || 0,
-  },
-  {
-    key: "avg_rank",
-    title: "Avg RSI Rank",
-    render: row => row.avg_rank ?? "-",
-    sortable: true,
-    sortAccessor: row => Number(row.avg_rank) || 0,
-  },
-  {
     key: "ranking_score",
     title: "IronPoint Score",
     render: row => row.ranking_score?.toFixed(3) ?? "-",
     sortable: true,
     sortAccessor: row => Number(row.ranking_score) || 0,
   },
+  // {
+  //   key: "modified_rating",
+  //   title: "Modified Score",
+  //   render: row => row.modified_rating?.toFixed(3) ?? "-",
+  //   sortable: true,
+  //   sortAccessor: row => Number(row.modified_rating) || 0,
+  // },
+  // {
+  //   key: "killsteal_modified_rating",
+  //   title: "Killsteal-Modified Score",
+  //   render: row => row.killsteal_modified_rating?.toFixed(3) ?? "-",
+  //   sortable: true,
+  //   sortAccessor: row => Number(row.killsteal_modified_rating) || 0,
+  // },
 ];
 
 export default sbColumns;

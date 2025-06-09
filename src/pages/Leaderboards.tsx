@@ -56,7 +56,7 @@ const Leaderboards: React.FC = () => {
             ...player,
             ranking_score: (computeRankingScore(player, data)*100),
           }));
-          const sorted = [...withScores].sort((a, b) => b.avg_rank - a.avg_rank);
+          const sorted = [...withScores].sort((a, b) => a.avg_rank - b.avg_rank);
           setPlayers(sorted);
         })
         .finally(() => setLoading(false));
@@ -141,7 +141,7 @@ const Leaderboards: React.FC = () => {
           <h1>Leaderboards</h1>
           <p>
             {mode === "dogfighting" && (
-              <>Players sorted by <b>CiG Average Score</b> (highest first)</>
+              <>Players sorted by <b>CiG Rating</b> (highest first)</>
             )}
             {mode === "piracy" && (
               <>Players sorted by <b>Total Value</b> (highest first)</>
@@ -174,7 +174,7 @@ const Leaderboards: React.FC = () => {
             }}
           >
             <img src="https://i.imgur.com/9wMuyX1.png" alt="Dogfighting" style={{ width: 48, height: 48, marginBottom: 8 }} />
-            <span style={{ fontSize: 20, fontWeight: 700 }}>Dogfighting</span>
+            <span style={{ fontSize: 20, fontWeight: 700 }}>Squadron Battle</span>
           </button>
           <button
             onClick={() => setMode("fleets")}
