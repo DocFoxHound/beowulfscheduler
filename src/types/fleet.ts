@@ -1,5 +1,5 @@
 export interface UserFleet {
-  id: number;
+  id: string;
   name?: string;
   commander_id?: string | null; // <-- Add null here
   members_ids?: string[];

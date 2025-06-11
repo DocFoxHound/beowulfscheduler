@@ -1,8 +1,8 @@
 export interface FleetLog {
-  id: number;
+  id: string;
   created_at?: string; // ISO date string, nullable
   notes?: string;
-  commander_id?: number;
+  commander_id?: string;
   patch?: string;
   crew_usernames?: string[];
   air_sub_usernames?: string[];

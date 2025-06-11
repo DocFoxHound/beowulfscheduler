@@ -413,7 +413,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
         fps_sub_usernames,
         fps_sub_ids,
         total_cargo: Number(form.total_cargo) || 0,
-        id: Date.now(),
+        id: Date.now().toString(),
         created_at: new Date().toISOString(),
         fleet_id,
         fleet_name,
@@ -623,8 +623,8 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             const crewIds = crewUsers.map(u => String(u.id));
             const relevant = blackboxes.filter(bb => crewIds.includes(String(bb.user_id)));
             // Sum kills and damage
-            const totalKills = relevant.reduce((sum, bb) => sum + (bb.kill_count || 0), 0);
-            const totalDamage = relevant.reduce((sum, bb) => sum + (bb.value || 0), 0);
+            const totalKills = relevant.reduce((sum, bb) => sum + (Number(bb.kill_count) || 0), 0);
+            const totalDamage = relevant.reduce((sum, bb) => sum + (Number(bb.value) || 0), 0);
             setForm(f => ({
               ...f,
               total_kills: totalKills,
@@ -661,8 +661,8 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
       .map((id: string) => recentHits.find(h => h.id === id))
       .filter(Boolean);
 
-    const valueStolen = hits.reduce((sum, hit) => sum + (hit?.total_value || 0), 0);
-    const totalCargo = hits.reduce((sum, hit) => sum + (hit?.total_scu || 0), 0);
+    const valueStolen = hits.reduce((sum, hit) => sum + (Number(hit?.total_value) || 0), 0);
+    const totalCargo = hits.reduce((sum, hit) => sum + (Number(hit?.total_scu) || 0), 0);
 
     setForm(f => ({
       ...f,
@@ -759,7 +759,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
                       cursor: "pointer",
                       color: "#fff",
                       borderBottom: "1px solid #353a40",
-                      background: fleet.id === Number(form.fleet_id) ? "#2d7aee" : "transparent",
+                      background: String(fleet.id) === String(form.fleet_id) ? "#2d7aee" : "transparent",
                       display: "flex",
                       alignItems: "center",
                       gap: 10,

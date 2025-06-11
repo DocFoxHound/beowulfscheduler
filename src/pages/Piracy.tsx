@@ -168,7 +168,7 @@ const Hittracker: React.FC = () => {
 
   return (
     <div className="hittracker-root">
-      <Navbar />
+      <Navbar dbUser={dbUser} />
       <main className="dashboard-content">
         <section className="dashboard-header">
           <h1>Piracy</h1>

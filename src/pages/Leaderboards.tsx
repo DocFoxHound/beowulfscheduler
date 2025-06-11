@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { fetchSBAllPlayerSummaries } from "../api/leaderboardApi";
 import { fetchPiracyLeaderboardByPatchEnriched } from "../api/leaderboardPiracyApi";
 import { fetchBlackboxLeaderboardByPatchEnriched } from "../api/leaderboardBlackboxApi";
@@ -29,6 +30,32 @@ const Leaderboards: React.FC = () => {
   // Patch selector state
   const [patches, setPatches] = useState<string[]>([]);
   const [selectedPatch, setSelectedPatch] = useState<string>("");
+
+  // dbUser logic (like Fleets.tsx)
+  const [user, setUser] = useState<any>(null);
+  const [dbUser, setDbUser] = useState<any>(null);
+  useEffect(() => {
+    if (!dbUser) {
+      axios
+        .get(
+          import.meta.env.VITE_IS_LIVE === "true"
+            ? import.meta.env.VITE_LIVE_USER_URL
+            : import.meta.env.VITE_TEST_USER_URL,
+          { withCredentials: true }
+        )
+        .then((res) => setUser(res.data))
+        .catch(() => setUser(null));
+    }
+  }, [dbUser]);
+  useEffect(() => {
+    if (!dbUser && user && user.id) {
+      import("../api/userService").then(({ getUserById }) => {
+        getUserById(user.id)
+          .then((data) => setDbUser(data))
+          .catch(() => setDbUser(null));
+      });
+    }
+  }, [user, dbUser]);
 
   // Load patch options on mount
   useEffect(() => {
@@ -135,7 +162,7 @@ const Leaderboards: React.FC = () => {
 
   return (
     <div className="leaderboards-root" style={{ minHeight: "100vh", background: "#181a1b" }}>
-      <Navbar />
+      <Navbar dbUser={dbUser} />
       <main className="dashboard-content">
         <section className="dashboard-header" style={{ textAlign: "center", marginBottom: "2rem" }}>
           <h1>Leaderboards</h1>

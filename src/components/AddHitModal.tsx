@@ -392,7 +392,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   };
 
   // Calculate total value
-  const totalValue = cargoList.reduce((sum, item) => sum + item.avg_price * item.scuAmount, 0);
+  const totalValue = cargoList.reduce((sum, item) => sum + (item.avg_price * item.scuAmount), 0);
 
   const handleAssistsFocus = () => {
     if (!form.assists.trim()) setShowGatheringsMenu(true);
@@ -563,22 +563,16 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             disabled={isSubmitting}
           />
         </label>
-        <label>
+        <div>
           Cargo:
-          <div style={{ marginBottom: "0.5em", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+          <div style={{ marginBottom: "0.5em", display: "flex", flexDirection: "column", alignItems: "flex-start", position: "relative" }}>
             <div
-              style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}
-              tabIndex={-1}
-              onMouseDown={e => {
-                // Prevent focus from shifting to the first button when clicking empty space in the cargo area
-                if (e.target === e.currentTarget) {
-                  e.preventDefault();
-                }
-              }}
+              style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center"}}
             >
               <button
                 ref={addItemBtnRef}
                 type="button"
+                tabIndex={-1}
                 onClick={() => {
                   setShowCargoPicker(true);
                   setShowCustomCargoMenu(false);
@@ -601,7 +595,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                 onClick={() => {
                   setShowCustomCargoMenu(true);
                   setShowCargoPicker(false);
-                }}
+                }} 
                 style={{
                   background: "#2d7aee",
                   color: "#fff",
@@ -618,32 +612,111 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               <span style={{ marginLeft: 16, fontWeight: "bold", color: "#fff" }}>
                 Total Value: {totalValue.toLocaleString()}
               </span>
+              <span style={{ display: "block", fontSize: 12, color: "#bbb", marginBottom: 4 }}>
+                If editing values, provide screenshot proof in media or the discord post of this hit.
+              </span>
             </div>
-            {showCustomCargoMenu && (
-              <div style={{ background: "#23272e", border: "1px solid #353a40", borderRadius: 8, padding: 12, marginBottom: 8 }}>
+            {/* Show CargoPicker or CustomCargoMenu in the same spot above the table */}
+            {showCargoPicker && (
+              <div style={{
+                background: "#23272e",
+                border: "1px solid #353a40",
+                borderRadius: 8,
+                padding: 16,
+                marginBottom: 8, // Place above the table, not absolutely positioned
+                width: "100%",
+                zIndex: 20,
+                boxShadow: "0 4px 24px rgba(0,0,0,0.5)"
+              }}>
                 <input
                   type="text"
-                  placeholder="Name"
-                  value={customCargoName}
-                  onChange={e => setCustomCargoName(e.target.value)}
-                  style={{ width: 120, marginRight: 8, marginBottom: 4 }}
+                  placeholder="Search cargo..."
+                  value={cargoSearch}
+                  onChange={e => setCargoSearch(e.target.value)}
+                  style={{ width: "100%", marginBottom: 8 }}
                 />
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Quantity"
-                  value={customCargoQty}
-                  onChange={e => setCustomCargoQty(Number(e.target.value))}
-                  style={{ width: 80, marginRight: 8, marginBottom: 4 }}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Avg Value"
-                  value={customCargoAvg}
-                  onChange={e => setCustomCargoAvg(Number(e.target.value))}
-                  style={{ width: 100, marginRight: 8, marginBottom: 4 }}
-                />
+                <div style={{ maxHeight: 120, overflowY: "auto" }}>
+                  {summarizedItems
+                    .filter(item => item.commodity_name.toLowerCase().includes(cargoSearch.toLowerCase()))
+                    .map(item => (
+                      <div key={item.commodity_name} style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ flex: 1 }}>{item.commodity_name} (avg: {Math.max(item.price_buy_avg, item.price_sell_avg)})</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={selectedCargo?.commodity_name === item.commodity_name ? cargoQuantity : 1}
+                          onFocus={() => {
+                            setSelectedCargo(item);
+                            setCargoQuantity(1);
+                          }}
+                          onChange={e => {
+                            setSelectedCargo(item);
+                            setCargoQuantity(Number(e.target.value));
+                          }}
+                          style={{ width: 60, marginRight: 8 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            addCargoItem({ commodity_name: item.commodity_name, scuAmount: cargoQuantity, avg_price: Math.max(item.price_buy_avg, item.price_sell_avg) });
+                            setCargoSearch("");
+                            setSelectedCargo(null);
+                            setCargoQuantity(1);
+                          }}
+                          style={{ background: "#2d7aee", color: "#fff", border: "none", borderRadius: 4, padding: "2px 10px", cursor: "pointer" }}
+                        >Add</button>
+                      </div>
+                    ))}
+                </div>
+                <button
+                  type="button"
+                  // tabIndex={-1}
+                  // onMouseDown={e => e.preventDefault()}
+                  onClick={() => {
+                    setShowCargoPicker(false);
+                    // if (addItemBtnRef.current) addItemBtnRef.current.blur();
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur();
+                    }
+                  }}
+                  style={{ marginTop: 8, background: "#444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 12px", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+            {showCustomCargoMenu && (
+              <div style={{ background: "#23272e", border: "1px solid #353a40", borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <span style={{ width: 120, color: "#bbb", fontSize: 13 }}>Item</span>
+                  <span style={{ width: 100, color: "#bbb", fontSize: 13 }}>Value</span>
+                  <span style={{ width: 80, color: "#bbb", fontSize: 13 }}>Quantity</span>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    value={customCargoName}
+                    onChange={e => setCustomCargoName(e.target.value)}
+                    style={{ width: 120, marginRight: 0 }}
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Avg Value"
+                    value={customCargoAvg}
+                    onChange={e => setCustomCargoAvg(Number(e.target.value))}
+                    style={{ width: 100, marginRight: 0 }}
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Quantity"
+                    value={customCargoQty}
+                    onChange={e => setCustomCargoQty(Number(e.target.value))}
+                    style={{ width: 80, marginRight: 0 }}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -657,7 +730,6 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     setCustomCargoName("");
                     setCustomCargoQty(1);
                     setCustomCargoAvg(1);
-                    // setShowCustomCargoMenu(false);
                   }}
                   style={{ background: "#2d7aee", color: "#fff", border: "none", borderRadius: 4, padding: "2px 10px", cursor: "pointer" }}
                   disabled={!customCargoName.trim() || customCargoQty < 1 || customCargoAvg < 1}
@@ -681,22 +753,34 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               {cargoList.length > 0 && (
                 <thead>
                   <tr>
-                    <th style={{ color: "#ccc", padding: 4, textAlign: "left" }}>Item</th>
-                    <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value</th>
-                    <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Quantity</th>
-                    <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>For Org</th>
-                    <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>To Warehouse</th>
-                    <th></th>
+                    <th style={{ color: "#ccc", padding: 4, textAlign: "left" }}>Item</th><th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value (total)</th><th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Quantity</th><th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>For Org</th><th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>To Warehouse</th><th></th>
                   </tr>
                 </thead>
               )}
               <tbody>
                 {cargoList.map((cargo, idx) => (
                   <tr key={cargo.commodity_name + idx}>
-                    <td style={{ padding: 4 }}>{cargo.commodity_name}</td>
-                    <td style={{ padding: 4, textAlign: "right" }}>{cargo.avg_price}</td>
-                    <td style={{ padding: 4, textAlign: "right" }}>{cargo.scuAmount}</td>
-                    <td style={{ padding: 4, textAlign: "center" }}>
+                    <td style={{ padding: 4 }}>{cargo.commodity_name}</td><td style={{ padding: 4, textAlign: "right" }}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={cargo.avg_price * cargo.scuAmount}
+                        onChange={e => {
+                          const newTotalValue = Number(e.target.value);
+                          setCargoList(list =>
+                            list.map((item, i) =>
+                              i === idx
+                                ? {
+                                    ...item,
+                                    avg_price: cargo.scuAmount > 0 ? newTotalValue / cargo.scuAmount : 0,
+                                  }
+                                : item
+                            )
+                          );
+                        }}
+                        style={{ width: 100 }}
+                      />
+                    </td><td style={{ padding: 4, textAlign: "right" }}>{cargo.scuAmount}</td><td style={{ padding: 4, textAlign: "center" }}>
                       <input
                         type="checkbox"
                         className="large-checkbox"
@@ -710,8 +794,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                           );
                         }}
                       />
-                    </td>
-                    <td style={{ padding: 4, textAlign: "center" }}>
+                    </td><td style={{ padding: 4, textAlign: "center" }}>
                       <button
                         type="button"
                         onClick={() => {
@@ -758,8 +841,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                           }}
                         />
                       </button>
-                    </td>
-                    <td style={{ padding: 4 }}>
+                    </td><td style={{ padding: 4 }}>
                       <button
                         type="button"
                         style={{ color: "#ff6b6b", background: "none", border: "none", cursor: "pointer" }}
@@ -775,60 +857,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               </tbody>
             </table>
           </div>
-        </label>
-        {showCargoPicker && (
-          <div style={{ background: "#23272e", border: "1px solid #353a40", borderRadius: 8, padding: 16, marginBottom: 16 }}>
-            <input
-              type="text"
-              placeholder="Search cargo..."
-              value={cargoSearch}
-              onChange={e => setCargoSearch(e.target.value)}
-              style={{ width: "100%", marginBottom: 8 }}
-            />
-            <div style={{ maxHeight: 120, overflowY: "auto" }}>
-              {summarizedItems
-                .filter(item => item.commodity_name.toLowerCase().includes(cargoSearch.toLowerCase()))
-                .map(item => (
-                  <div key={item.commodity_name} style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ flex: 1 }}>{item.commodity_name} (avg: {Math.max(item.price_buy_avg, item.price_sell_avg)})</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={selectedCargo?.commodity_name === item.commodity_name ? cargoQuantity : 1}
-                      onFocus={() => {
-                        setSelectedCargo(item);
-                        setCargoQuantity(1);
-                      }}
-                      onChange={e => {
-                        setSelectedCargo(item);
-                        setCargoQuantity(Number(e.target.value));
-                      }}
-                      style={{ width: 60, marginRight: 8 }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        addCargoItem({ commodity_name: item.commodity_name, scuAmount: cargoQuantity, avg_price: Math.max(item.price_buy_avg, item.price_sell_avg) });
-                        // setShowCargoPicker(false);
-                        setCargoSearch("");
-                        setSelectedCargo(null);
-                        setCargoQuantity(1);
-                      }}
-                      style={{ background: "#2d7aee", color: "#fff", border: "none", borderRadius: 4, padding: "2px 10px", cursor: "pointer" }}
-                    >Add</button>
-                  </div>
-                ))}
-              {/* Custom cargo section goes here */}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowCargoPicker(false)}
-              style={{ marginTop: 8, background: "#444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 12px", cursor: "pointer" }}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+        </div>
         <label style={{ position: "relative", display: "block" }}>
           Assists:
           <input
@@ -951,17 +980,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             <table style={{ width: "100%", background: "#23272e", borderRadius: 6, borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Name</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Marine</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Snare</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Cargo</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Multicrew</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Salvage</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th>
-                  <th style={{ color: "#ccc", padding: 6 }}>Commander</th> {/* <-- Add this */}
-                  <th></th>
+                  <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Name</th><th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th><th style={{ color: "#ccc", padding: 6 }}>Marine</th><th style={{ color: "#ccc", padding: 6 }}>Snare</th><th style={{ color: "#ccc", padding: 6 }}>Cargo</th><th style={{ color: "#ccc", padding: 6 }}>Multicrew</th><th style={{ color: "#ccc", padding: 6 }}>Salvage</th><th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th><th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th><th style={{ color: "#ccc", padding: 6 }}>Commander</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -977,7 +996,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                       "salvage",
                       "air_leadership",
                       "ground_leadership",
-                      "commander" // <-- Add this
+                      "commander"
                     ] as Array<keyof AssistUserWithExperience>).map(field => (
                       <td key={field} style={{ textAlign: "center", padding: 6 }}>
                         <input
@@ -1019,44 +1038,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             </table>
           </div>
         )}
-        {/* <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0" }}>
-          {assistsUsers.map(user => (
-            <span
-              key={user.id}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                background: "#181a1b",
-                color: "#fff",
-                borderRadius: 16,
-                padding: "4px 12px",
-                fontSize: 14,
-                marginRight: 4,
-                marginBottom: 4,
-              }}
-            >
-              {user.nickname || user.username}
-              <button
-                type="button"
-                onClick={() => setAssistsUsers(list => list.filter(u => u.id !== user.id))}
-                style={{
-                  marginLeft: 8,
-                  color: "#ff6b6b",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 16,
-                  lineHeight: 1,
-                }}
-                aria-label={`Remove ${user.nickname || user.username}`}
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-        </div> */}
         <label>
-          Victim Name:
+          Victims:
           <input
             type="text"
             value={victimInput}
@@ -1114,6 +1097,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
         )}
         <label>
           Fleet Involved:
+          <span style={{ display: "block", fontSize: 12, color: "#bbb", marginBottom: 4 }}>
+            To associate a fleet with a hit, at least 8 people total need to be on the hit, and 3 people from that specific fleet.
+          </span>
           <input
             type="text"
             value={fleetSearch}
@@ -1159,12 +1145,12 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     const minRequired = 3;
 
                     if (assistsUsers.length <= 7) {
-                      setFormError("At least 7 assists are required to tie a fleet to a hit.");
+                      setFormError("8 people total required to associate a fleet.");
                       return;
                     }
                     if (assistsInFleet.length < minRequired) {
                       setFormError(
-                        `At least 1/3 of this fleet's allowed members (${minRequired}) must be present in assists.`
+                        `3 people from the fleet's crew are required to be present to associate.`
                       );
                       return;
                     }

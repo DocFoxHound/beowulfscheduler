@@ -54,7 +54,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-root">
-      <Navbar />
+      <Navbar dbUser={dbUser} />
 
       <main className="dashboard-content">
         <section className="dashboard-header">

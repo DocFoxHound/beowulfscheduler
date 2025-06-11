@@ -341,7 +341,7 @@ export default function Scheduler() {
   return (
     <div className="dashboard-root">
       {/* Top Navigation */}
-      <Navbar />
+      <Navbar dbUser={dbUser} />
 
       {/* Main Content */}
       <main className="dashboard-content">

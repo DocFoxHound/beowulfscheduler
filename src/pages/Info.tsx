@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import "./Info.css";
+import { getUserById } from "../api/userService";
+import axios from "axios";
 
 // Detailed Ranks
 const ranks = [
@@ -350,118 +352,146 @@ const BadgeChip: React.FC<{ name: string; description?: string; subdued?: boolea
     </span>
 );
 
-const Info: React.FC = () => (
-    <div className="info-root">
-        <Navbar />
-        <main className="info-content">
-            <section className="info-section">
-                <h1>IronPoint Organization Structure</h1>
-                <div className="info-blurb">
-                    <strong>Beowulf Hunter</strong> is the org-made kill tracker that works by logging kills from your <code>game.log</code> file. If you want to support your fleet, show your activity, and increase our overall kill numbers, we heavily suggest downloading it! You can view the code to see that we are not capturing anything else other than data pertaining to kills, yourself, at the GitHub page:
-                    <br />
-                    <a
-                        href="https://github.com/DocFoxHound/BeowulfHunterPy/releases/latest"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ display: "inline-block", marginTop: "0.75em" }}
-                    >
-                        <img
-                            src="https://i.imgur.com/hFkzpRL.png"
-                            alt="Download Beowulf Hunter"
-                            className="info-graphic"
-                            style={{ width: "240px", borderRadius: "8px", boxShadow: "0 2px 8px #0004" }}
-                        />
-                    </a>
-                </div>
-                <p>
-                    Welcome to IronPoint! Below you'll find information about our ranking
-                    structure, how to progress, what we expect from members, and the
-                    different schools of training ("Prestiges") you can pursue.
-                </p>
-            </section>
+const Info: React.FC = () => {
+    const [user, setUser] = useState<any>(null);
+    const [dbUser, setDbUser] = useState<any>(null);
 
-			<section className="info-section">
-				<h2>Ranking Structure</h2>
-				<div className="info-rank-structure-flex">
-					<img
-						src="https://i.imgur.com/NKSTixp.png"
-						alt="Rank Structure"
-						className="info-rank-structure-img"
-					/>
-					<div className="info-rank-list">
-						{ranks.map((r) => (
-							<div className="info-rank-card-horizontal" key={r.name}>
-								<img src={r.img} alt={r.name} className="info-rank-img-small" />
-								<div className="info-rank-details">
-									<div className="info-rank-title">{r.name}</div>
-									<div className="info-rank-desc">{r.desc}</div>
-								</div>
-							</div>
-						))}
-					</div>
-				</div>
-			</section>
+    // Fetch Discord user if dbUser is not set
+    useEffect(() => {
+        if (!dbUser) {
+            axios
+                .get(
+                    import.meta.env.VITE_IS_LIVE === "true"
+                        ? import.meta.env.VITE_LIVE_USER_URL
+                        : import.meta.env.VITE_TEST_USER_URL,
+                    { withCredentials: true }
+                )
+                .then((res) => setUser(res.data))
+                .catch(() => setUser(null));
+        }
+    }, [dbUser]);
 
-			<section className="info-section">
-				<div className="info-duo-flex">
-					<div className="info-duo-block">
-						<h2>Requirements to Progress</h2>
-						<ul>
-							<li>Active participation in org events and missions</li>
-							<li>Demonstrate teamwork, communication, and respect</li>
-							<li>Complete training modules and pass evaluations</li>
-							<li>Mentor new members as you advance</li>
-							<li>Specialize in a Prestige for advanced ranks</li>
-						</ul>
-					</div>
-					<div className="info-duo-block">
-						<h2>Expectations</h2>
-						<ul>
-							<li>Be respectful and supportive to all members</li>
-							<li>Represent IronPoint positively in-game and in the community</li>
-							<li>Follow org rules and chain of command</li>
-							<li>Strive for improvement and help others grow</li>
-							<li>Work as a team and help your peers and crew mates</li>
-							<li>Above-average combat skills expected</li>
-						</ul>
-					</div>
-				</div>
-			</section>
+    // Fetch dbUser from backend if Discord user is available and dbUser is not set
+    useEffect(() => {
+        if (!dbUser && user && user.id) {
+            getUserById(user.id)
+                .then((data) => setDbUser(data))
+                .catch(() => setDbUser(null));
+        }
+    }, [user, dbUser]);
 
-			<section className="info-section">
-				<h2>Prestiges (Schools of Training)</h2>
-				<img
-					src="https://i.imgur.com/XiXYhrP.png"
-					alt="All Prestige Banners"
-					className="info-prestige-banners"
-				/>
-				<div className="info-prestige-list">
-					{prestiges.map((p) => (
-						<div className="info-prestige-flex" key={p.name}>
-							{/* Poster image removed */}
-							<div className="info-prestige-card">
-								<div style={{ display: "flex", alignItems: "center", gap: "0.75em" }}>
-									<img
-										src={p.img}
-										alt={p.name}
-										className="info-prestige-logo-small"
-									/>
-									<div className="info-prestige-title">
-										{p.name}
-										<br />
-										{p.focus}
+    return (
+        <div className="info-root">
+            <Navbar dbUser={dbUser} />
+            <main className="info-content">
+                <section className="info-section">
+                    <h1>IronPoint Organization Structure</h1>
+                    <div className="info-blurb">
+                        <strong>Beowulf Hunter</strong> is the org-made kill tracker that works by logging kills from your <code>game.log</code> file. If you want to support your fleet, show your activity, and increase our overall kill numbers, we heavily suggest downloading it! You can view the code to see that we are not capturing anything else other than data pertaining to kills, yourself, at the GitHub page:
+                        <br />
+                        <a
+                            href="https://github.com/DocFoxHound/BeowulfHunterPy/releases/latest"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ display: "inline-block", marginTop: "0.75em" }}
+                        >
+                            <img
+                                src="https://i.imgur.com/hFkzpRL.png"
+                                alt="Download Beowulf Hunter"
+                                className="info-graphic"
+                                style={{ width: "240px", borderRadius: "8px", boxShadow: "0 2px 8px #0004" }}
+                            />
+                        </a>
+                    </div>
+                    <p>
+                        Welcome to IronPoint! Below you'll find information about our ranking
+                        structure, how to progress, what we expect from members, and the
+                        different schools of training ("Prestiges") you can pursue.
+                    </p>
+                </section>
+
+				<section className="info-section">
+					<h2>Ranking Structure</h2>
+					<div className="info-rank-structure-flex">
+						<img
+							src="https://i.imgur.com/NKSTixp.png"
+							alt="Rank Structure"
+							className="info-rank-structure-img"
+						/>
+						<div className="info-rank-list">
+							{ranks.map((r) => (
+								<div className="info-rank-card-horizontal" key={r.name}>
+									<img src={r.img} alt={r.name} className="info-rank-img-small" />
+									<div className="info-rank-details">
+										<div className="info-rank-title">{r.name}</div>
+										<div className="info-rank-desc">{r.desc}</div>
 									</div>
 								</div>
-								<div className="info-prestige-lead">
-									<strong>Lead:</strong> {p.lead}
-								</div>
-								<div className="info-prestige-desc">{p.desc}</div>
-								<div className="info-prestige-tiers">
-									{p.tiers.map((tier) => (
-										<div className="info-prestige-tier" key={tier.name}>
-											<strong>{tier.name}</strong>
-											<ul>
-												{tier.requirements.map((req, i) => {
+							))}
+						</div>
+					</div>
+				</section>
+
+				<section className="info-section">
+					<div className="info-duo-flex">
+						<div className="info-duo-block">
+							<h2>Requirements to Progress</h2>
+							<ul>
+								<li>Active participation in org events and missions</li>
+								<li>Demonstrate teamwork, communication, and respect</li>
+								<li>Complete training modules and pass evaluations</li>
+								<li>Mentor new members as you advance</li>
+								<li>Specialize in a Prestige for advanced ranks</li>
+							</ul>
+						</div>
+						<div className="info-duo-block">
+							<h2>Expectations</h2>
+							<ul>
+								<li>Be respectful and supportive to all members</li>
+								<li>Represent IronPoint positively in-game and in the community</li>
+								<li>Follow org rules and chain of command</li>
+								<li>Strive for improvement and help others grow</li>
+								<li>Work as a team and help your peers and crew mates</li>
+								<li>Above-average combat skills expected</li>
+							</ul>
+						</div>
+					</div>
+				</section>
+
+				<section className="info-section">
+					<h2>Prestiges (Schools of Training)</h2>
+					<img
+						src="https://i.imgur.com/XiXYhrP.png"
+						alt="All Prestige Banners"
+						className="info-prestige-banners"
+					/>
+					<div className="info-prestige-list">
+						{prestiges.map((p) => (
+							<div className="info-prestige-flex" key={p.name}>
+								{/* Poster image removed */}
+								<div className="info-prestige-card">
+									<div style={{ display: "flex", alignItems: "center", gap: "0.75em" }}>
+										<img
+											src={p.img}
+											alt={p.name}
+											className="info-prestige-logo-small"
+										/>
+										<div className="info-prestige-title">
+											{p.name}
+											<br />
+											{p.focus}
+										</div>
+									</div>
+									<div className="info-prestige-lead">
+										<strong>Lead:</strong> {p.lead}
+									</div>
+									<div className="info-prestige-desc">{p.desc}</div>
+									<div className="info-prestige-tiers">
+										{p.tiers.map((tier) => (
+											<div className="info-prestige-tier" key={tier.name}>
+												<strong>{tier.name}</strong>
+												<ul>
+													{tier.requirements.map((req, i) => {
                                                     // Try to match the badge name at the start of the requirement string
                                                     const badgeMatch = Object.keys(badgeDescriptions).find(badge =>
                                                         req.startsWith(badge)
@@ -481,31 +511,31 @@ const Info: React.FC = () => (
                                                 })}
 											</ul>
 										</div>
-									))}
+										))}
+									</div>
+									<div className="info-prestige-badges">
+                                    </div>
 								</div>
-								<div className="info-prestige-badges">
-                                </div>
 							</div>
-						</div>
-					))}
-				</div>
-				<img
-					src="https://i.imgur.com/gNTZzqI.png"
-					alt="Prestige Overview"
-					className="info-graphic"
-				/>
-			</section>
+						))}
+					</div>
+					<img
+						src="https://i.imgur.com/gNTZzqI.png"
+						alt="Prestige Overview"
+						className="info-graphic"
+					/>
+				</section>
 
-            {/* All Badges Section */}
-            <section className="info-section">
-                <h2>All Badges</h2>
-                <p style={{ marginBottom: "2em", color: "#c0c7d1" }}>
-                    The IronPoint badging system is designed to add fun, challenge, and recognition to your time in the org. Each badge represents a specific achievement, skill, or contribution, and many come with a point value or a special title as a reward and metric of your accomplishments. While earning badges is not required for general membership, certain badges are prerequisites for progressing through the tiers of a Prestige school. Progression itself is based on meeting the requirements for each tier, which may include earning specific badges. Collect badges for the challenge, the bragging rights, and to show your dedication to your chosen path!
-                </p>
-                <div className="info-badges-columns">
-                    <div>
-                        <h3>RAPTOR All Badges</h3>
-                        {raptorBadgeCategories.map(cat => (
+                {/* All Badges Section */}
+                <section className="info-section">
+                    <h2>All Badges</h2>
+                    <p style={{ marginBottom: "2em", color: "#c0c7d1" }}>
+                        The IronPoint badging system is designed to add fun, challenge, and recognition to your time in the org. Each badge represents a specific achievement, skill, or contribution, and many come with a point value or a special title as a reward and metric of your accomplishments. While earning badges is not required for general membership, certain badges are prerequisites for progressing through the tiers of a Prestige school. Progression itself is based on meeting the requirements for each tier, which may include earning specific badges. Collect badges for the challenge, the bragging rights, and to show your dedication to your chosen path!
+                    </p>
+                    <div className="info-badges-columns">
+                        <div>
+                            <h3>RAPTOR All Badges</h3>
+                            {raptorBadgeCategories.map(cat => (
                 <div key={cat.category} style={{ marginBottom: "1.2em" }}>
                     <div style={{ fontWeight: "bold", color: "#4fa3ff", marginBottom: "0.3em" }}>{cat.category}</div>
                     <ul>
@@ -521,10 +551,10 @@ const Info: React.FC = () => (
                     </ul>
                 </div>
             ))}
-                    </div>
-                    <div>
-                        <h3>RAIDER All Badges</h3>
-                        {raiderBadgeCategories.map(cat => (
+                        </div>
+                        <div>
+                            <h3>RAIDER All Badges</h3>
+                            {raiderBadgeCategories.map(cat => (
                 <div key={cat.category} style={{ marginBottom: "1.2em" }}>
                     <div style={{ fontWeight: "bold", color: "#ff4f4f", marginBottom: "0.3em" }}>{cat.category}</div>
                     <ul>
@@ -540,10 +570,10 @@ const Info: React.FC = () => (
                     </ul>
                 </div>
             ))}
-                    </div>
-                    <div>
-                        <h3>CORSAIR All Badges</h3>
-                        {corsairBadgeCategories.map(cat => (
+                        </div>
+                        <div>
+                            <h3>CORSAIR All Badges</h3>
+                            {corsairBadgeCategories.map(cat => (
                 <div key={cat.category} style={{ marginBottom: "1.2em" }}>
                     <div style={{ fontWeight: "bold", color: "#00e6b8", marginBottom: "0.3em" }}>{cat.category}</div>
                     <ul>
@@ -559,11 +589,12 @@ const Info: React.FC = () => (
                     </ul>
                 </div>
             ))}
+                        </div>
                     </div>
-                </div>
-            </section>
-		</main>
-	</div>
-);
+                </section>
+			</main>
+		</div>
+	);
+};
 
 export default Info;

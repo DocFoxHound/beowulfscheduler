@@ -10,6 +10,7 @@ import Warehouse from "./pages/Warehouse";
 import Info from './pages/Info';
 import Leaderboards from './pages/Leaderboards';
 import { UserProvider } from "./context/UserContext";
+import AdminBadges from "./pages/admin_badges";
 
 function App() {
   const [count, setCount] = useState(0)
@@ -25,6 +26,7 @@ function App() {
         <Route path="/leaderboards" element={<Leaderboards />} />
         <Route path="/scheduler" element={<Scheduler />} />
         <Route path="/warehouse" element={<Warehouse />} />
+        <Route path="/admin/badges" element={<AdminBadges />} />
       </Routes>
     </UserProvider>
   )
