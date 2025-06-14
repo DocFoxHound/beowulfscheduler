@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import Modal from "./Modal";
 import { FleetLog } from "../types/fleet_log";
 import { createShipLog } from "../api/fleetLogApi";
@@ -13,6 +13,7 @@ import { RecentGathering } from "../types/recent_gatherings";
 import { fetchBlackBoxesBetweenTimestamps } from "../api/blackboxApi";
 import { fetchPlayerExperiencesByUserId } from "../api/playerExperiencesApi"; // You need to implement this API call if not present
 import { editFleet, fetchFleetById } from "../api/fleetApi"; // <-- Add this import
+import { updateHit } from "../api/hittrackerApi";
 
 const initialForm: Partial<FleetLog> = {
   title: "",
@@ -352,6 +353,55 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
     addCrewUser(user);
   };
 
+  // --- NEW: Memoized blackbox fetch and relevant calculation ---
+  const [blackboxes, setBlackboxes] = useState<any[]>([]);
+  useEffect(() => {
+    if (
+      form.start_time &&
+      form.end_time &&
+      crewUsers.length > 0 &&
+      typeof form.start_time === "string" &&
+      typeof form.end_time === "string"
+    ) {
+      fetchBlackBoxesBetweenTimestamps(form.start_time, form.end_time)
+        .then(setBlackboxes)
+        .catch(() => setBlackboxes([]));
+    } else {
+      setBlackboxes([]);
+    }
+  }, [form.start_time, form.end_time, crewUsers.map(u => u.id).join(",")]);
+
+  const relevantBlackboxes = useMemo(() => {
+    const crewIds = crewUsers.map(u => String(u.id));
+    return blackboxes.filter(bb => crewIds.includes(String(bb.user_id)));
+  }, [blackboxes, crewUsers]);
+
+  const totalKills = useMemo(
+    () => relevantBlackboxes.reduce((sum, bb) => sum + (Number(bb.kill_count) || 0), 0),
+    [relevantBlackboxes]
+  );
+  const totalDamage = useMemo(
+    () => relevantBlackboxes.reduce((sum, bb) => sum + (Number(bb.value) || 0), 0),
+    [relevantBlackboxes]
+  );
+
+  // --- NEW: Memoized associated hits calculations ---
+  const hits = useMemo(
+    () =>
+      (form.associated_hits || [])
+        .map((id: string) => recentHits.find(h => h.id === id))
+        .filter(Boolean),
+    [form.associated_hits, recentHits]
+  );
+  const valueStolen = useMemo(
+    () => hits.reduce((sum, hit) => sum + (Number(hit?.total_value) || 0), 0),
+    [hits]
+  );
+  const totalCargo = useMemo(
+    () => hits.reduce((sum, hit) => sum + (Number(hit?.total_scu) || 0), 0),
+    [hits]
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -412,7 +462,10 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
         air_sub_ids,
         fps_sub_usernames,
         fps_sub_ids,
-        total_cargo: Number(form.total_cargo) || 0,
+        total_kills: totalKills,
+        damages_value: totalDamage,
+        value_stolen: valueStolen,
+        total_cargo: totalCargo,
         id: Date.now().toString(),
         created_at: new Date().toISOString(),
         fleet_id,
@@ -499,6 +552,22 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
           }
         }
       }
+
+      // --- NEW: Update associated hits with fleet ID ---
+      if (Array.isArray(form.associated_hits) && form.associated_hits.length > 0 && fleetLog.fleet_id) {
+        await Promise.all(
+          form.associated_hits.map(async (hitId: string) => {
+            const hit = recentHits.find(h => h.id === hitId);
+            if (!hit) return;
+            // Ensure fleet_ids is an array of strings and add the fleet_id if not present
+            const fleet_ids = Array.isArray(hit.fleet_ids)
+              ? Array.from(new Set([...hit.fleet_ids, String(fleetLog.fleet_id)]))
+              : [String(fleetLog.fleet_id)];
+            await updateHit({ ...hit, fleet_ids });
+          })
+        );
+      }
+
       await createShipLog(fleetLog);
       await onSubmit(fleetLog);
       setForm(initialForm);
@@ -602,50 +671,6 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
   const removeGathering = (id: string) => {
     setSelectedGatherings(list => list.filter(g => g.id !== id));
   };
-
-  useEffect(() => {
-    // Only run if both times and at least one crew member
-    if (
-      form.start_time &&
-      form.end_time &&
-      crewUsers.length > 0
-    ) {
-      (async () => {
-        try {
-          if (typeof form.start_time === "string" && typeof form.end_time === "string") {
-            console.log("Start Time: ", form.start_time);
-            console.log("End Time: ", form.end_time);
-            const blackboxes = await fetchBlackBoxesBetweenTimestamps(
-              form.start_time,
-              form.end_time
-            );
-            // Filter by crew user IDs
-            const crewIds = crewUsers.map(u => String(u.id));
-            const relevant = blackboxes.filter(bb => crewIds.includes(String(bb.user_id)));
-            // Sum kills and damage
-            const totalKills = relevant.reduce((sum, bb) => sum + (Number(bb.kill_count) || 0), 0);
-            const totalDamage = relevant.reduce((sum, bb) => sum + (Number(bb.value) || 0), 0);
-            setForm(f => ({
-              ...f,
-              total_kills: totalKills,
-              damages_value: totalDamage,
-            }));
-          }
-        } catch (err) {
-          // Optionally handle error
-        }
-      })();
-    }
-    // Optionally, reset if not enough info
-    else if (form.start_time && form.end_time) {
-      setForm(f => ({
-        ...f,
-        total_kills: 0,
-        damages_value: 0,
-      }));
-    }
-    // eslint-disable-next-line
-  }, [form.start_time, form.end_time, crewUsers.map(u => u.id).join(",")]);
 
   // Auto-update Value Stolen and Total Cargo when associated_hits changes
   useEffect(() => {
@@ -1225,8 +1250,8 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             <input
               type="number"
               min={0}
-              value={form.total_kills ?? 0}
-              onChange={e => handleChange("total_kills", Number(e.target.value))}
+              value={totalKills}
+              readOnly
               disabled={isSubmitting}
               style={{
                 width: "100%",
@@ -1248,8 +1273,8 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             <input
               type="number"
               min={0}
-              value={form.value_stolen ?? 0}
-              onChange={e => handleChange("value_stolen", Number(e.target.value))}
+              value={valueStolen}
+              readOnly
               disabled={isSubmitting}
               style={{
                 width: "100%",
@@ -1271,30 +1296,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             <input
               type="number"
               min={0}
-              value={form.total_cargo ?? 0}
-              onChange={e => handleChange("total_cargo", Number(e.target.value))}
-              disabled={isSubmitting}
-              style={{
-                width: "100%",
-                background: "#23272b",
-                borderRadius: 4,
-                padding: "8px 12px",
-                marginTop: 4,
-                color: "#fff",
-                border: "1px solid #353a40",
-                textAlign: "center",
-                fontSize: 16,
-              }}
-            />
-            {/* <input
-              type="number"
-              min={0}
-              value={
-                (form.associated_hits || [])
-                  .map((id: string) => recentHits.find(h => h.id === id))
-                  .filter(Boolean)
-                  .reduce((sum, hit) => sum + (hit?.total_scu || 0), 0)
-              }
+              value={totalCargo}
               readOnly
               disabled={isSubmitting}
               style={{
@@ -1308,7 +1310,7 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
                 textAlign: "center",
                 fontSize: 16,
               }}
-            /> */}
+            />
           </div>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
             <label style={{ width: "100%", textAlign: "center" }}>
@@ -1317,8 +1319,8 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
             <input
               type="number"
               min={0}
-              value={form.damages_value ?? 0}
-              onChange={e => handleChange("damages_value", Number(e.target.value))}
+              value={totalDamage}
+              readOnly
               disabled={isSubmitting}
               style={{
                 width: "100%",

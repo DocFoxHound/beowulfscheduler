@@ -4,4 +4,7 @@ export interface BadgeReusable {
   badge_description: string;
   badge_weight: bigint;
   progression: boolean;
+  prestige_name: string;
+  prestige_level: number;
+  subject: string;
 }
