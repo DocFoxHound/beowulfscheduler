@@ -61,11 +61,14 @@ const Hittracker: React.FC = () => {
   useEffect(() => {
     const fetchVersion = async () => {
       try {
-        const patches = await getLatestPatch();
-        if (Array.isArray(patches) && patches.length > 0) {
-          setGameVersion(patches[0].version);
-        } else if (patches && typeof patches.version === "string") {
-          setGameVersion(patches.version);
+        const patchesRaw = await getLatestPatch();
+        const patches = Array.isArray(patchesRaw) ? patchesRaw : patchesRaw ? [patchesRaw] : [];
+        const latestPatch = patches.reduce((max, curr) =>
+          curr.version.localeCompare(max.version, undefined, { numeric: true }) > 0 ? curr : max,
+          patches[0] || { version: "" }
+        );
+        if (patches.length > 0) {
+          setGameVersion(latestPatch.version);
         } else {
           setGameVersion(null);
         }
@@ -89,7 +92,10 @@ const Hittracker: React.FC = () => {
       .then(versions => {
         if (Array.isArray(versions)) {
           setGameVersions(
-            versions.map(v => ({ value: v.version, label: v.version }))
+            versions
+              .slice()
+              .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))
+              .map(v => ({ value: v.version, label: v.version }))
           );
         }
       })

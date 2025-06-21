@@ -321,6 +321,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
       fleet_ids: selectedFleets.map(f => String(f.id)),
       victims: victimsArray,
+      thread_id: '',
     };
     console.log(hit)
 
