@@ -270,6 +270,10 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       setFormError("Title is required.");
       return;
     }
+    if(!form.story){
+      setFormError("Story is required.");
+      return;
+    }
 
     setSubmitting(true);
 
@@ -321,7 +325,6 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
       fleet_ids: selectedFleets.map(f => String(f.id)),
       victims: victimsArray,
-      thread_id: '',
     };
     console.log(hit)
 
@@ -559,6 +562,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
           Title:
           <input
             type="text"
+            maxLength={98}
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             disabled={isSubmitting}
@@ -1251,6 +1255,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
           Story:
           <textarea
             value={form.story}
+            maxLength={1024}
             onChange={e => setForm(f => ({ ...f, story: e.target.value }))}
             disabled={isSubmitting}
             rows={6}
@@ -1408,6 +1413,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   if (props.onDelete) await props.onDelete();
 
                   onClose();
+                  window.location.reload()
                 } catch (err) {
                   setFormError("Failed to delete hit or player experiences. Please try again.");
                 }

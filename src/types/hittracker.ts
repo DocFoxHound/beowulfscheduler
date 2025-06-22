@@ -27,5 +27,4 @@ export interface Hit {
   fleet_names: string[];
   fleet_ids: string[];
   victims: string[];
-  thread_id: string;
 }
