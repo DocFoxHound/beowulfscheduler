@@ -1408,10 +1408,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
                   // Delete the hit
                   await deleteHit(props.hit.id);
-
+                  window.location.reload()
                   // Call parent delete handler if present
                   if (props.onDelete) await props.onDelete();
-                  window.location.reload()
                   onClose();
                 } catch (err) {
                   setFormError("Failed to delete hit or player experiences. Please try again.");
