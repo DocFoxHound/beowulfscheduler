@@ -1407,7 +1407,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                   }
 
                   // Delete the hit
-                  await deleteHit(props.hit.id);
+                  await deleteHit(props.hit);
                   window.location.reload()
                   // Call parent delete handler if present
                   if (props.onDelete) await props.onDelete();
@@ -1431,7 +1431,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
           Cancel
         </button>
 
-        {/* Delete confirmation modal */}
+        {/* Delete confirmation modal
         {showDeleteConfirm && (
           <div
             style={{
@@ -1466,7 +1466,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                       );
 
                       // 3. Delete the hit
-                      await deleteHit(props.hit.id);
+                      await deleteHit(props.hit);
 
                       // 4. Call parent delete handler if present
                       if (props.onDelete) await props.onDelete();
@@ -1489,7 +1489,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                 </button>
               </div>
             </div>
-        )}
+        )} */}
         {showSuccess && (
           <div style={{
             position: "fixed",

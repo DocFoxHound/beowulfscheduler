@@ -59,8 +59,9 @@ export const updateHit = async (hit: Hit): Promise<Hit> => {
   return response.data;
 };
 
-export const deleteHit = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/api/hittracker/${id}`);
+export const deleteHit = async (hit: Hit): Promise<void> => {
+  console.log("Deleting hit:", hit);
+  await axios.delete(`${API_BASE_URL}/api/hittracker/${hit}`, { data: hit });
 };
 
 export const fetchHitEntryCount = async (): Promise<number> => {
