@@ -33,11 +33,12 @@ const Hittracker: React.FC = () => {
   // REMOVE selectedUserId state
   // const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [gameVersions, setGameVersions] = useState<{ value: string, label: string }[]>([]);
+  const PROSPECT_IDS = (import.meta.env.VITE_PROSPECT_ID || "").split(",");
   const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
   const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
-  const isMember = dbUser?.roles?.some((role: string) => CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
+  const isMember = dbUser?.roles?.some((role: string) => PROSPECT_IDS.include(role) || CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
