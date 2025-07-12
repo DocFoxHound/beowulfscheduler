@@ -1,4 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
+import VictimsInput from "./hitComponents/VictimsInput";
+import FleetInvolvedInput from "./hitComponents/FleetInvolvedInput";
+import CargoSection from "./hitComponents/CargoSection";
+import AssistsSection from "./hitComponents/AssistsSection";
 import Modal from "./Modal";
 import { Hit } from "../types/hittracker";
 import { SummarizedItem } from "../types/items_summary";
@@ -84,7 +88,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
 
   // Cargo state
-  const [cargoList, setCargoList] = useState<CargoItem[]>([]);
+  const [cargoList, setCargoList] = useState<any[]>([]);
   const [warehouseFlags, setWarehouseFlags] = useState<{ toWarehouse: boolean; forOrg: boolean }[]>([]);
   const [showCargoPicker, setShowCargoPicker] = useState(false);
   const [cargoSearch, setCargoSearch] = useState("");
@@ -111,7 +115,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   // Recent gatherings state
   const [recentGatherings, setRecentGatherings] = useState<RecentGathering[]>([]);
   const [showGatheringsMenu, setShowGatheringsMenu] = useState(false);
-  const gatheringsMenuRef = useRef<HTMLDivElement | null>(null);
+  const gatheringsMenuRef = useRef<HTMLDivElement>(null);
 
   // New state for input
   const [victimInput, setVictimInput] = useState("");
@@ -468,1046 +472,414 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
           air_leadership: false,
           ground_leadership: false,
           commander: false, // <-- Add this line
-        }
+        },
       ];
     });
   };
 
-  if (!show) return null;
+  // ...rest of your component logic...
 
   return (
     <Modal onClose={onClose}>
-      <h2>Add New Hit</h2>
-      <form onSubmit={handleSubmit}>
-        {/* Air or Ground Toggle - moved here */}
-        <div style={{ width: "100%", display: "flex", justifyContent: "center", margin: "16px 0 8px 0" }}>
-          <div style={{ display: "flex", gap: 40 }}>
-            {/* Air or Ground */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Air or Ground:</span>
-              <div style={{ display: "flex" }}>
-                {["Mixed", "Air", "Ground"].map((option, idx, arr) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, air_or_ground: option }))}
-                    style={{
-                      width: 100,
-                      height: 36,
-                      borderRadius: 18,
-                      border: "1px solid #888",
-                      background: form.air_or_ground === option ? "#2d7aee" : "#444",
-                      color: "#fff",
-                      fontWeight: "bold",
-                      fontSize: 16,
-                      marginRight: idx !== arr.length - 1 ? 8 : 0,
-                      cursor: "pointer",
-                      outline: "none",
-                      letterSpacing: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: 0,
-                      boxSizing: "border-box",
-                      overflow: "hidden",
-                      whiteSpace: "nowrap",
-                    }}
-                    aria-pressed={form.air_or_ground === option}
-                    aria-label={`Set to ${option}`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* Type of Piracy */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Type of Piracy:</span>
-              <button
-                type="button"
-                onClick={() =>
-                  setForm(f => ({
-                    ...f,
-                    type_of_piracy: f.type_of_piracy === "Extortion" ? "Brute Force" : "Extortion"
-                  }))
-                }
-                style={{
-                  width: 140,
-                  height: 36,
-                  borderRadius: 18,
-                  border: "1px solid #888",
-                  background: form.type_of_piracy === "Extortion" ? "#2d7aee" : "#444",
-                  color: "#fff",
-                  fontWeight: "bold",
-                  fontSize: 16,
-                  position: "relative",
-                  transition: "background 0.2s",
-                  outline: "none",
-                  cursor: "pointer",
-                  padding: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  letterSpacing: 1,
-                }}
-                aria-pressed={form.type_of_piracy === "Extortion"}
-                aria-label="Toggle Type of Piracy"
-              >
-                {form.type_of_piracy === "Extortion" ? "Extortion" : "Brute Force"}
-              </button>
-            </div>
-          </div>
-        </div>
-        <label>
-          Title:
-          <input
-            type="text"
-            maxLength={98}
-            value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            disabled={isSubmitting}
-          />
-        </label>
-        <div>
-          Cargo:
-          <div style={{ marginBottom: "0.5em", display: "flex", flexDirection: "column", alignItems: "flex-start", position: "relative" }}>
-            <div
-              style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center"}}
-            >
-              <button
-                ref={addItemBtnRef}
-                type="button"
-                tabIndex={-1}
-                onClick={() => {
-                  setShowCargoPicker(true);
-                  setShowCustomCargoMenu(false);
-                }}
-                style={{
-                  background: "#2d7aee",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  padding: "2px 10px",
-                  fontSize: 16,
-                  cursor: "pointer"
-                }}
-                aria-label="Add Cargo"
-              >
-                Add Item
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCustomCargoMenu(true);
-                  setShowCargoPicker(false);
-                }} 
-                style={{
-                  background: "#2d7aee",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  padding: "2px 10px",
-                  fontSize: 16,
-                  cursor: "pointer"
-                }}
-                aria-label="Add Custom Cargo"
-              >
-                Add Custom
-              </button>
-              <span style={{ marginLeft: 16, fontWeight: "bold", color: "#fff" }}>
-                Total Value: {totalValue.toLocaleString()}
-              </span>
-              <span style={{ display: "block", fontSize: 12, color: "#bbb", marginBottom: 4 }}>
-                If editing values, provide screenshot proof in media or the discord post of this hit.
-              </span>
-            </div>
-            {/* Show CargoPicker or CustomCargoMenu in the same spot above the table */}
-            {showCargoPicker && (
-              <div style={{
-                background: "#23272e",
-                border: "1px solid #353a40",
-                borderRadius: 8,
-                padding: 16,
-                marginBottom: 8, // Place above the table, not absolutely positioned
-                width: "100%",
-                zIndex: 20,
-                boxShadow: "0 4px 24px rgba(0,0,0,0.5)"
-              }}>
-                <input
-                  type="text"
-                  placeholder="Search cargo..."
-                  value={cargoSearch}
-                  onChange={e => setCargoSearch(e.target.value)}
-                  style={{ width: "100%", marginBottom: 8 }}
-                />
-                <div style={{ maxHeight: 120, overflowY: "auto" }}>
-                  {summarizedItems
-                    .filter(item => item.commodity_name.toLowerCase().includes(cargoSearch.toLowerCase()))
-                    .map(item => (
-                      <div key={item.commodity_name} style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ flex: 1 }}>{item.commodity_name} (avg: {Math.max(item.price_buy_avg, item.price_sell_avg)})</span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={selectedCargo?.commodity_name === item.commodity_name ? cargoQuantity : 1}
-                          onFocus={() => {
-                            setSelectedCargo(item);
-                            setCargoQuantity(1);
-                          }}
-                          onChange={e => {
-                            setSelectedCargo(item);
-                            setCargoQuantity(Number(e.target.value));
-                          }}
-                          style={{ width: 60, marginRight: 8 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            addCargoItem({ commodity_name: item.commodity_name, scuAmount: cargoQuantity, avg_price: Math.max(item.price_buy_avg, item.price_sell_avg) });
-                            setCargoSearch("");
-                            setSelectedCargo(null);
-                            setCargoQuantity(1);
-                          }}
-                          style={{ background: "#2d7aee", color: "#fff", border: "none", borderRadius: 4, padding: "2px 10px", cursor: "pointer" }}
-                        >Add</button>
-                      </div>
-                    ))}
+      <div>
+        <style>{`
+          .section-card {
+            background: #23272b;
+            border: 1px solid #353a40;
+            border-radius: 12px;
+            padding: 24px 20px 20px 20px;
+            margin: 28px 0 28px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          }
+          .section-title {
+            color: #7ec0fa;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+          }
+        `}</style>
+        <h2>Add New Hit</h2>
+        <form onSubmit={handleSubmit}>
+          {/* Air or Ground Toggle - moved here */}
+          <div style={{ width: "100%", display: "flex", justifyContent: "center", margin: "16px 0 8px 0" }}>
+            <div style={{ display: "flex", gap: 40 }}>
+              {/* Air or Ground */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Air or Ground:</span>
+                <div style={{ display: "flex" }}>
+                  {[
+                    "Mixed",
+                    "Air",
+                    "Ground"
+                  ].map((option, idx, arr) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, air_or_ground: option }))}
+                      style={{
+                        width: 100,
+                        height: 36,
+                        borderRadius: 18,
+                        border: "1px solid #888",
+                        background: form.air_or_ground === option ? "#2d7aee" : "#444",
+                        color: "#fff",
+                        fontWeight: "bold",
+                        fontSize: 16,
+                        marginRight: idx !== arr.length - 1 ? 8 : 0,
+                        cursor: "pointer",
+                        outline: "none",
+                        letterSpacing: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                        boxSizing: "border-box",
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                      }}
+                      aria-pressed={form.air_or_ground === option}
+                      aria-label={`Set to ${option}`}
+                    >
+                      {option}
+                    </button>
+                  ))}
                 </div>
+              </div>
+              {/* Type of Piracy */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span style={{ color: "#fff", marginBottom: 4, fontWeight: 500 }}>Type of Piracy:</span>
                 <button
                   type="button"
-                  // tabIndex={-1}
-                  // onMouseDown={e => e.preventDefault()}
-                  onClick={() => {
-                    setShowCargoPicker(false);
-                    // if (addItemBtnRef.current) addItemBtnRef.current.blur();
-                    if (document.activeElement instanceof HTMLElement) {
-                      document.activeElement.blur();
-                    }
-                  }}
-                  style={{ marginTop: 8, background: "#444", color: "#fff", border: "none", borderRadius: 4, padding: "4px 12px", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            {showCustomCargoMenu && (
-              <div style={{ background: "#23272e", border: "1px solid #353a40", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                  <span style={{ width: 120, color: "#bbb", fontSize: 13 }}>Item</span>
-                  <span style={{ width: 100, color: "#bbb", fontSize: 13 }}>Value</span>
-                  <span style={{ width: 80, color: "#bbb", fontSize: 13 }}>Quantity</span>
-                </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={customCargoName}
-                    onChange={e => setCustomCargoName(e.target.value)}
-                    style={{ width: 120, marginRight: 0 }}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Avg Value"
-                    value={customCargoAvg}
-                    onChange={e => setCustomCargoAvg(Number(e.target.value))}
-                    style={{ width: 100, marginRight: 0 }}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Quantity"
-                    value={customCargoQty}
-                    onChange={e => setCustomCargoQty(Number(e.target.value))}
-                    style={{ width: 80, marginRight: 0 }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!customCargoName.trim()) return;
-                    addCargoItem({
-                      commodity_name: customCargoName.trim(),
-                      scuAmount: customCargoQty,
-                      avg_price: customCargoAvg
-                    });
-                    setCustomCargoName("");
-                    setCustomCargoQty(1);
-                    setCustomCargoAvg(1);
-                  }}
-                  style={{ background: "#2d7aee", color: "#fff", border: "none", borderRadius: 4, padding: "2px 10px", cursor: "pointer" }}
-                  disabled={!customCargoName.trim() || customCargoQty < 1 || customCargoAvg < 1}
-                >
-                  Add
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowCustomCargoMenu(false);
-                    if (addItemBtnRef.current) addItemBtnRef.current.blur();
-                  }}
-                  style={{ marginLeft: 8, background: "#444", color: "#fff", border: "none", borderRadius: 4, padding: "2px 10px", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            <table style={{ width: "100%", marginTop: 8, marginBottom: 8, background: "#23272e", borderRadius: 6 }}>
-              {cargoList.length > 0 && (
-                <thead>
-                  <tr>
-                    <th style={{ color: "#ccc", padding: 4, textAlign: "left" }}>Item</th><th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value (total)</th><th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Quantity</th><th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>For Org</th><th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>To Warehouse</th><th></th>
-                  </tr>
-                </thead>
-              )}
-              <tbody>
-                {cargoList.map((cargo, idx) => (
-                  <tr key={cargo.commodity_name + idx}>
-                    <td style={{ padding: 4 }}>{cargo.commodity_name}</td><td style={{ padding: 4, textAlign: "right" }}>
-                      <input
-                        type="number"
-                        min={0}
-                        value={cargo.avg_price * cargo.scuAmount}
-                        onChange={e => {
-                          const newTotalValue = Number(e.target.value);
-                          setCargoList(list =>
-                            list.map((item, i) =>
-                              i === idx
-                                ? {
-                                    ...item,
-                                    avg_price: cargo.scuAmount > 0 ? newTotalValue / cargo.scuAmount : 0,
-                                  }
-                                : item
-                            )
-                          );
-                        }}
-                        style={{ width: 100 }}
-                      />
-                    </td><td style={{ padding: 4, textAlign: "right" }}>{cargo.scuAmount}</td><td style={{ padding: 4, textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        className="large-checkbox"
-                        checked={warehouseFlags[idx]?.forOrg || false}
-                        disabled={!warehouseFlags[idx]?.toWarehouse}
-                        onChange={e => {
-                          setWarehouseFlags(flags =>
-                            flags.map((flag, i) =>
-                              i === idx ? { ...flag, forOrg: e.target.checked } : flag
-                            )
-                          );
-                        }}
-                      />
-                    </td><td style={{ padding: 4, textAlign: "center" }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWarehouseFlags(flags =>
-                            flags.map((flag, i) =>
-                              i === idx
-                                ? {
-                                    ...flag,
-                                    toWarehouse: !flag.toWarehouse,
-                                    forOrg: !flag.toWarehouse ? false : flag.forOrg,
-                                  }
-                                : flag
-                            )
-                          );
-                        }}
-                        style={{
-                          width: 36,
-                          height: 20,
-                          borderRadius: 12,
-                          border: "1px solid #888",
-                          background: warehouseFlags[idx]?.toWarehouse ? "#2d7aee" : "#444",
-                          position: "relative",
-                          transition: "background 0.2s",
-                          outline: "none",
-                          cursor: "pointer",
-                          padding: 0,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: warehouseFlags[idx]?.toWarehouse ? "flex-end" : "flex-start",
-                        }}
-                        aria-pressed={warehouseFlags[idx]?.toWarehouse}
-                        aria-label="Toggle To Warehouse"
-                      >
-                        <span
-                          style={{
-                            display: "block",
-                            width: 16,
-                            height: 16,
-                            borderRadius: "50%",
-                            background: "#fff",
-                            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-                            transition: "transform 0.2s",
-                            transform: warehouseFlags[idx]?.toWarehouse ? "translateX(0)" : "translateX(0)",
-                          }}
-                        />
-                      </button>
-                    </td><td style={{ padding: 4 }}>
-                      <button
-                        type="button"
-                        style={{ color: "#ff6b6b", background: "none", border: "none", cursor: "pointer" }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCargoList(list => list.filter((_, i) => i !== idx));
-                          setWarehouseFlags(flags => flags.filter((_, i) => i !== idx));
-                        }}
-                      >✕</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <label style={{ position: "relative", display: "block" }}>
-          Assists:
-          <input
-            type="text"
-            value={form.assists}
-            onFocus={handleAssistsFocus}
-            onChange={handleAssistsChange}
-            disabled={isSubmitting}
-            autoComplete="off"
-            style={{ width: "100%" }}
-          />
-          {/* Recent Gatherings dropdown, styled like Fleet Involved */}
-          {showGatheringsMenu && recentGatherings.length > 0 && assistsUsers.length === 0 && (
-            <div 
-            ref={gatheringsMenuRef}
-            style={{
-              background: "#23272e",
-              border: "1px solid #353a40",
-              borderRadius: 4,
-              marginTop: 2,
-              position: "absolute",
-              zIndex: 10,
-              width: 320,
-              maxHeight: 220,
-              overflowY: "auto"
-            }}>
-              {recentGatherings.map(g => (
-                <div
-                  key={g.id}
+                  onClick={() =>
+                    setForm(f => ({
+                      ...f,
+                      type_of_piracy: f.type_of_piracy === "Extortion" ? "Brute Force" : "Extortion"
+                    }))
+                  }
                   style={{
-                    padding: "6px 8px",
-                    cursor: "pointer",
+                    width: 140,
+                    height: 36,
+                    borderRadius: 18,
+                    border: "1px solid #888",
+                    background: form.type_of_piracy === "Extortion" ? "#2d7aee" : "#444",
                     color: "#fff",
-                    borderBottom: "1px solid #353a40",
-                    position: "relative"
-                  }}
-                  title={g.usernames.join(", ")}
-                  onMouseDown={async () => {
-                    // Add assists as before
-                    g.user_ids
-                      .map((id, i) => allUsersState.find(u => String(u.id) === String(id)))
-                      .filter((u): u is User => !!u)
-                      .forEach(addAssistUser);
-                    setShowGatheringsMenu(false);
-
-                    // --- New: Fetch BlackBox kills and extract victims ---
-                    const gatheringTime = new Date(g.timestamp).getTime();
-                    const oneHourMs = 60 * 60 * 1000;
-                    let allVictims: string[] = [];
-
-                    for (const userId of g.user_ids) {
-                      try {
-                        // Fetch all kills for this user
-                        const kills = await fetchBlackBoxsByUserId(String(userId));
-                        // Filter kills within ±1 hour of gathering
-                        const relevantKills = kills.filter(kill => {
-                          const killTime = new Date(kill.timestamp).getTime();
-                          return Math.abs(killTime - gatheringTime) <= oneHourMs;
-                        });
-                        // Collect all victim names from these kills
-                        relevantKills.forEach(kill => {
-                          if (Array.isArray(kill.victims)) {
-                            allVictims.push(...kill.victims.filter(Boolean));
-                          }
-                        });
-                      } catch (err) {
-                        // Handle error if needed
-                      }
-                    }
-                    // Remove duplicates and add to victimsArray
-                    setVictimsArray(prev =>
-                      Array.from(new Set([...prev, ...allVictims]))
-                    );
-                  }}
-                >
-                  <div style={{ fontWeight: 500 }}>
-                    {g.channel_name} &mdash; {new Date(g.timestamp).toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: 13, color: "#bbb" }}>
-                    {g.usernames.slice(0, 5).join(", ")}
-                    {g.usernames.length > 5 && " ..."}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {/* Assist suggestions dropdown (unchanged) */}
-          {assistSuggestions.length > 0 && (
-            <div style={{
-              background: "#23272e",
-              border: "1px solid #353a40",
-              borderRadius: 4,
-              marginTop: 2,
-              position: "absolute",
-              zIndex: 10,
-              width: 200
-            }}>
-              {assistSuggestions.map(user => (
-                <div
-                  key={user.id}
-                  style={{
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                    color: "#fff"
-                  }}
-                  onMouseDown={() => {
-                    addAssistUser(user);
-                    setForm(f => ({ ...f, assists: "" }));
-                    setAssistSuggestions([]);
-                  }}
-                >
-                  {user.username}
-                </div>
-              ))}
-            </div>
-          )}
-        </label>
-        {assistsUsers.length > 0 && (
-          <div style={{ overflowX: "auto", margin: "12px 0" }}>
-            <table style={{ width: "100%", background: "#23272e", borderRadius: 6, borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Name</th><th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th><th style={{ color: "#ccc", padding: 6 }}>Marine</th><th style={{ color: "#ccc", padding: 6 }}>Snare</th><th style={{ color: "#ccc", padding: 6 }}>Cargo</th><th style={{ color: "#ccc", padding: 6 }}>Multicrew</th><th style={{ color: "#ccc", padding: 6 }}>Salvage</th><th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th><th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th><th style={{ color: "#ccc", padding: 6 }}>Commander</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {assistsUsers.map((user, idx) => (
-                  <tr key={user.id} style={{ background: idx % 2 ? "#202226" : "#23272e" }}>
-                    <td style={{ color: "#fff", padding: 6 }}>{user.nickname || user.username}</td>
-                    {([
-                      "dogfighter",
-                      "marine",
-                      "snare",
-                      "cargo",
-                      "multicrew",
-                      "salvage",
-                      "air_leadership",
-                      "ground_leadership",
-                      "commander"
-                    ] as Array<keyof AssistUserWithExperience>).map(field => (
-                      <td key={field} style={{ textAlign: "center", padding: 6 }}>
-                        <input
-                          type="checkbox"
-                          className="large-checkbox"
-                          checked={Boolean(user[field])}
-                          onChange={e => {
-                            setAssistsUsers(list =>
-                              list.map(u =>
-                                u.id === user.id
-                                  ? { ...u, [field]: e.target.checked }
-                                  : u
-                              )
-                            );
-                          }}
-                        />
-                      </td>
-                    ))}
-                    <td style={{ textAlign: "center", padding: 6 }}>
-                      <button
-                        type="button"
-                        onClick={() => setAssistsUsers(list => list.filter(u => u.id !== user.id))}
-                        style={{
-                          color: "#ff6b6b",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: 16,
-                          lineHeight: 1,
-                        }}
-                        aria-label={`Remove ${user.nickname || user.username}`}
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <label>
-          Victims:
-          <input
-            type="text"
-            value={victimInput}
-            onChange={e => setVictimInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter" && victimInput.trim()) {
-                e.preventDefault();
-                if (!victimsArray.includes(victimInput.trim())) {
-                  setVictimsArray(arr => [...arr, victimInput.trim()]);
-                }
-                setVictimInput("");
-              }
-            }}
-            disabled={isSubmitting}
-            autoComplete="off"
-            style={{ width: "100%" }}
-            placeholder="Type a victim name and press Enter"
-          />
-        </label>
-        {victimsArray.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "12px 0" }}>
-            {victimsArray.map((name, idx) => (
-              <span
-                key={idx}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  background: "#181a1b",
-                  color: "#fff",
-                  borderRadius: 16,
-                  padding: "4px 12px",
-                  fontSize: 14,
-                }}
-              >
-                {name}
-                <button
-                  type="button"
-                  onClick={() => setVictimsArray(arr => arr.filter((_, i) => i !== idx))}
-                  style={{
-                    marginLeft: 8,
-                    color: "#ff6b6b",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
+                    fontWeight: "bold",
                     fontSize: 16,
-                    lineHeight: 1,
-                  }}
-                  aria-label={`Remove ${name}`}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <label>
-          Fleet Involved:
-          <span style={{ display: "block", fontSize: 12, color: "#bbb", marginBottom: 4 }}>
-            To associate a fleet with a hit, at least 8 people total need to be on the hit, and 3 people from that specific fleet.
-          </span>
-          <input
-            type="text"
-            value={fleetSearch}
-            onChange={handleFleetSearchChange}
-            onFocus={() => {
-              if (!fleetSearch.trim()) {
-                setFleetSuggestions(
-                  [...allFleets]
-                    .sort((a, b) => Number(b.last_active || 0) - Number(a.last_active || 0))
-                    .slice(0, 10)
-                );
-              }
-            }}
-            onBlur={() => {
-              setTimeout(() => setFleetSuggestions([]), 100);
-            }}
-            disabled={isSubmitting}
-            autoComplete="off"
-            placeholder="Search fleet..."
-          />
-          {fleetSuggestions.length > 0 && (
-            <div style={{
-              background: "#23272e",
-              border: "1px solid #353a40",
-              borderRadius: 4,
-              marginTop: 2,
-              position: "absolute",
-              zIndex: 10,
-              width: 200
-            }}>
-              {fleetSuggestions.map(fleet => (
-                <div
-                  key={fleet.id}
-                  style={{
-                    padding: "4px 8px",
+                    position: "relative",
+                    transition: "background 0.2s",
+                    outline: "none",
                     cursor: "pointer",
-                    color: "#fff"
+                    padding: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    letterSpacing: 1,
                   }}
-                  onMouseDown={() => {
-                    const assistsIds = assistsUsers.map(u => String(u.id));
-                    const fleetMemberIds = (fleet.members_ids ?? []).map(String);
-                    const assistsInFleet = assistsIds.filter(id => fleetMemberIds.includes(id));
-                    const minRequired = 3;
-
-                    if (assistsUsers.length <= 7) {
-                      setFormError("8 people total required to associate a fleet.");
-                      return;
-                    }
-                    if (assistsInFleet.length < minRequired) {
-                      setFormError(
-                        `3 people from the fleet's crew are required to be present to associate.`
-                      );
-                      return;
-                    }
-
-                    setFormError(null);
-                    if (!selectedFleets.some(f => f.id === fleet.id)) {
-                      setSelectedFleets(prev => [...prev, fleet]);
-                    }
-                    setFleetSearch("");
-                    setFleetSuggestions([]);
-                  }}
+                  aria-pressed={form.type_of_piracy === "Extortion"}
+                  aria-label="Toggle Type of Piracy"
                 >
-                  {fleet.name}
-                  <span style={{ color: "#aaa", fontSize: 12, marginLeft: 8 }}>
-                    {
-                      (() => {
-                        const commander = allUsers.find(u => String(u.id) === String(fleet.commander_id));
-                        return commander ? commander.username : "Unknown";
-                      })()
-                    }
-                  </span>
-                </div>
-              ))}
+                  {form.type_of_piracy === "Extortion" ? "Extortion" : "Brute Force"}
+                </button>
+              </div>
             </div>
-          )}
-        </label>
-        {selectedFleet && (
-          <div style={{
-            display: "inline-flex",
-            alignItems: "center",
-            background: "#181a1b",
-            color: "#fff",
-            borderRadius: 16,
-            padding: "4px 12px",
-            fontSize: 14,
-            margin: "8px 0"
-          }}>
-            {selectedFleet.name}
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedFleet(null);
-                setFleetSearch("");
-              }}
-              style={{
-                marginLeft: 8,
-                color: "#ff6b6b",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 16,
-                lineHeight: 1,
-              }}
-              aria-label={`Remove ${selectedFleet.name}`}
-            >
-              ✕
-            </button>
           </div>
-        )}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0" }}>
-          {selectedFleets.map(fleet => (
-            <span
-              key={fleet.id}
+          <label>
+            Title:
+            <input
+              type="text"
+              maxLength={98}
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              disabled={isSubmitting}
+            />
+          </label>
+
+          {/* Cargo Section */}
+          <div className="section-card">
+            <div className="section-title">Cargo</div>
+            <CargoSection
+              cargoList={cargoList}
+              setCargoList={setCargoList}
+              warehouseFlags={warehouseFlags}
+              setWarehouseFlags={setWarehouseFlags}
+              summarizedItems={summarizedItems}
+              showCargoPicker={showCargoPicker}
+              setShowCargoPicker={setShowCargoPicker}
+              cargoSearch={cargoSearch}
+              setCargoSearch={setCargoSearch}
+              selectedCargo={selectedCargo}
+              setSelectedCargo={setSelectedCargo}
+              cargoQuantity={cargoQuantity}
+              setCargoQuantity={setCargoQuantity}
+              customCargoName={customCargoName}
+              setCustomCargoName={setCustomCargoName}
+              customCargoAvg={customCargoAvg}
+              setCustomCargoAvg={setCustomCargoAvg}
+              customCargoQty={customCargoQty}
+              setCustomCargoQty={setCustomCargoQty}
+              showCustomCargoMenu={showCustomCargoMenu}
+              setShowCustomCargoMenu={setShowCustomCargoMenu}
+              addItemBtnRef={addItemBtnRef}
+              totalValue={totalValue}
+            />
+          </div>
+
+          {/* Assists Section */}
+          <div className="section-card">
+            <div className="section-title">Assists</div>
+            <AssistsSection
+              form={form}
+              setForm={setForm}
+              isSubmitting={isSubmitting}
+              handleAssistsFocus={handleAssistsFocus}
+              handleAssistsChange={handleAssistsChange}
+              showGatheringsMenu={showGatheringsMenu}
+              recentGatherings={recentGatherings}
+              assistsUsers={assistsUsers}
+              gatheringsMenuRef={gatheringsMenuRef}
+              allUsersState={allUsersState}
+              addAssistUser={addAssistUser}
+              setShowGatheringsMenu={setShowGatheringsMenu}
+              setVictimsArray={setVictimsArray}
+              fetchBlackBoxsByUserId={fetchBlackBoxsByUserId}
+              assistSuggestions={assistSuggestions}
+              setAssistSuggestions={setAssistSuggestions}
+              setAssistsUsers={setAssistsUsers}
+            />
+          </div>
+
+          {/* Victims Section */}
+          <div className="section-card">
+            <div className="section-title">Victims</div>
+            <VictimsInput
+              victimInput={victimInput}
+              setVictimInput={setVictimInput}
+              victimsArray={victimsArray}
+              setVictimsArray={setVictimsArray}
+              isSubmitting={isSubmitting}
+            />
+          </div>
+
+          {/* Fleet Involved Section */}
+          <div className="section-card">
+            <div className="section-title">Fleet Involved</div>
+            <FleetInvolvedInput
+              fleetSearch={fleetSearch}
+              setFleetSearch={setFleetSearch}
+              fleetSuggestions={fleetSuggestions}
+              setFleetSuggestions={setFleetSuggestions}
+              allFleets={allFleets}
+              assistsUsers={assistsUsers}
+              setFormError={setFormError}
+              selectedFleet={selectedFleet}
+              setSelectedFleet={setSelectedFleet}
+              selectedFleets={selectedFleets}
+              setSelectedFleets={setSelectedFleets}
+              isSubmitting={isSubmitting}
+              allUsers={allUsers}
+              handleFleetSearchChange={handleFleetSearchChange}
+            />
+          </div>
+
+          <label>
+            Story:
+            <textarea
+              value={form.story}
+              maxLength={1024}
+              onChange={e => setForm(f => ({ ...f, story: e.target.value }))}
+              disabled={isSubmitting}
+              rows={6}
               style={{
-                display: "inline-flex",
-                alignItems: "center",
+                width: "100%",
+                minWidth: 0,
+                maxWidth: "100%",
+                minHeight: 120,
+                maxHeight: 120,
+                resize: "none",
+                marginTop: 4,
+                marginBottom: 12,
+                fontSize: 15,
+                borderRadius: 6,
+                border: "1px solid #353a40",
                 background: "#181a1b",
                 color: "#fff",
-                borderRadius: 16,
-                padding: "4px 12px",
-                fontSize: 14,
-                marginRight: 4,
-                marginBottom: 4,
+                padding: 8,
+                boxSizing: "border-box",
               }}
-            >
-              {fleet.name}
+            />
+          </label>
+          <label>
+            Video Link:
+            <input
+              type="text"
+              value={form.video_link}
+              onChange={e => setForm(f => ({ ...f, video_link: e.target.value }))}
+              disabled={isSubmitting}
+            />
+          </label>
+          <label>
+            Additional Media Links (comma-separated):
+            <input
+              type="text"
+              value={form.additional_media_links}
+              onChange={e => setForm(f => ({ ...f, additional_media_links: e.target.value }))}
+              disabled={isSubmitting}
+            />
+          </label>
+          {formError && (
+            <div style={{ color: "#ff6b6b", marginBottom: "1em" }}>{formError}</div>
+          )}
+          {props.isEditMode ? (
+            <>
               <button
                 type="button"
-                onClick={() => setSelectedFleets(list => list.filter(f => f.id !== fleet.id))}
-                style={{
-                  marginLeft: 8,
-                  color: "#ff6b6b",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 16,
-                  lineHeight: 1,
-                }}
-                aria-label={`Remove ${fleet.name}`}
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-        </div>
-        <label>
-          Story:
-          <textarea
-            value={form.story}
-            maxLength={1024}
-            onChange={e => setForm(f => ({ ...f, story: e.target.value }))}
-            disabled={isSubmitting}
-            rows={6}
-            style={{
-              width: "100%",
-              minWidth: 0,
-              maxWidth: "100%",
-              minHeight: 120,
-              maxHeight: 120,
-              resize: "none",
-              marginTop: 4,
-              marginBottom: 12,
-              fontSize: 15,
-              borderRadius: 6,
-              border: "1px solid #353a40",
-              background: "#181a1b",
-              color: "#fff",
-              padding: 8,
-              boxSizing: "border-box",
-            }}
-          />
-        </label>
-        <label>
-          Video Link:
-          <input
-            type="text"
-            value={form.video_link}
-            onChange={e => setForm(f => ({ ...f, video_link: e.target.value }))}
-            disabled={isSubmitting}
-          />
-        </label>
-        <label>
-          Additional Media Links (comma-separated):
-          <input
-            type="text"
-            value={form.additional_media_links}
-            onChange={e => setForm(f => ({ ...f, additional_media_links: e.target.value }))}
-            disabled={isSubmitting}
-          />
-        </label>
-        {formError && (
-          <div style={{ color: "#ff6b6b", marginBottom: "1em" }}>{formError}</div>
-        )}
-        {props.isEditMode ? (
-          <>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!props.onUpdate || !props.hit) return;
+                onClick={async () => {
+                  if (!props.onUpdate || !props.hit) return;
 
-                // Prepare updated hit object as in handleSubmit
-                const updatedHit: Hit = {
-                  ...props.hit,
-                  id: props.hit?.id ?? Date.now().toString(),
-                  user_id: props.hit?.user_id ?? userId,
-                  cargo: cargoList,
-                  total_value: totalValue,
-                  patch: gameVersion ?? "",
-                  total_cut_value: Math.round(totalValue / (assistsUsers.length + 1)),
-                  assists: assistsUsers.map(u => String(u.id)),
-                  assists_usernames: assistsUsers.map(u => u.username),
-                  total_scu: cargoList.reduce((sum, item) => sum + item.scuAmount, 0),
-                  air_or_ground: form.air_or_ground,
-                  title: form.title,
-                  story: form.story,
-                  timestamp: new Date().toISOString(),
-                  username: props.hit?.username ?? username,
-                  video_link: form.video_link,
-                  additional_media_links: parseArray(form.additional_media_links),
-                  type_of_piracy: form.type_of_piracy,
-                  fleet_activity: selectedFleets.length > 0,
-                  fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
-                  fleet_ids: selectedFleets.map(f => String(f.id)),
-                  victims: victimsArray,
-                };
+                  // Prepare updated hit object as in handleSubmit
+                  const updatedHit: Hit = {
+                    ...props.hit,
+                    id: props.hit?.id ?? Date.now().toString(),
+                    user_id: props.hit?.user_id ?? userId,
+                    cargo: cargoList,
+                    total_value: totalValue,
+                    patch: gameVersion ?? "",
+                    total_cut_value: Math.round(totalValue / (assistsUsers.length + 1)),
+                    assists: assistsUsers.map(u => String(u.id)),
+                    assists_usernames: assistsUsers.map(u => u.username),
+                    total_scu: cargoList.reduce((sum, item) => sum + item.scuAmount, 0),
+                    air_or_ground: form.air_or_ground,
+                    title: form.title,
+                    story: form.story,
+                    timestamp: new Date().toISOString(),
+                    username: props.hit?.username ?? username,
+                    video_link: form.video_link,
+                    additional_media_links: parseArray(form.additional_media_links),
+                    type_of_piracy: form.type_of_piracy,
+                    fleet_activity: selectedFleets.length > 0,
+                    fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
+                    fleet_ids: selectedFleets.map(f => String(f.id)),
+                    victims: victimsArray,
+                  };
 
-                try {
-                  // 1. Fetch all player experiences for this operation
-                  const existingExperiences = await fetchPlayerExperiencesByOperationId(updatedHit.id);
-
-                  // 2. For each assistsUser, update or create experience
-                  await Promise.all(
-                    assistsUsers.map(async user => {
-                      const existing = existingExperiences.find(
-                        exp => String(exp.user_id) === String(user.id)
-                      );
-                      const expPayload = {
-                        id: existing?.id ?? randomBigIntId(),
-                        user_id: String(user.id),
-                        username: user.username,
-                        operation_id: updatedHit.id,
-                        operation_name: updatedHit.title,
-                        operation_type: updatedHit.type_of_piracy,
-                        patch: updatedHit.patch,
-                        dogfighter: !!user.dogfighter,
-                        marine: !!user.marine,
-                        snare: !!user.snare,
-                        cargo: !!user.cargo,
-                        multicrew: !!user.multicrew,
-                        salvage: !!user.salvage,
-                        air_leadership: !!user.air_leadership,
-                        ground_leadership: !!user.ground_leadership,
-                        commander: !!user.commander,
-                        type_of_experience: "Piracy",
-                      };
-                      if (existing) {
-                        await editPlayerExperience(existing.id, expPayload);
-                      } else {
-                        await createPlayerExperience(expPayload);
-                      }
-                    })
-                  );
-
-                  // 3. Update the hit
-                  await updateHit(updatedHit);
-
-                  // 4. Call parent update handler
-                  await props.onUpdate(updatedHit);
-
-                  // Force page refresh after successful update
-                  window.location.reload();
-                } catch (err) {
-                  setFormError("Failed to update hit or player experiences. Please try again.");
-                }
-              }}
-              disabled={isSubmitting}
-            >
-              Update
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!props.hit) return;
-                try {
-                  let experiences: any[] = [];
                   try {
-                    // Try to fetch player experiences, but don't fail if none are found
-                    experiences = await fetchPlayerExperiencesByOperationId(props.hit.id);
-                  } catch (err) {
-                    // If not found, just continue (no experiences to delete)
-                    experiences = [];
-                  }
+                    // 1. Fetch all player experiences for this operation
+                    const existingExperiences = await fetchPlayerExperiencesByOperationId(updatedHit.id);
 
-                  // Delete each experience if any
-                  if (experiences.length > 0) {
+                    // 2. For each assistsUser, update or create experience
                     await Promise.all(
-                      experiences.map(exp => deletePlayerExperience(exp.id))
+                      assistsUsers.map(async user => {
+                        const existing = existingExperiences.find(
+                          exp => String(exp.user_id) === String(user.id)
+                        );
+                        const expPayload = {
+                          id: existing?.id ?? randomBigIntId(),
+                          user_id: String(user.id),
+                          username: user.username,
+                          operation_id: updatedHit.id,
+                          operation_name: updatedHit.title,
+                          operation_type: updatedHit.type_of_piracy,
+                          patch: updatedHit.patch,
+                          dogfighter: !!user.dogfighter,
+                          marine: !!user.marine,
+                          snare: !!user.snare,
+                          cargo: !!user.cargo,
+                          multicrew: !!user.multicrew,
+                          salvage: !!user.salvage,
+                          air_leadership: !!user.air_leadership,
+                          ground_leadership: !!user.ground_leadership,
+                          commander: !!user.commander,
+                          type_of_experience: "Piracy",
+                        };
+                        if (existing) {
+                          await editPlayerExperience(existing.id, expPayload);
+                        } else {
+                          await createPlayerExperience(expPayload);
+                        }
+                      })
                     );
+
+                    // 3. Update the hit
+                    await updateHit(updatedHit);
+
+                    // 4. Call parent update handler
+                    await props.onUpdate(updatedHit);
+
+                    // Force page refresh after successful update
+                    window.location.reload();
+                  } catch (err) {
+                    setFormError("Failed to update hit or player experiences. Please try again.");
                   }
-
-                  // Delete the hit
-                  await deleteHit(props.hit);
-                  window.location.reload()
-                  // Call parent delete handler if present
-                  if (props.onDelete) await props.onDelete();
-                  onClose();
-                } catch (err) {
-                  setFormError("Failed to delete hit or player experiences. Please try again.");
-                }
-              }}
-              disabled={isSubmitting}
-              style={{ marginLeft: 8, background: "#ff6b6b", color: "#fff" }}
-            >
-              Delete
-            </button>
-          </>
-        ) : (
-          <button type="submit" disabled={isSubmitting || submitting}>
-            {submitting ? "Submitting..." : "Submit"}
-          </button>
-        )}
-        <button type="button" onClick={onClose} disabled={isSubmitting}>
-          Cancel
-        </button>
-
-        {/* Delete confirmation modal
-        {showDeleteConfirm && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0, left: 0, right: 0, bottom: 0,
-              background: "rgba(0,0,0,0.6)",
-              zIndex: 1000,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center"
-            }}
-          >
-            <div style={{
-              background: "#23272e",
-              padding: 32,
-              borderRadius: 8,
-              boxShadow: "0 2px 16px rgba(0,0,0,0.5)",
-              color: "#fff",
-              minWidth: 320,
-              textAlign: "center"
-            }}>
-                <button
-                  onClick={async () => {
-                    if (!props.hit) return;
+                }}
+                disabled={isSubmitting}
+              >
+                Update
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!props.hit) return;
+                  try {
+                    let experiences: any[] = [];
                     try {
-                      // 1. Fetch all player experiences for this operation
-                      const experiences = await fetchPlayerExperiencesByOperationId(props.hit.id);
+                      // Try to fetch player experiences, but don't fail if none are found
+                      experiences = await fetchPlayerExperiencesByOperationId(props.hit.id);
+                    } catch (err) {
+                      // If not found, just continue (no experiences to delete)
+                      experiences = [];
+                    }
 
-                      // 2. Delete each experience
+                    // Delete each experience if any
+                    if (experiences.length > 0) {
                       await Promise.all(
                         experiences.map(exp => deletePlayerExperience(exp.id))
                       );
-
-                      // 3. Delete the hit
-                      await deleteHit(props.hit);
-
-                      // 4. Call parent delete handler if present
-                      if (props.onDelete) await props.onDelete();
-
-                      setShowDeleteConfirm(false);
-                      onClose();
-                    } catch (err) {
-                      setFormError("Failed to delete hit or player experiences. Please try again.");
                     }
-                  }}
-                  style={{ background: "#ff6b6b", color: "#fff", border: "none", borderRadius: 4, padding: "8px 24px", fontWeight: "bold", cursor: "pointer" }}
-                >
-                  Yes, Delete
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  style={{ background: "#444", color: "#fff", border: "none", borderRadius: 4, padding: "8px 24px", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
+
+                    // Delete the hit
+                    await deleteHit(props.hit);
+                    window.location.reload()
+                    // Call parent delete handler if present
+                    if (props.onDelete) await props.onDelete();
+                    onClose();
+                  } catch (err) {
+                    setFormError("Failed to delete hit or player experiences. Please try again.");
+                  }
+                }}
+                disabled={isSubmitting}
+                style={{ marginLeft: 8, background: "#ff6b6b", color: "#fff" }}
+              >
+                Delete
+              </button>
+            </>
+          ) : (
+            <button type="submit" disabled={isSubmitting || submitting}>
+              {submitting ? "Submitting..." : "Submit"}
+            </button>
+          )}
+          <button type="button" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </button>
+          {showSuccess && (
+            <div style={{
+              position: "fixed",
+              top: "20px",
+              right: "20px",
+              background: "#28a745",
+              color: "#fff",
+              padding: "12px 24px",
+              borderRadius: 8,
+              boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+              zIndex: 1000,
+              transition: "opacity 0.3s",
+              opacity: showSuccess ? 1 : 0,
+            }}>
+              Hit submitted successfully!
             </div>
-        )} */}
-        {showSuccess && (
-          <div style={{
-            position: "fixed",
-            top: "20px",
-            right: "20px",
-            background: "#28a745",
-            color: "#fff",
-            padding: "12px 24px",
-            borderRadius: 8,
-            boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-            zIndex: 1000,
-            transition: "opacity 0.3s",
-            opacity: showSuccess ? 1 : 0,
-          }}>
-            Hit submitted successfully!
-          </div>
-        )}
-      </form>
+          )}
+        </form>
+      </div>
     </Modal>
   );
 };

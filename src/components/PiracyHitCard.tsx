@@ -19,9 +19,6 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
   // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some(role => BLOODED_IDS.includes(role)) ?? false;
-  console.log("Hit: ", hit);
-  console.log("User ID: ", userId);
-  console.log("dbUser: ", dbUser);
 
   useEffect(() => {
     let ignore = false;
