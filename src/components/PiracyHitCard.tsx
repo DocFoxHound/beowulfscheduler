@@ -19,6 +19,9 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
   // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some(role => BLOODED_IDS.includes(role)) ?? false;
+  console.log("Hit: ", hit);
+  console.log("User ID: ", userId);
+  console.log("dbUser: ", dbUser);
 
   useEffect(() => {
     let ignore = false;
@@ -67,7 +70,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
       }}
     >
       {/* Edit button, only if user owns this hit or is fleet commander */}
-      {(hit.user_id === userId || isFleetCommander || isModerator) && (
+      {(hit.user_id === dbUser?.id || isFleetCommander || isModerator) && (
         <button
           style={{
             position: "absolute",
@@ -99,7 +102,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
             color: '#2d7aee',
             letterSpacing: 1,
             // Add more padding if Edit button is visible
-            paddingRight: (hit.user_id === userId || isFleetCommander || isModerator) ? 70 : 0
+            paddingRight: (hit.user_id === dbUser?.id || isFleetCommander || isModerator) ? 70 : 0
           }}
         >
           {hit.type_of_piracy?.toUpperCase()}
