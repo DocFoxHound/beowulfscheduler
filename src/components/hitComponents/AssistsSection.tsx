@@ -19,6 +19,7 @@ interface AssistsSectionProps {
   assistSuggestions: User[];
   setAssistSuggestions: React.Dispatch<React.SetStateAction<User[]>>;
   setAssistsUsers: React.Dispatch<React.SetStateAction<any[]>>;
+  setGuestNames: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 const AssistsSection: React.FC<AssistsSectionProps> = ({
@@ -39,7 +40,23 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
   assistSuggestions,
   setAssistSuggestions,
   setAssistsUsers,
+  setGuestNames,
 }) => {
+  // Helper to add a guest
+  const addGuest = (guestName: string) => {
+    if (!guestName.trim()) return;
+    setAssistsUsers(list => [
+      ...list,
+      {
+        id: `guest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        nickname: guestName,
+        guest: true,
+      },
+    ]);
+    setGuestNames(prev => [...prev, guestName]);
+    setForm((f: any) => ({ ...f, assists: "", _showAssistInput: false }));
+  };
+
   return (
     <div>
       {assistsUsers.length > 0 && (
@@ -47,45 +64,64 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
           <table style={{ width: "100%", background: "#23272e", borderRadius: 6, borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Assistance</th><th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th><th style={{ color: "#ccc", padding: 6 }}>Marine</th><th style={{ color: "#ccc", padding: 6 }}>Snare</th><th style={{ color: "#ccc", padding: 6 }}>Cargo</th><th style={{ color: "#ccc", padding: 6 }}>Multicrew</th><th style={{ color: "#ccc", padding: 6 }}>Salvage</th><th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th><th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th><th style={{ color: "#ccc", padding: 6 }}>Commander</th><th></th>
+                <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Assistance</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Marine</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Snare</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Cargo</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Multicrew</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Salvage</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th>
+                <th style={{ color: "#ccc", padding: 6 }}>Commander</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {assistsUsers.map((user, idx) => (
                 <tr key={user.id} style={{ background: idx % 2 ? "#202226" : "#23272e" }}>
                   <td style={{ color: "#fff", padding: 6 }}>{user.nickname || user.username}</td>
-                  {([
-                    "dogfighter",
-                    "marine",
-                    "snare",
-                    "cargo",
-                    "multicrew",
-                    "salvage",
-                    "air_leadership",
-                    "ground_leadership",
-                    "commander"
-                  ] as Array<keyof typeof user>).map(field => (
-                    <td key={String(field)} style={{ textAlign: "center", padding: 6 }}>
-                      <input
-                        type="checkbox"
-                        className="large-checkbox"
-                        checked={Boolean(user[field])}
-                        onChange={e => {
-                          setAssistsUsers(list =>
-                            list.map(u =>
-                              u.id === user.id
-                                ? { ...u, [field]: e.target.checked }
-                                : u
-                            )
-                          );
-                        }}
-                      />
-                    </td>
-                  ))}
+                  {user.guest
+                    ? Array(9).fill(null).map((_, i) => (
+                        <td key={i} style={{ padding: 6 }}></td>
+                      ))
+                    : ([
+                        "dogfighter",
+                        "marine",
+                        "snare",
+                        "cargo",
+                        "multicrew",
+                        "salvage",
+                        "air_leadership",
+                        "ground_leadership",
+                        "commander"
+                      ] as Array<keyof typeof user>).map(field => (
+                        <td key={String(field)} style={{ textAlign: "center", padding: 6 }}>
+                          <input
+                            type="checkbox"
+                            className="large-checkbox"
+                            checked={Boolean(user[field])}
+                            onChange={e => {
+                              setAssistsUsers(list =>
+                                list.map(u =>
+                                  u.id === user.id
+                                    ? { ...u, [field]: e.target.checked }
+                                    : u
+                                )
+                              );
+                            }}
+                          />
+                        </td>
+                      ))}
                   <td style={{ textAlign: "center", padding: 6 }}>
                     <button
                       type="button"
-                      onClick={() => setAssistsUsers(list => list.filter(u => u.id !== user.id))}
+                      onClick={() => {
+                        setAssistsUsers(list => list.filter(u => u.id !== user.id));
+                        if (user.guest && user.nickname) {
+                          setGuestNames(prev => prev.filter(name => name !== user.nickname));
+                        }
+                      }}
                       style={{
                         color: "#ff6b6b",
                         background: "none",
@@ -139,6 +175,12 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
               autoComplete="off"
               style={{ width: 240 }}
               autoFocus
+              placeholder="Type username or guest name"
+              onKeyDown={e => {
+                if (e.key === "Enter" && form.assists && assistSuggestions.length === 0) {
+                  addGuest(form.assists);
+                }
+              }}
             />
             {/* Recent Gatherings dropdown, styled like Fleet Involved */}
             {showGatheringsMenu && recentGatherings.length > 0 && assistsUsers.length === 0 && (
@@ -246,6 +288,24 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
                   </div>
                 ))}
               </div>
+            )}
+            {/* Add Guest button if no suggestions and input is not empty */}
+            {assistSuggestions.length === 0 && form.assists && (
+              <button
+                type="button"
+                style={{
+                  marginLeft: 8,
+                  background: "#2d7aee",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "6px 12px",
+                  cursor: "pointer"
+                }}
+                onClick={() => addGuest(form.assists)}
+              >
+                Add Guest
+              </button>
             )}
             {/* Cancel button */}
             <button

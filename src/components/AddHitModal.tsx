@@ -104,6 +104,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   const [allUsersState, setAllUsersState] = useState<User[]>([]);
   const [assistSuggestions, setAssistSuggestions] = useState<User[]>([]);
   const [assistsUsers, setAssistsUsers] = useState<AssistUserWithExperience[]>([]);
+  // Guests state
+  const [guests, setGuests] = useState<string[]>([]);
 
   // Fleets state
   const [allFleets, setAllFleets] = useState<UserFleet[]>([]);
@@ -188,33 +190,57 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       setCargoList(h.cargo || []);
       setWarehouseFlags(h.cargo?.map(() => ({ toWarehouse: false, forOrg: false })) || []);
       setVictimsArray(h.victims || []);
+      setGuests(h.guests || []);
+
+      // Prepare guest assists
+      const guestAssists = Array.isArray(h.guests) && h.guests.length > 0
+        ? h.guests.map(guestName => ({
+            id: `guest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            username: '',
+            nickname: guestName,
+            corsair_level: 0,
+            raptor_level: 0,
+            radier_level: 0,
+            rank: 0,
+            roles: [],
+            dogfighter: false,
+            marine: false,
+            snare: false,
+            cargo: false,
+            multicrew: false,
+            salvage: false,
+            air_leadership: false,
+            ground_leadership: false,
+            commander: false,
+            guest: true
+          }))
+        : [];
 
       // Fetch player experiences for this operation and map to assistsUsers
       fetchPlayerExperiencesByOperationId(h.id).then((experiences) => {
-        setAssistsUsers(
-          (h.assists || []).map((id, idx) => {
-            const exp = experiences.find(e => e.user_id === String(id));
-            return {
-              id: String(id),
-              username: h.assists_usernames?.[idx] || "",
-              nickname: h.assists_usernames?.[idx] || "",
-              corsair_level: 0,
-              raptor_level: 0,
-              radier_level: 0,
-              rank: 0,
-              roles: [],
-              dogfighter: !!exp?.dogfighter,
-              marine: !!exp?.marine,
-              snare: !!exp?.snare,
-              cargo: !!exp?.cargo,
-              multicrew: !!exp?.multicrew,
-              salvage: !!exp?.salvage,
-              air_leadership: !!exp?.air_leadership,
-              ground_leadership: !!exp?.ground_leadership,
-              commander: !!exp?.commander, // <-- Add this
-            };
-          })
-        );
+        const assistsArr = (h.assists || []).map((id, idx) => {
+          const exp = experiences.find(e => e.user_id === String(id));
+          return {
+            id: String(id),
+            username: h.assists_usernames?.[idx] || "",
+            nickname: h.assists_usernames?.[idx] || "",
+            corsair_level: 0,
+            raptor_level: 0,
+            radier_level: 0,
+            rank: 0,
+            roles: [],
+            dogfighter: !!exp?.dogfighter,
+            marine: !!exp?.marine,
+            snare: !!exp?.snare,
+            cargo: !!exp?.cargo,
+            multicrew: !!exp?.multicrew,
+            salvage: !!exp?.salvage,
+            air_leadership: !!exp?.air_leadership,
+            ground_leadership: !!exp?.ground_leadership,
+            commander: !!exp?.commander,
+          };
+        });
+        setAssistsUsers([...assistsArr, ...guestAssists]);
       });
       // ...set other fields as needed...
     }
@@ -281,9 +307,11 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
     setSubmitting(true);
 
-    // Prepare assists arrays
-    let assistsArr = assistsUsers.map(u => u.username);
-    let assistsIds = assistsUsers.map(u => String(u.id));
+
+    // Prepare assists arrays, filtering out guests
+    let filteredAssists = assistsUsers.filter(u => !u.id.startsWith("guest-"));
+    let assistsArr = filteredAssists.map(u => u.username);
+    let assistsIds = filteredAssists.map(u => String(u.id));
     let hitUserId = userId;
     let hitUsername = username;
 
@@ -303,8 +331,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
     // Calculate total_cut_value
     const total_cut_value =
-      assistsArr.length > 0
-        ? Math.round(totalValueNum / (assistsArr.length + 1))
+      assistsArr.length > 0 || guests.length > 0
+        ? Math.round(totalValueNum / (assistsArr.length + guests.length + 1))
         : totalValueNum;
 
     const hit: Hit = {
@@ -329,6 +357,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
       fleet_ids: selectedFleets.map(f => String(f.id)),
       victims: victimsArray,
+      guests: guests,
     };
     console.log(hit)
 
@@ -354,29 +383,31 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
         })
       );
 
-      // Save player experiences for each assist user
+      // Save player experiences for each assist user, skipping guests
       await Promise.all(
-        assistsUsers.map(user =>
-          createPlayerExperience({
-            id: randomBigIntId(),
-            user_id: String(user.id),
-            username: user.username,
-            operation_id: hit.id,
-            operation_name: hit.title,
-            operation_type: hit.type_of_piracy,
-            patch: hit.patch,
-            dogfighter: !!user.dogfighter,
-            marine: !!user.marine,
-            snare: !!user.snare,
-            cargo: !!user.cargo,
-            multicrew: !!user.multicrew,
-            salvage: !!user.salvage,
-            air_leadership: !!user.air_leadership,
-            ground_leadership: !!user.ground_leadership,
-            commander: !!user.commander, // <-- Add this
-            type_of_experience: "Piracy", // <-- Add this line (adjust value as needed)
-          })
-        )
+        assistsUsers
+          .filter(user => typeof user.id === "string" && !user.id.startsWith("guest-"))
+          .map(user =>
+            createPlayerExperience({
+              id: randomBigIntId(),
+              user_id: String(user.id),
+              username: user.username,
+              operation_id: hit.id,
+              operation_name: hit.title,
+              operation_type: hit.type_of_piracy,
+              patch: hit.patch,
+              dogfighter: !!user.dogfighter,
+              marine: !!user.marine,
+              snare: !!user.snare,
+              cargo: !!user.cargo,
+              multicrew: !!user.multicrew,
+              salvage: !!user.salvage,
+              air_leadership: !!user.air_leadership,
+              ground_leadership: !!user.ground_leadership,
+              commander: !!user.commander,
+              type_of_experience: "Piracy",
+            })
+          )
       );
 
       setForm(initialForm);
@@ -646,6 +677,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               assistSuggestions={assistSuggestions}
               setAssistSuggestions={setAssistSuggestions}
               setAssistsUsers={setAssistsUsers}
+              setGuestNames={setGuests}
             />
           </div>
 
@@ -737,7 +769,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                 onClick={async () => {
                   if (!props.onUpdate || !props.hit) return;
 
-                  // Prepare updated hit object as in handleSubmit
+                  // Filter out assists whose id starts with 'guest-'
+                  const filteredAssists = assistsUsers.filter(u => !(typeof u.id === "string" && u.id.startsWith("guest-")));
                   const updatedHit: Hit = {
                     ...props.hit,
                     id: props.hit?.id ?? Date.now().toString(),
@@ -745,9 +778,9 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     cargo: cargoList,
                     total_value: totalValue,
                     patch: gameVersion ?? "",
-                    total_cut_value: Math.round(totalValue / (assistsUsers.length + 1)),
-                    assists: assistsUsers.map(u => String(u.id)),
-                    assists_usernames: assistsUsers.map(u => u.username),
+                    total_cut_value: Math.round(totalValue / (filteredAssists.length + guests.length)),
+                    assists: filteredAssists.map(u => String(u.id)),
+                    assists_usernames: filteredAssists.map(u => u.username),
                     total_scu: cargoList.reduce((sum, item) => sum + item.scuAmount, 0),
                     air_or_ground: form.air_or_ground,
                     title: form.title,
@@ -761,43 +794,46 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
                     fleet_names: selectedFleets.map(f => f.name).filter((name): name is string => typeof name === "string"),
                     fleet_ids: selectedFleets.map(f => String(f.id)),
                     victims: victimsArray,
+                    guests: guests, // Save the actual guests array
                   };
 
                   try {
                     // 1. Fetch all player experiences for this operation
                     const existingExperiences = await fetchPlayerExperiencesByOperationId(updatedHit.id);
 
-                    // 2. For each assistsUser, update or create experience
+                    // 2. For each assistsUser, update or create experience (skip guests)
                     await Promise.all(
-                      assistsUsers.map(async user => {
-                        const existing = existingExperiences.find(
-                          exp => String(exp.user_id) === String(user.id)
-                        );
-                        const expPayload = {
-                          id: existing?.id ?? randomBigIntId(),
-                          user_id: String(user.id),
-                          username: user.username,
-                          operation_id: updatedHit.id,
-                          operation_name: updatedHit.title,
-                          operation_type: updatedHit.type_of_piracy,
-                          patch: updatedHit.patch,
-                          dogfighter: !!user.dogfighter,
-                          marine: !!user.marine,
-                          snare: !!user.snare,
-                          cargo: !!user.cargo,
-                          multicrew: !!user.multicrew,
-                          salvage: !!user.salvage,
-                          air_leadership: !!user.air_leadership,
-                          ground_leadership: !!user.ground_leadership,
-                          commander: !!user.commander,
-                          type_of_experience: "Piracy",
-                        };
-                        if (existing) {
-                          await editPlayerExperience(existing.id, expPayload);
-                        } else {
-                          await createPlayerExperience(expPayload);
-                        }
-                      })
+                      assistsUsers
+                        .filter(user => typeof user.id === "string" && !user.id.startsWith("guest-"))
+                        .map(async user => {
+                          const existing = existingExperiences.find(
+                            exp => String(exp.user_id) === String(user.id)
+                          );
+                          const expPayload = {
+                            id: existing?.id ?? randomBigIntId(),
+                            user_id: String(user.id),
+                            username: user.username,
+                            operation_id: updatedHit.id,
+                            operation_name: updatedHit.title,
+                            operation_type: updatedHit.type_of_piracy,
+                            patch: updatedHit.patch,
+                            dogfighter: !!user.dogfighter,
+                            marine: !!user.marine,
+                            snare: !!user.snare,
+                            cargo: !!user.cargo,
+                            multicrew: !!user.multicrew,
+                            salvage: !!user.salvage,
+                            air_leadership: !!user.air_leadership,
+                            ground_leadership: !!user.ground_leadership,
+                            commander: !!user.commander,
+                            type_of_experience: "Piracy",
+                          };
+                          if (existing) {
+                            await editPlayerExperience(existing.id, expPayload);
+                          } else {
+                            await createPlayerExperience(expPayload);
+                          }
+                        })
                     );
 
                     // 3. Update the hit

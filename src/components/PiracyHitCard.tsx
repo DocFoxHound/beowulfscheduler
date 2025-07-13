@@ -132,7 +132,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
         </div>
       </div>
 
-      {/* Assists (with tooltip for usernames) */}
+      {/* Assists (with tooltip for usernames), including guests */}
       <div style={{ marginTop: 6 }}>
         <span style={{ color: '#aaa' }}>Assists:</span>{" "}
         <span
@@ -143,29 +143,39 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
             alignItems: "center"
           }}
         >
-          {hit.assists_usernames && hit.assists_usernames.length > 0 ? (
-            hit.assists_usernames.map((name, idx) => (
-              <span
-                key={name + idx}
-                style={{
-                  background: "#181a1b",
-                  color: "#fff",
-                  borderRadius: 12,
-                  padding: "2px 10px",
-                  fontSize: 13,
-                  marginRight: 0,
-                  marginBottom: 4,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap"
-                }}
-                title={`User ID: ${hit.assists?.[idx] || ""}\nUsername: ${name}`}
-              >
-                {name}
-              </span>
-            ))
-          ) : (
-            <span style={{ color: "#888" }}>None</span>
-          )}
+          {(() => {
+            // Combine assists_usernames and guests (if present)
+            const assistsNames = Array.isArray(hit.assists_usernames) ? hit.assists_usernames : [];
+            const guests = Array.isArray(hit.guests) ? hit.guests : [];
+            const allAssists = [...assistsNames, ...guests];
+            if (allAssists.length > 0) {
+              return allAssists.map((name, idx) => (
+                <span
+                  key={name + idx}
+                  style={{
+                    background: "#181a1b",
+                    color: "#fff",
+                    borderRadius: 12,
+                    padding: "2px 10px",
+                    fontSize: 13,
+                    marginRight: 0,
+                    marginBottom: 4,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap"
+                  }}
+                  title={
+                    idx < assistsNames.length
+                      ? `User ID: ${hit.assists?.[idx] || ""}\nUsername: ${name}`
+                      : `Guest: ${name}`
+                  }
+                >
+                  {name}
+                </span>
+              ));
+            } else {
+              return <span style={{ color: "#888" }}>None</span>;
+            }
+          })()}
         </span>
       </div>
 

@@ -261,9 +261,10 @@ const CargoSection: React.FC<CargoSectionProps> = ({
                   <input
                     type="number"
                     min={0}
-                    value={cargo.avg_price * cargo.scuAmount}
+                    value={(cargo.avg_price * cargo.scuAmount).toLocaleString("fullwide", { useGrouping: false })}
                     onChange={e => {
-                      const newTotalValue = Number(e.target.value);
+                      // Parse as integer to avoid float artifacts
+                      const newTotalValue = parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 0;
                       setCargoList(list =>
                         list.map((item, i) =>
                           i === idx
