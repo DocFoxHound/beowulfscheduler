@@ -332,7 +332,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
     // Calculate total_cut_value
     const total_cut_value =
       assistsArr.length > 0 || guests.length > 0
-        ? Math.round(totalValueNum / (assistsArr.length + guests.length + 1))
+        ? Math.round(totalValueNum / (assistsArr.length + guests.length))
         : totalValueNum;
 
     const hit: Hit = {

@@ -10,7 +10,7 @@ const piracyColumns: LeaderboardColumn<any>[] = [
   {
     key: "username",
     title: "Username",
-    render: row => row.username || row.nickname || row.player_id,
+    render: row => row.nickname || row.username || row.player_id,
   },
   {
     key: "hits_created",
