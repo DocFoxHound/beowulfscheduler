@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchPublicOrgWarehouseItems, fetchPrivateOrgWarehouseItems, addWarehouseItem, editWarehouseItem } from '../api/warehouseApi';
+import { fetchPublicOrgWarehouseItems, fetchPrivateOrgWarehouseItems, addWarehouseItem, editWarehouseItem, deleteWarehouseItem } from '../api/warehouseApi';
 import { SummarizedItem } from '../types/items_summary';
 import { WarehouseItem } from '../types/warehouse';
 
@@ -113,6 +113,20 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
 
   const handleSave = async () => {
     if (!editingId) return;
+    // If quantity is 0, delete the item
+    if (editValues.total_scu === 0) {
+      try {
+        await deleteWarehouseItem(editingId);
+        setItems(items => items.filter(i => i.id !== editingId));
+      } catch (err) {
+        setError('Failed to delete item');
+      } finally {
+        setEditingId(null);
+        setEditValues({});
+      }
+      return;
+    }
+    // Otherwise, update the item
     const updatedItem = { ...editValues, id: editingId, for_org: true } as WarehouseItem;
     const saved = await editWarehouseItem(editingId, updatedItem);
     setItems(items => items.map(i => (i.id === editingId ? saved : i)));

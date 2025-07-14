@@ -220,6 +220,25 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
 
   const handleAddSave = async () => {
     if (!newItem.commodity_name || !newItem.location) return;
+    // If quantity is 0 or less, do not add, and if an item with same name/location exists, delete it
+    if (Number(newItem.total_scu) <= 0) {
+      // Try to find an existing item with same commodity_name and location
+      const existing = items.find(i => i.commodity_name === newItem.commodity_name && i.location === newItem.location);
+      if (existing) {
+        await deleteWarehouseItem(existing.id);
+        setItems(items => items.filter(i => i.id !== existing.id));
+      }
+      setShowAddRow(false);
+      setNewItem({
+        id: new Date().getTime().toString(),
+        commodity_name: '',
+        location: '',
+        total_scu: 0,
+        total_value: 0,
+        for_org: false,
+      });
+      return;
+    }
     const itemToAdd = {
       ...newItem,
       id: new Date().getTime().toString(),
