@@ -10,11 +10,18 @@ interface Props {
   user_id: string | null;
   gameVersion: string | null;
   summarizedItems: SummarizedItem[];
+  items: WarehouseItem[];
+  setItems: React.Dispatch<React.SetStateAction<WarehouseItem[]>>;
+  addWarehouseItem: (item: WarehouseItem) => Promise<WarehouseItem>;
+  editWarehouseItem: (id: string, item: WarehouseItem) => Promise<WarehouseItem>;
+  deleteWarehouseItem: (id: string) => Promise<void>;
+  loading: boolean;
+  error: string | null;
 }
 
 type IntentFilter = 'all' | 'LTB' | 'LTS' | 'N/A';
 
-const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems }) => {
+const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems, items, setItems, addWarehouseItem, editWarehouseItem, deleteWarehouseItem, loading, error }) => {
   // For Add New Location
   const [showAddLocation, setShowAddLocation] = useState(false);
   const [newLocation, setNewLocation] = useState('');
@@ -65,15 +72,8 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     setNewLocation('');
     setLocationSuggestions([]);
   };
-  const [items, setItems] = useState<WarehouseItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // items, setItems, loading, error are now props
   const [openLocations, setOpenLocations] = useState<Record<string, boolean>>({});
-  const [filterText, setFilterText] = useState('');
-  const [intentFilter, setIntentFilter] = useState<IntentFilter>('all');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<WarehouseItem>>({});
-  const [showAddRow, setShowAddRow] = useState(false);
   const [newItem, setNewItem] = useState<Partial<WarehouseItem>>({
     commodity_name: '',
     location: '',
@@ -83,33 +83,44 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
   });
   const [locationInputSuggestions, setLocationInputSuggestions] = useState<string[]>([]);
   const [showLocationInputSuggestions, setShowLocationInputSuggestions] = useState(false);
-  // const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [suggestions, setSuggestions] = useState<SummarizedItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverLocation, setDragOverLocation] = useState<string | null>(null);
 
-  useEffect(() => {
-    const getItems = async () => {
-      try {
-        const data = await fetchWarehouseItems(user_id);
-        setItems(data);
-        const locations = Array.from(new Set(data.map(item => item.location)));
-        setOpenLocations(Object.fromEntries(locations.map(loc => [loc, false])));
-      } catch (err) {
-        setError('Failed to fetch warehouse items');
-      } finally {
-        setLoading(false);
-      }
-    };
-    getItems();
-  }, [user_id]);
 
-  if (loading) return <div>Loading warehouse items...</div>;
+
+
+
+
+
+
+  // Group filtered items by location
+
+
+
+
+  // Group filtered items by location
+
+
+  const [filterText, setFilterText] = useState('');
+  const [intentFilter, setIntentFilter] = useState<IntentFilter>('all');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Partial<WarehouseItem>>({});
+  const [showAddRow, setShowAddRow] = useState(false);
+
   if (error) return <div>{error}</div>;
 
+  // Only show items that belong to the current user (handle null user_id)
+  const personalItems = items.filter(item => {
+    if (!user_id) return false;
+    // Compare as trimmed strings to avoid type/formatting issues
+    return String(item.user_id).trim() === String(user_id).trim();
+  });
+  // Debug: log personalItems
+  // console.log('personalItems', personalItems.length, personalItems);
   // Filtering logic
-  const filteredItems = items.filter(item => {
+  const filteredItems = personalItems.filter(item => {
     const matchesText =
       item.commodity_name.toLowerCase().includes(filterText.toLowerCase()) ||
       item.location.toLowerCase().includes(filterText.toLowerCase());
@@ -121,6 +132,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     return matchesText && matchesIntent;
   });
 
+
   // Group filtered items by location
   const itemsByLocation: Record<string, WarehouseItem[]> = {};
   filteredItems.forEach(item => {
@@ -129,6 +141,22 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     }
     itemsByLocation[item.location].push(item);
   });
+  console.log("Items By Location: ", itemsByLocation)
+
+  // Auto-expand all locations with items when itemsByLocation changes
+  useEffect(() => {
+    const locs = Object.keys(itemsByLocation);
+    if (locs.length > 0) {
+      setOpenLocations(prev => {
+        // Only add new locations, don't close any the user has opened
+        const updated = { ...prev };
+        locs.forEach(loc => {
+          if (!(loc in updated)) updated[loc] = true;
+        });
+        return updated;
+      });
+    }
+  }, [Object.keys(itemsByLocation).join(",")]);
 
   const toggleLocation = (location: string) => {
     setOpenLocations(prev => ({
@@ -278,8 +306,29 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
             marginRight: '2rem'
           }}
         />
+        <button
+          style={{
+            background: '#444',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            padding: '2px 7px',
+            cursor: 'pointer',
+            fontSize: '0.92rem',
+            marginRight: '0.5rem',
+            minWidth: '100px',
+            textAlign: 'center',
+          }}
+          onClick={() => {
+            const allExpanded = Object.keys(itemsByLocation).every(loc => openLocations[loc]);
+            const newState: Record<string, boolean> = {};
+            Object.keys(itemsByLocation).forEach(loc => { newState[loc] = !allExpanded; });
+            setOpenLocations(newState);
+          }}
+        >
+          {Object.keys(itemsByLocation).every(loc => openLocations[loc]) ? 'Collapse All' : 'Expand All'}
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ marginRight: 4 }}>Intent:</span>
           <button
             style={{
               background: intentFilter === 'all' ? '#666' : '#444',
@@ -325,17 +374,114 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
             onClick={() => setIntentFilter('N/A')}
           >N/A</button>
         </div>
-        <button
-          style={{ marginLeft: 'auto' }}
-          onClick={() => setShowAddRow(v => !v)}
-        >
-          Add New Item
-        </button>
       </div>
       {/* Filter input on a new line */}
       <div style={{ margin: '0.5rem 0 1rem 0', width: '100%' }}>
         
       </div>
+      {/* Add New Item form now appears below the button row */}
+      {Object.keys(itemsByLocation).length === 0 && (
+        <div style={{ marginTop: '1rem', color: '#aaa' }}>No items match your filter.</div>
+      )}
+      {/* + Location and Add New Item buttons row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0 1rem 0', width: '100%' }}>
+        <button
+          style={{
+            background: '#2d7aee',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            padding: '4px 10px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            marginBottom: 6
+          }}
+          onClick={() => {
+            if (addingLocation) {
+              setAddingLocation(false);
+              setShowAddLocation(false);
+              setNewLocation('');
+              setLocationSuggestions([]);
+            } else {
+              setAddingLocation(true);
+              setShowAddLocation(true);
+              setNewLocation('');
+            }
+          }}
+        >
+          {'+ Location'}
+        </button>
+        <button
+          style={{
+            background: '#2d7aee',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            padding: '4px 10px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            marginBottom: 6
+          }}
+          onClick={() => setShowAddRow(v => !v)}
+        >
+          Add New Item
+        </button>
+      </div>
+      {addingLocation && (
+        <table className="warehouse-table" style={{ width: '100%', margin: '0.5rem 0', borderCollapse: 'collapse', background: '#181a1b', borderRadius: 6 }}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '8px', position: 'relative' }} colSpan={4}>
+                <input
+                  type="text"
+                  value={newLocation}
+                  onChange={e => handleLocationInput(e.target.value)}
+                  placeholder="Enter location name"
+                  style={{ width: 180 }}
+                  autoFocus
+                  onFocus={() => { if (newLocation) setLocationSuggestions(locationSuggestions); }}
+                  onBlur={() => setTimeout(() => setLocationSuggestions([]), 100)}
+                />
+                {locationSuggestions.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    background: '#222',
+                    border: '1px solid #444',
+                    borderRadius: 4,
+                    zIndex: 10,
+                    width: '100%',
+                    maxHeight: 180,
+                    overflowY: 'auto',
+                    color: '#fff',
+                  }}>
+                    {locationSuggestions.map(loc => (
+                      <div
+                        key={loc}
+                        style={{ padding: '4px 8px', cursor: 'pointer', borderBottom: '1px solid #333' }}
+                        onMouseDown={() => handleLocationSuggestionClick(loc)}
+                      >
+                        {loc}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </td>
+              <td style={{ textAlign: 'center', padding: '8px' }}>
+                <button
+                  style={{ background: '#2d7aee', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
+                  onClick={handleAddLocation}
+                >Add</button>
+                <button
+                  style={{ marginLeft: 8, background: '#444', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
+                  onClick={() => { setAddingLocation(false); setShowAddLocation(false); setNewLocation(''); setLocationSuggestions([]); }}
+                >Cancel</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
       {showAddRow && (
         <table className="warehouse-table" style={{ width: '100%', margin: '1rem 0', borderCollapse: 'collapse', background: '#181a1b', borderRadius: 6 }}>
           <tbody>
@@ -467,88 +613,6 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
           </tbody>
         </table>
       )}
-      {Object.keys(itemsByLocation).length === 0 && (
-        <div style={{ marginTop: '1rem', color: '#aaa' }}>No items match your filter.</div>
-      )}
-      {/* + Location button creates a new empty minimizable table with editable name */}
-      <div style={{ margin: '0.5rem 0 1rem 0', width: '100%' }}>
-        {!addingLocation && (
-          <button
-            style={{
-              background: '#444',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 4,
-              padding: '2px 10px',
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              marginBottom: 6
-            }}
-            onClick={() => {
-              setAddingLocation(true);
-              setShowAddLocation(true);
-              setNewLocation('');
-            }}
-          >
-            + Location
-          </button>
-        )}
-        {addingLocation && (
-          <table className="warehouse-table" style={{ width: '100%', margin: '0.5rem 0', borderCollapse: 'collapse', background: '#181a1b', borderRadius: 6 }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '8px', position: 'relative' }} colSpan={4}>
-                  <input
-                    type="text"
-                    value={newLocation}
-                    onChange={e => handleLocationInput(e.target.value)}
-                    placeholder="Enter location name"
-                    style={{ width: 180 }}
-                    autoFocus
-                    onFocus={() => { if (newLocation) setLocationSuggestions(locationSuggestions); }}
-                    onBlur={() => setTimeout(() => setLocationSuggestions([]), 100)}
-                  />
-                  {locationSuggestions.length > 0 && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      background: '#222',
-                      border: '1px solid #444',
-                      borderRadius: 4,
-                      zIndex: 10,
-                      width: '100%',
-                      maxHeight: 180,
-                      overflowY: 'auto',
-                      color: '#fff',
-                    }}>
-                      {locationSuggestions.map(loc => (
-                        <div
-                          key={loc}
-                          style={{ padding: '4px 8px', cursor: 'pointer', borderBottom: '1px solid #333' }}
-                          onMouseDown={() => handleLocationSuggestionClick(loc)}
-                        >
-                          {loc}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td style={{ textAlign: 'center', padding: '8px' }}>
-                  <button
-                    style={{ background: '#2d7aee', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
-                    onClick={handleAddLocation}
-                  >Add</button>
-                  <button
-                    style={{ marginLeft: 8, background: '#444', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
-                    onClick={() => { setAddingLocation(false); setShowAddLocation(false); setNewLocation(''); setLocationSuggestions([]); }}
-                  >Cancel</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-      </div>
 
       {Object.keys(openLocations)
         .sort((a, b) => a.localeCompare(b))

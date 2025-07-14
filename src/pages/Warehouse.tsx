@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import OverviewPanel from '../components/PiracyOverviewPanel';
 import WarehouseItems from '../components/WarehousePersonalItems';
 import WarehouseOrgItems from '../components/WarehouseOrgItems';
+import { fetchWarehouseItems, fetchPublicOrgWarehouseItems, fetchPrivateOrgWarehouseItems, addWarehouseItem, editWarehouseItem, deleteWarehouseItem } from '../api/warehouseApi';
+import { WarehouseItem } from '../types/warehouse';
 import { getLatestPatch } from '../api/patchApi';
 import { getUserById, getAllUsers } from "../api/userService";
 import { useUserContext } from "../context/UserContext";
@@ -36,6 +38,58 @@ const Warehouse: React.FC = () => {
       .then(users => setUserList(Array.isArray(users) ? users : users ? [users] : []))
       .catch(() => setUserList([]));
   }, []);
+
+  // Shared warehouse items state
+  const [warehouseItems, setWarehouseItems] = useState<WarehouseItem[]>([]);
+  const [warehouseLoading, setWarehouseLoading] = useState(true);
+  const [warehouseError, setWarehouseError] = useState<string | null>(null);
+
+  // Fetch all warehouse items for the org and user
+  useEffect(() => {
+    const fetchAll = async () => {
+      if (!dbUser?.id) return;
+      setWarehouseLoading(true);
+      try {
+        // Fetch personal items
+        const personal = await fetchWarehouseItems(dbUser.id);
+        // Fetch org items
+        const publicOrg = await fetchPublicOrgWarehouseItems();
+        let privateOrg: WarehouseItem[] = [];
+        // Only moderators can see private org items
+        const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || '').split(',');
+        const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+        if (isModerator) {
+          privateOrg = await fetchPrivateOrgWarehouseItems();
+        }
+        // Merge all items, avoiding duplicates by id (private overrides public)
+        const allItemsMap = new Map<string, WarehouseItem>();
+        [...publicOrg, ...privateOrg, ...personal].forEach(item => allItemsMap.set(item.id, item));
+        setWarehouseItems(Array.from(allItemsMap.values()));
+        setWarehouseError(null);
+      } catch (err) {
+        setWarehouseError('Failed to fetch warehouse items');
+      } finally {
+        setWarehouseLoading(false);
+      }
+    };
+    fetchAll();
+  }, [dbUser?.id]);
+
+  // Shared update functions
+  const handleAddWarehouseItem = async (item: WarehouseItem) => {
+    const saved = await addWarehouseItem(item);
+    setWarehouseItems(items => [saved, ...items]);
+    return saved;
+  };
+  const handleEditWarehouseItem = async (id: string, item: WarehouseItem) => {
+    const saved = await editWarehouseItem(id, item);
+    setWarehouseItems(items => items.map(i => (i.id === id ? saved : i)));
+    return saved;
+  };
+  const handleDeleteWarehouseItem = async (id: string) => {
+    await deleteWarehouseItem(id);
+    setWarehouseItems(items => items.filter(i => i.id !== id));
+  };
   const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
   const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
@@ -115,9 +169,16 @@ const Warehouse: React.FC = () => {
           <div className="column overview-panel-column">
             <div style={{ background: "#23272e", borderRadius: 8, padding: 24, color: "#aaa", minHeight: 200 }}>
               <WarehouseItems
-              gameVersion={gameVersion}
-              user_id={dbUser?.id ?? null}
-              summarizedItems={summarizedItems}
+                gameVersion={gameVersion}
+                user_id={dbUser?.id ?? null}
+                summarizedItems={summarizedItems}
+                items={warehouseItems}
+                setItems={setWarehouseItems}
+                addWarehouseItem={handleAddWarehouseItem}
+                editWarehouseItem={handleEditWarehouseItem}
+                deleteWarehouseItem={handleDeleteWarehouseItem}
+                loading={warehouseLoading}
+                error={warehouseError}
               />
             </div>
           </div>
@@ -130,6 +191,13 @@ const Warehouse: React.FC = () => {
                 isModerator={isModerator}
                 isMember={isMember}
                 userList={userList}
+                items={warehouseItems}
+                setItems={setWarehouseItems}
+                addWarehouseItem={handleAddWarehouseItem}
+                editWarehouseItem={handleEditWarehouseItem}
+                deleteWarehouseItem={handleDeleteWarehouseItem}
+                loading={warehouseLoading}
+                error={warehouseError}
               />
             </div>
           </div>

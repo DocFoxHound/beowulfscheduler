@@ -10,6 +10,13 @@ interface Props {
   isModerator: boolean;
   isMember: boolean;
   userList: any[];
+  items: WarehouseItem[];
+  setItems: React.Dispatch<React.SetStateAction<WarehouseItem[]>>;
+  addWarehouseItem: (item: WarehouseItem) => Promise<WarehouseItem>;
+  editWarehouseItem: (id: string, item: WarehouseItem) => Promise<WarehouseItem>;
+  deleteWarehouseItem: (id: string) => Promise<void>;
+  loading: boolean;
+  error: string | null;
 }
 
 const intentColors: Record<string, string> = {
@@ -25,9 +32,8 @@ const intentBorderColors: Record<string, string> = {
 };
 
 
-const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems, isModerator, isMember, userList }) => {
-  // All hooks at the very top, before any logic or function definitions
-  const [items, setItems] = useState<WarehouseItem[]>([]);
+const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems, isModerator, isMember, userList, items, setItems, addWarehouseItem, editWarehouseItem, deleteWarehouseItem, loading, error }) => {
+  // items, setItems, loading, error are now props
   const [showAddRow, setShowAddRow] = useState(false);
   const [newItem, setNewItem] = useState<Partial<WarehouseItem>>({
     commodity_name: '',
@@ -119,7 +125,7 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
         await deleteWarehouseItem(editingId);
         setItems(items => items.filter(i => i.id !== editingId));
       } catch (err) {
-        setError('Failed to delete item');
+        // Optionally handle error globally
       } finally {
         setEditingId(null);
         setEditValues({});
@@ -133,8 +139,7 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
     setEditingId(null);
     setEditValues({});
   };
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // loading and error are now props
   const [filterText, setFilterText] = useState('');
   const [intentFilter, setIntentFilter] = useState<'all' | 'LTB' | 'LTS' | 'N/A'>('all');
   const [expandedLocations, setExpandedLocations] = useState<Record<string, boolean>>({});
@@ -142,32 +147,12 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
 
-  useEffect(() => {
-    const getItems = async () => {
-      setLoading(true);
-      try {
-        let publicItems: WarehouseItem[] = [];
-        let privateItems: WarehouseItem[] = [];
-        publicItems = await fetchPublicOrgWarehouseItems();
-        if (isModerator) {
-          privateItems = await fetchPrivateOrgWarehouseItems();
-        }
-        // Merge, avoiding duplicates by id (private overrides public)
-        const allItemsMap = new Map<string, WarehouseItem>();
-        publicItems.forEach(item => allItemsMap.set(item.id, item));
-        privateItems.forEach(item => allItemsMap.set(item.id, item));
-        setItems(Array.from(allItemsMap.values()));
-      } catch (err) {
-        setError('Failed to fetch org warehouse items');
-      } finally {
-        setLoading(false);
-      }
-    };
-    getItems();
-  }, [isModerator]);
+  // items, loading, error are now props; fetching is handled by parent
 
+  // Show all org items (for_org === true) and all personal items (for_org === false)
+  const orgAndPersonalItems = items.filter(item => item.for_org === true || item.for_org === false);
   // Filtering logic
-  const filteredItems = items.filter(item => {
+  const filteredItems = orgAndPersonalItems.filter(item => {
     const matchesText =
       item.commodity_name.toLowerCase().includes(filterText.toLowerCase()) ||
       item.location.toLowerCase().includes(filterText.toLowerCase());
