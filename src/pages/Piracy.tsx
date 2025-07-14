@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Select from 'react-select'; // <-- Add this import
 import OverviewPanel from '../components/PiracyOverviewPanel';
 import RecentPirateHits from '../components/RecentPirateHits';
-import WarehouseItems from '../components/WarehouseItems';
+import WarehouseItems from '../components/WarehousePersonalItems';
 import { getLatestPatch, getAllGameVersions } from '../api/patchApi';
 import { getUserById, getAllUsers } from "../api/userService";
 import { useUserContext } from "../context/UserContext";

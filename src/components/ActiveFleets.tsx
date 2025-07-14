@@ -9,13 +9,13 @@ import { User } from "../types/user";
 interface ActiveFleetsProps {
   fleets: UserFleet[];
   allUsers: User[];
-  userId: number;
+  userId: string;
   isNotInAnyFleet: boolean;
   dbUser: User; // <-- Add this
 }
 
 const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAnyFleet, userId, dbUser }) => {
-  const [fleetLogsMap, setFleetLogsMap] = useState<Record<number, FleetLog[]>>({});
+  const [fleetLogsMap, setFleetLogsMap] = useState<Record<string, FleetLog[]>>({});
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -25,15 +25,15 @@ const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAn
   useEffect(() => {
     const fetchAllLogs = async () => {
       setLoading(true);
-      const logsMap: Record<number, FleetLog[]> = {};
+      const logsMap: Record<string, FleetLog[]> = {};
       await Promise.all(
         fleets.map(async (fleet) => {
           if (!fleet.id) return;
           try {
             const logs = await fetchRecentShipLogsByFleet(String(fleet.id));
-            logsMap[fleet.id] = logs;
+            logsMap[String(fleet.id)] = logs;
           } catch {
-            logsMap[fleet.id] = [];
+            logsMap[String(fleet.id)] = [];
           }
         })
       );
@@ -102,7 +102,7 @@ const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAn
             <ActiveFleetCard
               key={fleet.id}
               fleet={fleet}
-              fleetLogs={fleetLogsMap[fleet.id] || []}
+              fleetLogs={fleetLogsMap[String(fleet.id)] || []}
               commander_username={commander_username}
               original_commander_username={original_commander_username}
               members_usernames={members_usernames}

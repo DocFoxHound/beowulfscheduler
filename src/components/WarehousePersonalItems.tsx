@@ -3,6 +3,8 @@ import { fetchWarehouseItems, editWarehouseItem, deleteWarehouseItem, addWarehou
 import { getSummarizedItems } from '../api/summarizedItemApi';
 import { WarehouseItem } from '../types/warehouse';
 import { SummarizedItem } from '../types/items_summary';
+import { fetchAllUexSystems as fetchAllStations } from '../api/uexStationsApi';
+import { fetchAllUexSystems as fetchAllPlanets } from '../api/uexPlanetsApi';
 
 interface Props {
   user_id: string | null;
@@ -10,15 +12,65 @@ interface Props {
   summarizedItems: SummarizedItem[];
 }
 
-type ForOrgFilter = 'both' | 'on' | 'off';
+type IntentFilter = 'all' | 'LTB' | 'LTS' | 'N/A';
 
 const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems }) => {
+  // For Add New Location
+  const [showAddLocation, setShowAddLocation] = useState(false);
+  const [newLocation, setNewLocation] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+  const [addingLocation, setAddingLocation] = useState(false);
+  const [allLocations, setAllLocations] = useState<string[]>([]);
+  // Fetch station and planet names for location suggestions
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        let planets = await fetchAllPlanets();
+        // Filter out planets where is_available === 0 (ensure numeric check)
+        if (Array.isArray(planets)) {
+          planets = planets.filter(p => Number(p.is_available) !== 0);
+        }
+        const planetNames = Array.isArray(planets) ? planets.map(p => p.name) : [];
+        console.log('Filtered planets:', planets);
+        setAllLocations([...planetNames]);
+      } catch (e) {
+        setAllLocations([]);
+      }
+    };
+    fetchLocations();
+  }, []);
+  // Handle Add New Location input changes
+  const handleLocationInput = (value: string) => {
+    setNewLocation(value);
+    if (value.length > 0) {
+      const filtered = allLocations.filter(loc =>
+        loc.toLowerCase().includes(value.toLowerCase())
+      );
+      setLocationSuggestions(filtered.slice(0, 8));
+    } else {
+      setLocationSuggestions([]);
+    }
+  };
+
+  const handleLocationSuggestionClick = (loc: string) => {
+    setNewLocation(loc);
+    setLocationSuggestions([]);
+  };
+
+  const handleAddLocation = () => {
+    if (!newLocation) return;
+    setOpenLocations(prev => ({ ...prev, [newLocation]: true }));
+    setAddingLocation(false);
+    setShowAddLocation(false);
+    setNewLocation('');
+    setLocationSuggestions([]);
+  };
   const [items, setItems] = useState<WarehouseItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [openLocations, setOpenLocations] = useState<Record<string, boolean>>({});
   const [filterText, setFilterText] = useState('');
-  const [forOrgFilter, setForOrgFilter] = useState<ForOrgFilter>('both');
+  const [intentFilter, setIntentFilter] = useState<IntentFilter>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<WarehouseItem>>({});
   const [showAddRow, setShowAddRow] = useState(false);
@@ -29,6 +81,8 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     total_value: 0,
     for_org: false,
   });
+  const [locationInputSuggestions, setLocationInputSuggestions] = useState<string[]>([]);
+  const [showLocationInputSuggestions, setShowLocationInputSuggestions] = useState(false);
   // const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [suggestions, setSuggestions] = useState<SummarizedItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -51,18 +105,6 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     getItems();
   }, [user_id]);
 
-  // useEffect(() => {
-  //   const fetchSummaries = async () => {
-  //     try {
-  //       const data = await getSummarizedItems();
-  //       setSummarizedItems(Array.isArray(data) ? data : []);
-  //     } catch (e) {
-  //       setSummarizedItems([]);
-  //     }
-  //   };
-  //   fetchSummaries();
-  // }, []);
-
   if (loading) return <div>Loading warehouse items...</div>;
   if (error) return <div>{error}</div>;
 
@@ -71,11 +113,12 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     const matchesText =
       item.commodity_name.toLowerCase().includes(filterText.toLowerCase()) ||
       item.location.toLowerCase().includes(filterText.toLowerCase());
-    const matchesForOrg =
-      forOrgFilter === 'both' ||
-      (forOrgFilter === 'on' && item.for_org) ||
-      (forOrgFilter === 'off' && !item.for_org);
-    return matchesText && matchesForOrg;
+    const matchesIntent =
+      intentFilter === 'all' ||
+      (intentFilter === 'LTB' && item.intent === 'LTB') ||
+      (intentFilter === 'LTS' && item.intent === 'LTS') ||
+      (intentFilter === 'N/A' && item.intent === 'N/A');
+    return matchesText && matchesIntent;
   });
 
   // Group filtered items by location
@@ -143,6 +186,19 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
         setShowSuggestions(false);
       }
     }
+
+    if (field === 'location') {
+      if (value.length > 0) {
+        const filtered = allLocations.filter(loc =>
+          loc.toLowerCase().includes(value.toLowerCase())
+        );
+        setLocationInputSuggestions(filtered.slice(0, 8));
+        setShowLocationInputSuggestions(true);
+      } else {
+        setLocationInputSuggestions([]);
+        setShowLocationInputSuggestions(false);
+      }
+    }
   };
 
   const handleSuggestionClick = (item: SummarizedItem) => {
@@ -152,6 +208,14 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
       total_value: Math.max(item.price_buy_avg, item.price_sell_avg),
     }));
     setShowSuggestions(false);
+  };
+
+  const handleLocationInputSuggestionClick = (loc: string) => {
+    setNewItem(prev => ({
+      ...prev,
+      location: loc,
+    }));
+    setShowLocationInputSuggestions(false);
   };
 
   const handleAddSave = async () => {
@@ -164,6 +228,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     } as WarehouseItem;
     const saved = await addWarehouseItem(itemToAdd);
     setItems(items => [saved, ...items]);
+    setOpenLocations(prev => ({ ...prev, [saved.location]: true }));
     setShowAddRow(false);
     setNewItem({
       id: new Date().getTime().toString(),
@@ -177,15 +242,15 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
 
   return (
     <div className="warehouse-items">
-      <h2>Warehouse Items</h2>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+      <h2 style={{ textAlign: 'center' }}>Personal Warehouse Items</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: 0 }}>
         <input
           type="text"
           placeholder="Filter items..."
           value={filterText}
           onChange={e => setFilterText(e.target.value)}
           style={{
-            flex: '0 0 180px',
+            width: 240,
             padding: '4px 8px',
             borderRadius: 4,
             border: '1px solid #333',
@@ -195,40 +260,51 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
           }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ marginRight: 4 }}>For Org:</span>
+          <span style={{ marginRight: 4 }}>Intent:</span>
           <button
             style={{
-              background: forOrgFilter === 'both' ? '#666' : '#444',
+              background: intentFilter === 'all' ? '#666' : '#444',
               color: '#fff',
               border: 'none',
               borderRadius: 4,
               padding: '4px 8px',
               cursor: 'pointer'
             }}
-            onClick={() => setForOrgFilter('both')}
-          >Both</button>
+            onClick={() => setIntentFilter('all')}
+          >All</button>
           <button
             style={{
-              background: forOrgFilter === 'on' ? '#666' : '#444',
+              background: intentFilter === 'LTB' ? '#666' : '#444',
               color: '#fff',
               border: 'none',
               borderRadius: 4,
               padding: '4px 8px',
               cursor: 'pointer'
             }}
-            onClick={() => setForOrgFilter('on')}
-          >Yes</button>
+            onClick={() => setIntentFilter('LTB')}
+          >LTB</button>
           <button
             style={{
-              background: forOrgFilter === 'off' ? '#666' : '#444',
+              background: intentFilter === 'LTS' ? '#666' : '#444',
               color: '#fff',
               border: 'none',
               borderRadius: 4,
               padding: '4px 8px',
               cursor: 'pointer'
             }}
-            onClick={() => setForOrgFilter('off')}
-          >No</button>
+            onClick={() => setIntentFilter('LTS')}
+          >LTS</button>
+          <button
+            style={{
+              background: intentFilter === 'N/A' ? '#666' : '#444',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              padding: '4px 8px',
+              cursor: 'pointer'
+            }}
+            onClick={() => setIntentFilter('N/A')}
+          >N/A</button>
         </div>
         <button
           style={{ marginLeft: 'auto' }}
@@ -236,6 +312,10 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
         >
           Add New Item
         </button>
+      </div>
+      {/* Filter input on a new line */}
+      <div style={{ margin: '0.5rem 0 1rem 0', width: '100%' }}>
+        
       </div>
       {showAddRow && (
         <table className="warehouse-table" style={{ width: '100%', margin: '1rem 0', borderCollapse: 'collapse', background: '#181a1b', borderRadius: 6 }}>
@@ -287,7 +367,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                   </div>
                 )}
               </td>
-              <td style={{ padding: '8px' }}>
+              <td style={{ padding: '8px', position: 'relative' }}>
                 <input
                   type="text"
                   value={newItem.location}
@@ -295,7 +375,39 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                   placeholder="Location"
                   style={{ width: 120 }}
                   title="The station or location where the item is stored"
+                  autoComplete="off"
+                  onFocus={() => {
+                    if (newItem.location) setShowLocationInputSuggestions(true);
+                  }}
+                  onBlur={() => setTimeout(() => setShowLocationInputSuggestions(false), 100)}
                 />
+                {showLocationInputSuggestions && locationInputSuggestions.length > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#222',
+                      border: '1px solid #444',
+                      borderRadius: 4,
+                      zIndex: 10,
+                      width: '100%',
+                      maxHeight: 180,
+                      overflowY: 'auto',
+                      color: '#fff',
+                    }}
+                  >
+                    {locationInputSuggestions.map(loc => (
+                      <div
+                        key={loc}
+                        style={{ padding: '4px 8px', cursor: 'pointer', borderBottom: '1px solid #333' }}
+                        onMouseDown={() => handleLocationInputSuggestionClick(loc)}
+                      >
+                        {loc}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </td>
               <td style={{ padding: '8px' }}>
                 <input
@@ -318,13 +430,16 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                 />
               </td>
               <td style={{ textAlign: 'center', padding: '8px' }}>
-                <input
-                  type="checkbox"
-                  checked={newItem.for_org === true}
-                  onChange={e => handleAddChange('for_org', e.target.checked)}
-                  style={{ width: 20, height: 20 }}
-                  title="Check if this item is for the organization"
-                />
+                <select
+                  value={newItem.intent ?? 'N/A'}
+                  onChange={e => handleAddChange('intent', e.target.value)}
+                  style={{ width: 80, padding: '2px 4px', borderRadius: 4 }}
+                  title="Select the intent for this item"
+                >
+                  <option value="LTS">LTS</option>
+                  <option value="LTB">LTB</option>
+                  <option value="N/A">N/A</option>
+                </select>
               </td>
               <td style={{ textAlign: 'center', padding: '8px' }}>
                 <button onClick={handleAddSave} title="Save" style={{ fontSize: 18, marginLeft: 8 }}>🖫</button>
@@ -336,7 +451,87 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
       {Object.keys(itemsByLocation).length === 0 && (
         <div style={{ marginTop: '1rem', color: '#aaa' }}>No items match your filter.</div>
       )}
-      {Object.keys(itemsByLocation)
+      {/* + Location button creates a new empty minimizable table with editable name */}
+      <div style={{ margin: '0.5rem 0 1rem 0', width: '100%' }}>
+        {!addingLocation && (
+          <button
+            style={{
+              background: '#444',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              padding: '2px 10px',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              marginBottom: 6
+            }}
+            onClick={() => {
+              setAddingLocation(true);
+              setShowAddLocation(true);
+              setNewLocation('');
+            }}
+          >
+            + Location
+          </button>
+        )}
+        {addingLocation && (
+          <table className="warehouse-table" style={{ width: '100%', margin: '0.5rem 0', borderCollapse: 'collapse', background: '#181a1b', borderRadius: 6 }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '8px', position: 'relative' }} colSpan={4}>
+                  <input
+                    type="text"
+                    value={newLocation}
+                    onChange={e => handleLocationInput(e.target.value)}
+                    placeholder="Enter location name"
+                    style={{ width: 180 }}
+                    autoFocus
+                    onFocus={() => { if (newLocation) setLocationSuggestions(locationSuggestions); }}
+                    onBlur={() => setTimeout(() => setLocationSuggestions([]), 100)}
+                  />
+                  {locationSuggestions.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#222',
+                      border: '1px solid #444',
+                      borderRadius: 4,
+                      zIndex: 10,
+                      width: '100%',
+                      maxHeight: 180,
+                      overflowY: 'auto',
+                      color: '#fff',
+                    }}>
+                      {locationSuggestions.map(loc => (
+                        <div
+                          key={loc}
+                          style={{ padding: '4px 8px', cursor: 'pointer', borderBottom: '1px solid #333' }}
+                          onMouseDown={() => handleLocationSuggestionClick(loc)}
+                        >
+                          {loc}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                <td style={{ textAlign: 'center', padding: '8px' }}>
+                  <button
+                    style={{ background: '#2d7aee', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
+                    onClick={handleAddLocation}
+                  >Add</button>
+                  <button
+                    style={{ marginLeft: 8, background: '#444', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
+                    onClick={() => { setAddingLocation(false); setShowAddLocation(false); setNewLocation(''); setLocationSuggestions([]); }}
+                  >Cancel</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {Object.keys(openLocations)
         .sort((a, b) => a.localeCompare(b))
         .map(location => (
           <div
@@ -358,12 +553,23 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
               // Find the item
               const item = items.find(i => i.id === draggedItemId);
               if (!item || item.location === location) return;
+              const oldLocation = item.location;
               // Update location in backend and state
               const updated = { ...item, location };
               await editWarehouseItem(item.id, updated);
-              setItems(items =>
-                items.map(i => (i.id === item.id ? updated : i))
-              );
+              setItems(items => {
+                const newItems = items.map(i => (i.id === item.id ? updated : i));
+                // If old location is now empty and not 'unk', remove it from openLocations
+                const stillHasItems = newItems.some(i => i.location === oldLocation);
+                if (!stillHasItems && oldLocation !== 'unk') {
+                  setOpenLocations(prev => {
+                    const copy = { ...prev };
+                    delete copy[oldLocation];
+                    return copy;
+                  });
+                }
+                return newItems;
+              });
               setDraggedItemId(null);
             }}
           >
@@ -393,12 +599,12 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                     <th style={{ textAlign: 'left', padding: '8px' }}>Item Name</th>
                     <th style={{ textAlign: 'right', padding: '8px' }}>Quantity</th>
                     <th style={{ textAlign: 'right', padding: '8px' }}>Value(ea.)</th>
-                    <th style={{ textAlign: 'center', padding: '8px' }}>For Org</th>
+                    <th style={{ textAlign: 'center', padding: '8px' }}>Intent</th>
                     <th style={{ textAlign: 'center', padding: '8px' }}>Edit</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {itemsByLocation[location]
+                  {(itemsByLocation[location] || [])
                     .slice()
                     .sort((a, b) => a.commodity_name.localeCompare(b.commodity_name))
                     .map(item => (
@@ -413,7 +619,20 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                           <td style={{ textAlign: 'right', padding: '8px' }}>{item.total_scu}</td>
                           <td style={{ textAlign: 'right', padding: '8px' }}>{item.total_value}</td>
                           <td style={{ textAlign: 'center', padding: '8px' }}>
-                            {item.for_org ? '✔' : ''}
+                            <input
+                              type="text"
+                              value={item.intent || ''}
+                              readOnly
+                              style={{
+                                width: 60,
+                                textAlign: 'center',
+                                background: 'transparent',
+                                color: '#fff',
+                                border: 'none',
+                                outline: 'none',
+                                fontWeight: 'bold'
+                              }}
+                            />
                           </td>
                           <td style={{ textAlign: 'center', padding: '8px' }}>
                             <button onClick={() => handleEditClick(item)}>✎</button>
@@ -444,12 +663,15 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                                   style={{ width: 80, textAlign: 'right', marginRight: '1.25rem' }}
                                   placeholder="Value"
                                 />
-                                <input
-                                  type="checkbox"
-                                  checked={editValues.for_org === true}
-                                  onChange={e => handleEditChange('for_org', e.target.checked ? true : false)}
-                                  style={{ width: 20, height: 20, marginRight: '2.25rem' }}
-                                />
+                                <select
+                                  value={editValues.intent ?? 'N/A'}
+                                  onChange={e => handleEditChange('intent', e.target.value)}
+                                  style={{ width: 80, marginRight: '2.25rem', padding: '2px 4px', borderRadius: 4 }}
+                                >
+                                  <option value="LTS">LTS</option>
+                                  <option value="LTB">LTB</option>
+                                  <option value="N/A">N/A</option>
+                                </select>
                                 <button onClick={handleSave} title="Save" style={{ fontSize: 18, marginLeft: 8 }}>🖫</button>
                               </div>
                             </td>
@@ -457,6 +679,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                         )}
                       </React.Fragment>
                     ))}
+                  {/* If no items, show nothing (empty table) */}
                 </tbody>
               </table>
             )}

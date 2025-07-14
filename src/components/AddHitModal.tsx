@@ -89,7 +89,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
   // Cargo state
   const [cargoList, setCargoList] = useState<any[]>([]);
-  const [warehouseFlags, setWarehouseFlags] = useState<{ toWarehouse: boolean; forOrg: boolean }[]>([]);
+  const [warehouseFlags, setWarehouseFlags] = useState<{ toWarehouse: boolean; intent: 'LTB' | 'LTS' | 'N/A' }[]>([]);
   const [showCargoPicker, setShowCargoPicker] = useState(false);
   const [cargoSearch, setCargoSearch] = useState("");
   const [selectedCargo, setSelectedCargo] = useState<SummarizedItem | null>(null);
@@ -188,7 +188,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
         victims: "",
       });
       setCargoList(h.cargo || []);
-      setWarehouseFlags(h.cargo?.map(() => ({ toWarehouse: false, forOrg: false })) || []);
+      setWarehouseFlags(h.cargo?.map(() => ({ toWarehouse: false, intent: 'N/A' })) || []);
       setVictimsArray(h.victims || []);
       setGuests(h.guests || []);
 
@@ -376,7 +376,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
               total_value: item.avg_price * item.scuAmount,
               patch: gameVersion ?? "",
               location: "unk",
-              for_org: warehouseFlags[idx]?.forOrg || false,
+              for_org: false,
+              intent: warehouseFlags[idx]?.intent || "N/A",
             });
           }
           return null;
@@ -427,7 +428,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
   const addCargoItem = (item: CargoItem) => {
     setCargoList(list => [...list, item]);
-    setWarehouseFlags(flags => [...flags, { toWarehouse: false, forOrg: false }]);
+    setWarehouseFlags(flags => [...flags, { toWarehouse: false, intent: 'N/A' }]);
   };
 
   // Calculate total value

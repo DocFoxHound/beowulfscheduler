@@ -8,7 +8,7 @@
 .column {
   flex: 1 1 350px;
   min-width: 250px;
-  max-width: 700px;
+  max-width: 100%;
   background: #181a1b;
   border-radius: 8px;
   padding: 1rem;
@@ -19,31 +19,57 @@
 .recent-pirate-hits {
   flex: 2 1 600px;   /* Make these columns wider */
   min-width: 400px;
-  max-width: 900px;
+  max-width: 100%;
 }
 
 .warehouse-items {
   flex: 0 0 600px;   /* Fixed width for warehouse column */
   min-width: 600px;
-  max-width: 600px;
-  border-left: 2px solid #333;
-  border-right: 2px solid #333;
+  max-width: 100%;
 }
 
 /* Add to your Hittracker.css or a new WarehouseItems.css */
+
 .warehouse-table th, .warehouse-table td {
   border-bottom: 1px solid #333;
+  font-size: 0.92rem;
+  padding: 4px 6px;
+  line-height: 1.2;
 }
 
 .warehouse-table th {
-  height: 40px;
-  font-size: 1rem;
+  height: 32px;
+  font-size: 0.98rem;
   vertical-align: middle;
-  padding: 8px;
+  padding: 6px 6px;
+  background: #202224;
 }
+
 
 .warehouse-table tr:last-child td {
   border-bottom: none;
+}
+
+/* Alternate row coloring */
+.warehouse-table tbody tr:nth-child(even) {
+  background: #191b1d;
+}
+.warehouse-table tbody tr:nth-child(odd) {
+  background: #232527;
+}
+
+/* Intent-based row coloring */
+.warehouse-table .intent-lts {
+  background: #1e2a1e !important;
+  color: #b6e2b6;
+}
+.warehouse-table .intent-ltb {
+  background: #2a2321 !important;
+  color: #f3c6a0;
+}
+.warehouse-table .intent-na {
+  background: inherit !important;
+  color: inherit;
 }
 
 .warehouse-items button {
@@ -51,9 +77,10 @@
   color: #fff;
   border: none;
   border-radius: 4px;
-  padding: 4px 10px;
+  padding: 3px 8px;
   cursor: pointer;
   transition: background 0.2s;
+  font-size: 0.95rem;
 }
 
 .warehouse-items button:hover {

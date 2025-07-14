@@ -34,7 +34,6 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
   formError = null,
   dbUser,
 }) => {
-    console.log("dbUser: ", dbUser);
   // Calculate capacity from dbUser
   const capacity = (dbUser?.corsair_level ?? 1) * 8;
   const [form, setForm] = useState({ ...initialForm});
@@ -56,23 +55,38 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
     }
 
     try {
-        console.log("User:", dbUser)
-      // Call the API to create the fleet
+      // Format date as 'YYYY-MM-DD HH:mm:ss+03' (or local offset)
+      const now = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const year = now.getFullYear();
+      const month = pad(now.getMonth() + 1);
+      const day = pad(now.getDate());
+      const hour = pad(now.getHours());
+      const min = pad(now.getMinutes());
+      const sec = pad(now.getSeconds());
+      // Get timezone offset in +HH:mm or -HH:mm
+      const offsetMin = now.getTimezoneOffset();
+      const offsetSign = offsetMin <= 0 ? '+' : '-';
+      const absOffset = Math.abs(offsetMin);
+      const offsetHour = pad(Math.floor(absOffset / 60));
+      const offsetMinute = pad(absOffset % 60);
+      const offset = `${offsetSign}${offsetHour}${offsetMinute !== '00' ? ':' + offsetMinute : ''}`;
+      const formattedDate = `${year}-${month}-${day} ${hour}:${min}:${sec}${offset}`;
+
       await createFleet({
-        id: new Date().getTime(), // Temporary ID, will be replaced by the server
+        id: String(new Date().getTime()), // Temporary ID as string, will be replaced by the server
         avatar: form.avatar,
         name: form.name,
         primary_mission: form.primary_mission,
         secondary_mission: form.secondary_mission,
         commander_id: String(dbUser.id),
         members_ids: [String(dbUser.id)],
-        last_active: new Date().toISOString(),
+        last_active: formattedDate,
         commander_corsair_rank: dbUser.corsair_level,
-        updated_at: new Date().toISOString(),
-        // Add any other required UserFleet fields here if needed
+        updated_at: String(Date.now()),
       } as UserFleet);
 
-      setForm({ ...initialForm});
+      setForm({ ...initialForm });
       onClose();
       window.location.reload(); // Refresh the page after closing the modal
     } catch (err) {

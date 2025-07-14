@@ -10,8 +10,8 @@ export type CargoItem = {
 interface CargoSectionProps {
   cargoList: CargoItem[];
   setCargoList: React.Dispatch<React.SetStateAction<CargoItem[]>>;
-  warehouseFlags: { toWarehouse: boolean; forOrg: boolean }[];
-  setWarehouseFlags: React.Dispatch<React.SetStateAction<{ toWarehouse: boolean; forOrg: boolean }[]>>;
+  warehouseFlags: { toWarehouse: boolean; intent: 'LTB' | 'LTS' | 'N/A' }[];
+  setWarehouseFlags: React.Dispatch<React.SetStateAction<{ toWarehouse: boolean; intent: 'LTB' | 'LTS' | 'N/A' }[]>>;
   summarizedItems: SummarizedItem[];
   showCargoPicker: boolean;
   setShowCargoPicker: React.Dispatch<React.SetStateAction<boolean>>;
@@ -60,7 +60,7 @@ const CargoSection: React.FC<CargoSectionProps> = ({
 }) => {
   const addCargoItem = (item: CargoItem) => {
     setCargoList(list => [...list, item]);
-    setWarehouseFlags(flags => [...flags, { toWarehouse: false, forOrg: false }]);
+    setWarehouseFlags(flags => [...flags, { toWarehouse: false, intent: 'N/A' }]);
   };
 
   return (
@@ -250,14 +250,22 @@ const CargoSection: React.FC<CargoSectionProps> = ({
           {cargoList.length > 0 && (
             <thead>
               <tr>
-                <th style={{ color: "#ccc", padding: 4, textAlign: "left" }}>Item</th><th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value (total)</th><th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Quantity</th><th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>For Org</th><th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>To Warehouse</th><th></th>
+                <th style={{ color: "#ccc", padding: 4, textAlign: "left" }}>Item</th>
+                <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value (total)</th>
+                <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Value (unit)</th>
+                <th style={{ color: "#ccc", padding: 4, textAlign: "right" }}>Quantity</th>
+                <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>Intent</th>
+                <th style={{ color: "#ccc", padding: 4, textAlign: "center" }}>To Warehouse</th>
+                <th></th>
               </tr>
             </thead>
           )}
           <tbody>
             {cargoList.map((cargo, idx) => (
               <tr key={cargo.commodity_name + idx}>
-                <td style={{ padding: 4 }}>{cargo.commodity_name}</td><td style={{ padding: 4, textAlign: "right" }}>
+                <td style={{ padding: 4 }}>{cargo.commodity_name}</td>
+                {/* Value (total) */}
+                <td style={{ padding: 4, textAlign: "right" }}>
                   <input
                     type="number"
                     min={0}
@@ -278,21 +286,82 @@ const CargoSection: React.FC<CargoSectionProps> = ({
                     }}
                     style={{ width: 100 }}
                   />
-                </td><td style={{ padding: 4, textAlign: "right" }}>{cargo.scuAmount}</td><td style={{ padding: 4, textAlign: "center" }}>
+                </td>
+                {/* Value (unit) */}
+                <td style={{ padding: 4, textAlign: "right" }}>
                   <input
-                    type="checkbox"
-                    className="large-checkbox"
-                    checked={warehouseFlags[idx]?.forOrg || false}
+                    type="number"
+                    min={0}
+                    value={cargo.avg_price.toLocaleString("fullwide", { useGrouping: false })}
+                    onChange={e => {
+                      // Parse as integer to avoid float artifacts
+                      const newUnitValue = parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 0;
+                      setCargoList(list =>
+                        list.map((item, i) =>
+                          i === idx
+                            ? {
+                                ...item,
+                                avg_price: newUnitValue,
+                              }
+                            : item
+                        )
+                      );
+                    }}
+                    style={{ width: 80 }}
+                  />
+                </td>
+                {/* Quantity */}
+                <td style={{ padding: 4, textAlign: "right" }}>
+                  <input
+                    type="number"
+                    min={1}
+                    value={cargo.scuAmount}
+                    onChange={e => {
+                      const newQty = parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 1;
+                      setCargoList(list =>
+                        list.map((item, i) =>
+                          i === idx
+                            ? {
+                                ...item,
+                                scuAmount: newQty,
+                              }
+                            : item
+                        )
+                      );
+                    }}
+                    style={{ width: 60 }}
+                  />
+                </td>
+                <td style={{ padding: 4, textAlign: "center" }}>
+                  <select
+                    value={warehouseFlags[idx]?.intent || 'N/A'}
                     disabled={!warehouseFlags[idx]?.toWarehouse}
                     onChange={e => {
                       setWarehouseFlags(flags =>
                         flags.map((flag, i) =>
-                          i === idx ? { ...flag, forOrg: e.target.checked } : flag
+                          i === idx ? { ...flag, intent: e.target.value as 'LTB' | 'LTS' | 'N/A' } : flag
                         )
                       );
                     }}
-                  />
-                </td><td style={{ padding: 4, textAlign: "center" }}>
+                    style={{
+                      width: 80,
+                      padding: '2px 4px',
+                      borderRadius: 4,
+                      background: '#23272e',
+                      color: '#eee',
+                      border: '1px solid #444',
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      fontSize: 15,
+                    }}
+                  >
+                    <option value="LTB">LTB</option>
+                    <option value="LTS">LTS</option>
+                    <option value="N/A">N/A</option>
+                  </select>
+                </td>
+                <td style={{ padding: 4, textAlign: "center" }}>
                   <button
                     type="button"
                     onClick={() => {
@@ -302,7 +371,6 @@ const CargoSection: React.FC<CargoSectionProps> = ({
                             ? {
                                 ...flag,
                                 toWarehouse: !flag.toWarehouse,
-                                forOrg: !flag.toWarehouse ? false : flag.forOrg,
                               }
                             : flag
                         )
@@ -339,7 +407,8 @@ const CargoSection: React.FC<CargoSectionProps> = ({
                       }}
                     />
                   </button>
-                </td><td style={{ padding: 4 }}>
+                </td>
+                <td style={{ padding: 4 }}>
                   <button
                     type="button"
                     style={{ color: "#ff6b6b", background: "none", border: "none", cursor: "pointer" }}

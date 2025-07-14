@@ -35,3 +35,13 @@ export const addWarehouseItem = async (item: WarehouseItem): Promise<WarehouseIt
   const response = await axios.post<WarehouseItem>(`${API_BASE_URL}/api/warehouse/`, item);
   return response.data;
 }
+
+export const fetchPublicOrgWarehouseItems = async (): Promise<WarehouseItem[]> => {
+  const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/orgpublic`);
+  return response.data;
+};
+
+export const fetchPrivateOrgWarehouseItems = async (): Promise<WarehouseItem[]> => {
+  const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/orgprivate`);
+  return response.data;
+};

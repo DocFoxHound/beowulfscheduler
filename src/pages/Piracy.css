@@ -26,8 +26,6 @@
   flex: 0 0 600px;   /* Fixed width for warehouse column */
   min-width: 600px;
   max-width: 600px;
-  border-left: 2px solid #333;
-  border-right: 2px solid #333;
 }
 
 /* Add to your Hittracker.css or a new WarehouseItems.css */

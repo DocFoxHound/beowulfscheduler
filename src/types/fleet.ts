@@ -11,7 +11,7 @@ export interface UserFleet {
   total_damages_patch?: number;
   total_events?: number;
   total_events_patch?: number;
-  last_active?: string; // ISO timestamp string
+  last_active?: string; // Format: 'YYYY-MM-DD HH:mm:ss+03' (Postgres timestamp with timezone)
   commander_corsair_rank?: number;
   total_cargo_stolen?: number;
   total_cargo_stolen_patch?: number;

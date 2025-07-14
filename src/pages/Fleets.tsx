@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Select from 'react-select'; // <-- Add this import
 import OverviewPanel from '../components/PiracyOverviewPanel';
 import RecentPirateHits from '../components/RecentPirateHits';
-import WarehouseItems from '../components/WarehouseItems';
+import WarehouseItems from '../components/WarehousePersonalItems';
 import { getLatestPatch } from '../api/patchApi';
 import { getUserById, getAllUsers } from "../api/userService";
 import { useUserContext } from "../context/UserContext";
@@ -243,57 +243,6 @@ const Hittracker: React.FC = () => {
               flexDirection: "column",
               alignItems: "center"
             }}>
-              {/* <Select
-                inputId="user-select"
-                options={userOptions}
-                value={selectedOption}
-                onChange={opt => setSelectedUserId(opt?.value ?? null)}
-                placeholder="Type a username or nickname..."
-                isSearchable
-                filterOption={filterOption}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    background: "#1a1d21",
-                    borderColor: "#2d7aee",
-                    color: "#fff",
-                    minHeight: 44,
-                    fontSize: 16,
-                    width: 500,
-                    maxWidth: 700,
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    background: "#23272a",
-                    color: "#fff",
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    background: state.isFocused ? "#2d7aee" : "#23272a",
-                    color: "#fff",
-                    cursor: "pointer",
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    color: "#fff",
-                  }),
-                  input: (base) => ({
-                    ...base,
-                    color: "#fff",
-                  }),
-                }}
-                theme={theme => ({
-                  ...theme,
-                  borderRadius: 8,
-                  colors: {
-                    ...theme.colors,
-                    primary25: "#2d7aee",
-                    primary: "#2d7aee",
-                    neutral0: "#23272a",
-                    neutral80: "#fff",
-                  },
-                })}
-              /> */}
             </div>
           </div>
         </section>

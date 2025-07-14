@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import OverviewPanel from '../components/PiracyOverviewPanel';
-import RecentPirateHits from '../components/RecentPirateHits';
-import WarehouseItems from '../components/WarehouseItems';
+import WarehouseItems from '../components/WarehousePersonalItems';
+import WarehouseOrgItems from '../components/WarehouseOrgItems';
 import { getLatestPatch } from '../api/patchApi';
-import { getUserById } from "../api/userService";
+import { getUserById, getAllUsers } from "../api/userService";
 import { useUserContext } from "../context/UserContext";
 import axios from "axios";
-import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAssistHits } from '../api/hittrackerApi';
 import { Hit } from '../types/hittracker';
 import './Warehouse.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
@@ -30,6 +29,18 @@ const Warehouse: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
+  const [userList, setUserList] = useState<any[]>([]);
+  // Fetch all users for the dropdown (like Fleets)
+  useEffect(() => {
+    getAllUsers()
+      .then(users => setUserList(Array.isArray(users) ? users : users ? [users] : []))
+      .catch(() => setUserList([]));
+  }, []);
+  const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
+  const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
+  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+  const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+  const isMember = dbUser?.roles?.some((role: string) => CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -71,38 +82,6 @@ const Warehouse: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const getRecentPirateHits = async () => {
-      if (!dbUser?.id || !gameVersion) return;
-      const coupling = { user_id: dbUser.id, gameVersion };
-      const hits = await fetchPlayerRecentPirateHits(coupling);
-      setRecentHits(hits);
-    };
-    getRecentPirateHits();
-  }, [dbUser?.id, gameVersion]);
-
-  useEffect(() => {
-    const fetchAllHits = async () => {
-      if (!dbUser?.id || !gameVersion) return;
-      const coupling = { user_id: dbUser.id, gameVersion };
-
-      try {
-        const pirateHits = await fetchAllPlayerPirateHits(coupling);
-        setAllPirateHits(pirateHits);
-      } catch (e) {
-        setAllPirateHits([]);
-      }
-
-      try {
-        const assistHits = await fetchAllPlayerAssistHits(coupling);
-        setAllAssistHits(assistHits);
-      } catch (e) {
-        setAllAssistHits([]);
-      }
-    };
-    fetchAllHits();
-  }, [dbUser?.id, gameVersion]);
-
-  useEffect(() => {
     const fetchSummaries = async () => {
       try {
         const data = await getSummarizedItems();
@@ -135,67 +114,27 @@ const Warehouse: React.FC = () => {
         <div className="hittracker-layout">
           <div className="column overview-panel-column">
             <div style={{ background: "#23272e", borderRadius: 8, padding: 24, color: "#aaa", minHeight: 200 }}>
-              Placeholder: Overview/Stats
-            </div>
-          </div>
-          <div className="column warehouse-items">
-            {/* Add New Hit Button */}
-            <button
-              className="add-hit-btn"
-              style={{
-                width: '100%',
-                marginBottom: '1rem',
-                padding: '0.75rem',
-                fontSize: '1.1rem',
-                background: '#2d7aee',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-              onClick={() => setShowAddHitModal(true)}
-            >
-              Add New Hit
-            </button>
-            <WarehouseItems
+              <WarehouseItems
               gameVersion={gameVersion}
               user_id={dbUser?.id ?? null}
               summarizedItems={summarizedItems}
-            />
+              />
+            </div>
           </div>
           <div className="column recent-pirate-hits">
             <div style={{ background: "#23272e", borderRadius: 8, padding: 24, color: "#aaa", minHeight: 200 }}>
-              Placeholder: Recent Activity
+              <WarehouseOrgItems
+                gameVersion={gameVersion}
+                user_id={dbUser?.id ?? null}
+                summarizedItems={summarizedItems}
+                isModerator={isModerator}
+                isMember={isMember}
+                userList={userList}
+              />
             </div>
           </div>
         </div>
       </main>
-      {/* Modal for Add Hit Form */}
-      {showAddHitModal && (
-        <AddHitModal
-          show={showAddHitModal}
-          onClose={() => setShowAddHitModal(false)}
-          gameVersion={gameVersion}
-          userId={dbUser.id}
-          username={dbUser.username}
-          summarizedItems={summarizedItems}
-          onSubmit={async (hit) => {
-            setIsSubmitting(true);
-            setFormError(null);
-            try {
-              // await your API call here
-              setShowAddHitModal(false);
-            } catch (err) {
-              setFormError("Failed to submit. Please try again.");
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
-          isSubmitting={isSubmitting}
-          formError={formError}
-          setFormError={setFormError}
-        />
-      )}
     </div>
   );
 };

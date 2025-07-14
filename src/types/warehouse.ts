@@ -7,4 +7,5 @@ export interface WarehouseItem {
   patch: string;
   location: string,
   for_org: boolean,
+  intent: string,
 }
