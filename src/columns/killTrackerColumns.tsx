@@ -34,6 +34,20 @@ const killTrackerColumns: LeaderboardColumn<any>[] = [
     sortAccessor: row => Number(row.fps_kills_total) || 0,
   },
   {
+    key: "ship_kills_ac",
+    title: "Ship Kills (AC)",
+    render: row => row.ship_kills_ac ?? 0,
+    sortable: true,
+    sortAccessor: row => Number(row.ship_kills_ac) || 0,
+  },
+  {
+    key: "ship_kills_pu",
+    title: "Ship Kills (PU)",
+    render: row => row.ship_kills_pu ?? 0,
+    sortable: true,
+    sortAccessor: row => Number(row.ship_kills_pu) || 0,
+  },
+  {
     key: "ship_kills_total",
     title: "Ship Kills (Total)",
     render: row => row.ship_kills_total ?? 0,

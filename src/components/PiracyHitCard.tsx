@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Hit } from "../types/hittracker";
-import { fetchPlayerFleet } from "../api/fleetApi"; // <-- import this
+import { fetchPlayerFleet, fetchFleetById } from "../api/fleetApi";
 import AddHitModal from "./CreateHitModal"; // Import your modal
 import { User } from "../types/user";
 
@@ -16,6 +16,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
   const [showCargoTooltip, setShowCargoTooltip] = useState(false);
   const [isFleetCommander, setIsFleetCommander] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [fleetAvatars, setFleetAvatars] = useState<string[]>([]);
   // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some(role => BLOODED_IDS.includes(role)) ?? false;
@@ -37,6 +38,30 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
       }
     };
     checkFleetCommander();
+
+    // Fetch fleet avatars for each fleet_id
+    const fetchAvatars = async () => {
+      if (hit.fleet_activity && Array.isArray(hit.fleet_ids) && hit.fleet_ids.length > 0) {
+        try {
+          const avatarPromises = hit.fleet_ids.map(async (fleetId) => {
+            const fleets = await fetchFleetById(fleetId);
+            // fetchFleetById returns an array, take the first fleet
+            if (fleets && fleets.length > 0 && fleets[0].avatar) {
+              return fleets[0].avatar;
+            }
+            return null;
+          });
+          const avatars = (await Promise.all(avatarPromises)).filter(Boolean) as string[];
+          if (!ignore) setFleetAvatars(avatars);
+        } catch (e) {
+          if (!ignore) setFleetAvatars([]);
+        }
+      } else {
+        setFleetAvatars([]);
+      }
+    };
+    fetchAvatars();
+
     return () => { ignore = true; };
   }, [hit.fleet_activity, hit.fleet_ids, userId]);
 
@@ -63,7 +88,8 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
         padding: '1rem',
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         border: '1px solid #333',
-        position: 'relative'
+        position: 'relative',
+        overflow: 'visible'
       }}
     >
       {/* Edit button, only if user owns this hit or is fleet commander */}
@@ -285,6 +311,43 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
           formError={null}
           setFormError={() => {}}
         />
+      )}
+
+      {/* Fleet Avatars in bottom-right corner */}
+      {hit.fleet_activity && fleetAvatars.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 10,
+            right: 10,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'flex-end',
+            zIndex: 5,
+            background: 'rgba(35,39,43,0.7)',
+            borderRadius: 8,
+            padding: '4px 8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+          }}
+        >
+          {fleetAvatars.map((avatar, idx) => (
+            <img
+              key={avatar + idx}
+              src={avatar}
+              alt={`Fleet Avatar ${idx + 1}`}
+              style={{
+                width: fleetAvatars.length > 1 ? 32 : 48,
+                height: fleetAvatars.length > 1 ? 32 : 48,
+                objectFit: 'cover',
+                borderRadius: 6,
+                border: '1px solid #444',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                background: '#23272b',
+                transition: 'width 0.2s, height 0.2s'
+              }}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
