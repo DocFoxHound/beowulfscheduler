@@ -38,7 +38,6 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
           planets = planets.filter(p => Number(p.is_available) !== 0);
         }
         const planetNames = Array.isArray(planets) ? planets.map(p => p.name) : [];
-        console.log('Filtered planets:', planets);
         setAllLocations([...planetNames]);
       } catch (e) {
         setAllLocations([]);
@@ -80,6 +79,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     total_scu: 0,
     total_value: 0,
     for_org: false,
+    intent: 'N/A',
   });
   const [locationInputSuggestions, setLocationInputSuggestions] = useState<string[]>([]);
   const [showLocationInputSuggestions, setShowLocationInputSuggestions] = useState(false);
@@ -109,7 +109,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
   const [editValues, setEditValues] = useState<Partial<WarehouseItem>>({});
   const [showAddRow, setShowAddRow] = useState(false);
 
-  if (error) return <div>{error}</div>;
+
 
   // Only show items that belong to the current user (handle null user_id)
   const personalItems = items.filter(item => {
@@ -141,7 +141,6 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     }
     itemsByLocation[item.location].push(item);
   });
-  console.log("Items By Location: ", itemsByLocation)
 
   // Auto-expand all locations with items when itemsByLocation changes
   useEffect(() => {
@@ -264,6 +263,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
         total_scu: 0,
         total_value: 0,
         for_org: false,
+        intent: 'N/A',
       });
       return;
     }
@@ -274,7 +274,14 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
       patch: gameVersion, // or your default
     } as WarehouseItem;
     const saved = await addWarehouseItem(itemToAdd);
-    setItems(items => [saved, ...items]);
+    setItems(items => {
+      // Remove any item with the same id (shouldn't happen), or same commodity_name+location for this user
+      const filtered = items.filter(i =>
+        i.id !== saved.id &&
+        !(i.commodity_name === saved.commodity_name && i.location === saved.location && i.user_id === saved.user_id)
+      );
+      return [saved, ...filtered];
+    });
     setOpenLocations(prev => ({ ...prev, [saved.location]: true }));
     setShowAddRow(false);
     setNewItem({
@@ -284,11 +291,13 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
       total_scu: 0,
       total_value: 0,
       for_org: false,
+      intent: 'N/A',
     });
   };
 
   return (
     <div className="warehouse-items">
+      {error && <div style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
       <h2 style={{ textAlign: 'center' }}>Personal Warehouse Items</h2>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: 0 }}>
         <input
@@ -690,7 +699,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                   {(itemsByLocation[location] || [])
                     .slice()
                     .sort((a, b) => a.commodity_name.localeCompare(b.commodity_name))
-                    .map(item => (
+                    .map((item, idx) => (
                       <React.Fragment key={item.id}>
                         <tr
                           key={item.id}
@@ -698,10 +707,10 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                           onDragStart={() => setDraggedItemId(item.id)}
                           onDragEnd={() => setDraggedItemId(null)}
                         >
-                          <td style={{ padding: '8px' }}>{item.commodity_name}</td>
-                          <td style={{ textAlign: 'right', padding: '8px' }}>{item.total_scu}</td>
-                          <td style={{ textAlign: 'right', padding: '8px' }}>{item.total_value}</td>
-                          <td style={{ textAlign: 'center', padding: '8px' }}>
+                          <td style={{ padding: '8px', background: idx % 2 === 0 ? '#23272b' : '#292d31' }}>{item.commodity_name}</td>
+                          <td style={{ textAlign: 'right', padding: '8px', background: idx % 2 === 0 ? '#262a2e' : '#303438' }}>{item.total_scu}</td>
+                          <td style={{ textAlign: 'right', padding: '8px', background: idx % 2 === 0 ? '#23272b' : '#292d31' }}>{item.total_value}</td>
+                          <td style={{ textAlign: 'center', padding: '8px', background: idx % 2 === 0 ? '#262a2e' : '#303438' }}>
                             <input
                               type="text"
                               value={item.intent || ''}
@@ -717,7 +726,7 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
                               }}
                             />
                           </td>
-                          <td style={{ textAlign: 'center', padding: '8px' }}>
+                          <td style={{ textAlign: 'center', padding: '8px', background: idx % 2 === 0 ? '#23272b' : '#292d31' }}>
                             <button onClick={() => handleEditClick(item)}>✎</button>
                           </td>
                         </tr>

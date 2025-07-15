@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { fetchAllUexSystems } from '../api/uexPlanetsApi';
 import { fetchPublicOrgWarehouseItems, fetchPrivateOrgWarehouseItems, addWarehouseItem, editWarehouseItem, deleteWarehouseItem } from '../api/warehouseApi';
 import { SummarizedItem } from '../types/items_summary';
 import { WarehouseItem } from '../types/warehouse';
@@ -33,6 +34,25 @@ const intentBorderColors: Record<string, string> = {
 
 
 const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems, isModerator, isMember, userList, items, setItems, addWarehouseItem, editWarehouseItem, deleteWarehouseItem, loading, error }) => {
+  // Location auto-suggestion state
+  const [locationInputSuggestions, setLocationInputSuggestions] = useState<string[]>([]);
+  const [showLocationInputSuggestions, setShowLocationInputSuggestions] = useState(false);
+  const [allLocations, setAllLocations] = useState<string[]>([]);
+
+  // Fetch locations from the database (planets) for suggestions
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const planets = await fetchAllUexSystems(); // Planets is an array
+        const filtered = Array.isArray(planets) ? planets.filter((p) => Number(p.is_available) !== 0) : [];
+        const planetNames = filtered.map((p) => p.name);
+        setAllLocations([...planetNames]);
+      } catch (e) {
+        setAllLocations([]);
+      }
+    };
+    fetchLocations();
+  }, []);
   // items, setItems, loading, error are now props
   const [showAddRow, setShowAddRow] = useState(false);
   const [newItem, setNewItem] = useState<Partial<WarehouseItem>>({
@@ -64,6 +84,18 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
         setShowSuggestions(false);
       }
     }
+    if (field === 'location') {
+      if (value.length > 0) {
+        const filtered = allLocations.filter(loc =>
+          loc.toLowerCase().includes(value.toLowerCase())
+        );
+        setLocationInputSuggestions(filtered.slice(0, 8));
+        setShowLocationInputSuggestions(true);
+      } else {
+        setLocationInputSuggestions([]);
+        setShowLocationInputSuggestions(false);
+      }
+    }
   };
 
   const handleSuggestionClick = (item: SummarizedItem) => {
@@ -80,12 +112,12 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
     const itemToAdd = {
       ...newItem,
       id: new Date().getTime().toString(),
-      user_id: user_id ?? '',
+      user_id: '0',
       patch: gameVersion,
       for_org: true,
     } as WarehouseItem;
-    const saved = await addWarehouseItem(itemToAdd);
-    setItems(items => [saved, ...items]);
+    await addWarehouseItem(itemToAdd);
+    // Do not add to setItems here; parent will update items via props
     setShowAddRow(false);
     setNewItem({
       commodity_name: '',
@@ -95,8 +127,7 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
       intent: 'N/A',
       for_org: true,
     });
-    setEditingId(saved.id); // Immediately editable
-    setEditValues({ ...saved });
+    // Do not open edit menu after add
   };
 
   // Edit row handlers
@@ -151,8 +182,15 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
 
   // Show all org items (for_org === true) and all personal items (for_org === false)
   const orgAndPersonalItems = items.filter(item => item.for_org === true || item.for_org === false);
-  // Filtering logic
+  // Filtering logic with intent === 'N/A' exclusion except for isModerator and user_id === 0
   const filteredItems = orgAndPersonalItems.filter(item => {
+    // Exclude items with intent === 'N/A', unless isModerator and user_id === '0'
+    if (
+      item.intent === 'N/A' &&
+      !(isModerator && String(item.user_id) === '0')
+    ) {
+      return false;
+    }
     const matchesText =
       item.commodity_name.toLowerCase().includes(filterText.toLowerCase()) ||
       item.location.toLowerCase().includes(filterText.toLowerCase());
@@ -435,7 +473,7 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
                     </div>
                   )}
                 </td>
-                <td style={{ padding: '8px' }}>
+                <td style={{ padding: '8px', position: 'relative' }}>
                   <input
                     type="text"
                     value={newItem.location}
@@ -444,7 +482,41 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
                     style={{ width: 120 }}
                     title="The station or location where the item is stored"
                     autoComplete="off"
+                    onFocus={() => {
+                      if (newItem.location) setShowLocationInputSuggestions(true);
+                    }}
+                    onBlur={() => setTimeout(() => setShowLocationInputSuggestions(false), 100)}
                   />
+                  {showLocationInputSuggestions && locationInputSuggestions.length > 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        background: '#222',
+                        border: '1px solid #444',
+                        borderRadius: 4,
+                        zIndex: 10,
+                        width: '100%',
+                        maxHeight: 180,
+                        overflowY: 'auto',
+                        color: '#fff',
+                      }}
+                    >
+                      {locationInputSuggestions.map(loc => (
+                        <div
+                          key={loc}
+                          style={{ padding: '4px 8px', cursor: 'pointer', borderBottom: '1px solid #333' }}
+                          onMouseDown={() => {
+                            setNewItem(prev => ({ ...prev, location: loc }));
+                            setShowLocationInputSuggestions(false);
+                          }}
+                        >
+                          {loc}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td style={{ padding: '8px' }}>
                   <input

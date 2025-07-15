@@ -32,6 +32,7 @@ const Warehouse: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [summarizedItems, setSummarizedItems] = useState<SummarizedItem[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
+  const [dbUserLoading, setDbUserLoading] = useState(true);
   // Fetch all users for the dropdown (like Fleets)
   useEffect(() => {
     getAllUsers()
@@ -97,21 +98,29 @@ const Warehouse: React.FC = () => {
   const isMember = dbUser?.roles?.some((role: string) => CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
 
   // Fetch Discord user if dbUser is not set
+
+  // Fetch Discord user if dbUser is not set
   useEffect(() => {
     if (!dbUser) {
+      setDbUserLoading(true);
       axios
         .get(`${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_USER_URL : import.meta.env.VITE_TEST_USER_URL}`, { withCredentials: true })
         .then((res) => setUser(res.data))
-        .catch(() => setUser(null));
+        .catch(() => setUser(null))
+        .finally(() => setDbUserLoading(false));
+    } else {
+      setDbUserLoading(false);
     }
   }, [dbUser]);
 
   // Fetch dbUser from backend if Discord user is available and dbUser is not set
   useEffect(() => {
     if (!dbUser && user && user.id) {
+      setDbUserLoading(true);
       getUserById(user.id)
         .then((data) => setDbUser(data))
-        .catch(() => setDbUser(null));
+        .catch(() => setDbUser(null))
+        .finally(() => setDbUserLoading(false));
     }
   }, [user, dbUser, setDbUser]);
 
@@ -147,12 +156,23 @@ const Warehouse: React.FC = () => {
     fetchSummaries();
   }, []);
 
-  // Optionally, show a loading state if dbUser is still being fetched
+
+  // Show loading state while determining dbUser
+  if (dbUserLoading) {
+    return (
+      <div className="centered-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // If dbUser is still not set after loading, show not logged in
   if (!dbUser) {
     return (
       <div className="centered-screen">
         <p>Not logged in. <a href="/">Go to Login</a></p>
-      </div>);
+      </div>
+    );
   }
 
   return (

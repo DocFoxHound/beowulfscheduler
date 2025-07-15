@@ -5,12 +5,20 @@ const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.en
 
 
 export const fetchWarehouseItems = async (user_id: string | null): Promise<WarehouseItem[]> => {
-  const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/user`, {
-    params: {
-      user_id: user_id,
-    },
-  });
-  return response.data;
+  try {
+    const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/user`, {
+      params: {
+        user_id: user_id,
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      // No items found for user, return empty array
+      return [];
+    }
+    throw error;
+  }
 };
 
 export const editWarehouseItem = async (id: string, item: WarehouseItem): Promise<WarehouseItem> => {

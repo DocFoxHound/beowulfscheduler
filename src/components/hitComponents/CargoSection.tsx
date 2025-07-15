@@ -58,9 +58,10 @@ const CargoSection: React.FC<CargoSectionProps> = ({
   addItemBtnRef,
   totalValue,
 }) => {
+  // Add a cargo item and ensure warehouseFlags is initialized with intent 'N/A' and toWarehouse false
   const addCargoItem = (item: CargoItem) => {
     setCargoList(list => [...list, item]);
-    setWarehouseFlags(flags => [...flags, { toWarehouse: false, intent: 'N/A' }]);
+    setWarehouseFlags(flags => [...flags, { toWarehouse: false, intent: 'N/A', for_org: false }]);
   };
 
   return (
@@ -371,6 +372,8 @@ const CargoSection: React.FC<CargoSectionProps> = ({
                             ? {
                                 ...flag,
                                 toWarehouse: !flag.toWarehouse,
+                                intent: flag.intent || 'N/A',
+                                for_org: false
                               }
                             : flag
                         )
