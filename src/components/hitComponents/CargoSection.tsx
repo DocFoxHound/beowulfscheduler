@@ -270,10 +270,11 @@ const CargoSection: React.FC<CargoSectionProps> = ({
                   <input
                     type="number"
                     min={0}
-                    value={(cargo.avg_price * cargo.scuAmount).toLocaleString("fullwide", { useGrouping: false })}
+                    step="any"
+                    value={Math.round(cargo.avg_price * cargo.scuAmount).toString()}
                     onChange={e => {
-                      // Parse as integer to avoid float artifacts
-                      const newTotalValue = parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 0;
+                      // Parse as float for double-precision
+                      const newTotalValue = parseFloat(e.target.value) || 0;
                       setCargoList(list =>
                         list.map((item, i) =>
                           i === idx
@@ -293,10 +294,11 @@ const CargoSection: React.FC<CargoSectionProps> = ({
                   <input
                     type="number"
                     min={0}
-                    value={cargo.avg_price.toLocaleString("fullwide", { useGrouping: false })}
+                    step="any"
+                    value={cargo.avg_price.toString()}
                     onChange={e => {
-                      // Parse as integer to avoid float artifacts
-                      const newUnitValue = parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 0;
+                      // Parse as float for double-precision
+                      const newUnitValue = parseFloat(e.target.value) || 0;
                       setCargoList(list =>
                         list.map((item, i) =>
                           i === idx

@@ -12,7 +12,7 @@ import { Hit } from '../types/hittracker';
 import KillOverviewBoard from '../components/KillOverviewBoard';
 import './Piracy.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
-import AddHitModal from '../components/AddHitModal';
+import AddHitModal from '../components/CreateHitModal';
 import Navbar from '../components/Navbar';
 
 const Hittracker: React.FC = () => {

@@ -11,7 +11,7 @@ import axios from "axios";
 import { Hit } from '../types/hittracker';
 import './Warehouse.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
-import AddHitModal from '../components/AddHitModal';
+import AddHitModal from '../components/CreateHitModal';
 import { getSummarizedItems } from '../api/summarizedItemApi';
 import { SummarizedItem } from '../types/items_summary';
 import Navbar from '../components/Navbar';

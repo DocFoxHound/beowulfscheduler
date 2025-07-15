@@ -44,12 +44,30 @@ export const addWarehouseItem = async (item: WarehouseItem): Promise<WarehouseIt
   return response.data;
 }
 
+
 export const fetchPublicOrgWarehouseItems = async (): Promise<WarehouseItem[]> => {
-  const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/orgpublic`);
-  return response.data;
+  try {
+    const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/orgpublic`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      // No org items found, return empty array
+      return [];
+    }
+    throw error;
+  }
 };
 
+
 export const fetchPrivateOrgWarehouseItems = async (): Promise<WarehouseItem[]> => {
-  const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/orgprivate`);
-  return response.data;
+  try {
+    const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/orgprivate`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      // No private org items found, return empty array
+      return [];
+    }
+    throw error;
+  }
 };

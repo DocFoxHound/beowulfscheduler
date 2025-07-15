@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Hit } from "../types/hittracker";
 import { fetchPlayerFleet } from "../api/fleetApi"; // <-- import this
-import AddHitModal from "./AddHitModal"; // Import your modal
+import AddHitModal from "./CreateHitModal"; // Import your modal
 import { User } from "../types/user";
 
 interface PiracyHitCardProps {

@@ -298,6 +298,7 @@ const WarehouseOrgItems: React.FC<Props> = ({ user_id, gameVersion, summarizedIt
   // Helper to get owner display name
   const getOwnerName = (userId: string | null | undefined) => {
     if (!userId) return '';
+    if (String(userId) === '0') return 'Org';
     const user = userList.find((u: any) => u.id === userId);
     if (!user) return '';
     return user.nickname || user.username || '';
