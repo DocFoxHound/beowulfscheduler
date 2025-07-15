@@ -69,12 +69,28 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
     ? hit.cargo.map((c: any) => `${c.scuAmount}x ${c.commodity_name}`).join("\n")
     : "";
 
-  // Helper to convert YouTube links to embed links
+  // Helper to convert video links to embed links (YouTube, Twitch, Vimeo)
   function getEmbedUrl(url: string) {
     // YouTube
     const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
     if (ytMatch) {
       return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    }
+    // Twitch (videos)
+    const twitchVideoMatch = url.match(/twitch\.tv\/videos\/(\d+)/);
+    if (twitchVideoMatch) {
+      // Replace 'localhost' with your actual domain in production
+      return `https://player.twitch.tv/?video=${twitchVideoMatch[1]}&parent=localhost`;
+    }
+    // Twitch (clips)
+    const twitchClipMatch = url.match(/twitch\.tv\/(?:\w+)?\/clip\/(\w+)/);
+    if (twitchClipMatch) {
+      return `https://clips.twitch.tv/embed?clip=${twitchClipMatch[1]}&parent=localhost`;
+    }
+    // Vimeo
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
     }
     // Add more providers as needed
     return url;
