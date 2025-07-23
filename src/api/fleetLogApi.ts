@@ -121,3 +121,11 @@ export const fetchTopFleetsByPatch = async (patch: string): Promise<{ fleet_id: 
   });
   return response.data;
 };
+
+// Fetch ship logs within a provided timeframe
+export const fetchShipLogsByTimeframe = async (start: string, end: string): Promise<FleetLog[]> => {
+  const response = await axios.get<FleetLog[]>(`${API_BASE_URL}/api/shiplog/timeframe`, {
+    params: { start, end },
+  });
+  return response.data;
+};

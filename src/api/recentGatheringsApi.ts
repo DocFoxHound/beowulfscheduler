@@ -8,6 +8,16 @@ export const fetchAllRecentGatherings = async (): Promise<RecentGathering[]> => 
   return response.data;
 };
 
+export const fetchRecentGatheringsWithinTimeframe = async (start: string, end: string): Promise<RecentGathering[]> => {
+  const response = await axios.get<RecentGathering[]>(
+    `${API_BASE_URL}/api/recentgatherings/timeframe`,
+    {
+      params: { start, end }
+    }
+  );
+  return response.data;
+};
+
 export const createRecentGathering = async (RecentGathering: RecentGathering): Promise<RecentGathering> => {
   const response = await axios.post<RecentGathering>(`${API_BASE_URL}/api/recentgatherings/`, RecentGathering);
   return response.data;

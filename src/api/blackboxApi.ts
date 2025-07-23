@@ -168,3 +168,13 @@ export const fetchBlackBoxesByPatch = async (patch: string): Promise<BlackBox[]>
   });
   return response.data;
 };
+// Get all BlackBoxes within a provided timeframe
+export const fetchBlackBoxesWithinTimeframe = async (
+  start: string,
+  end: string
+): Promise<BlackBox[]> => {
+  const response = await axios.get<BlackBox[]>(`${API_BASE_URL}/api/blackbox/within-timeframe`, {
+    params: { start, end }
+  });
+  return response.data;
+};

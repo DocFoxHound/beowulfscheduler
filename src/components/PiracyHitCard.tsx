@@ -13,6 +13,9 @@ interface PiracyHitCardProps {
 
 
 const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, dbUser }) => {
+  // Find author from allUsers by hit.user_id
+  const authorUser = allUsers.find(u => u.id === hit.user_id);
+  const authorName = authorUser?.nickname || authorUser?.username || "Unknown";
   const [showCargoTooltip, setShowCargoTooltip] = useState(false);
   const [isFleetCommander, setIsFleetCommander] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -129,11 +132,13 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
         </button>
       )}
 
-      {/* Type of piracy in all caps, next to title */}
+      {/* Title, type of piracy, and author */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-          {hit.title}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+            {authorName}: {hit.title}
+          </span>
+        </div>
         <span
           style={{
             fontWeight: 'bold',
@@ -176,7 +181,7 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
 
       {/* Assists (with tooltip for usernames), including guests */}
       <div style={{ marginTop: 6 }}>
-        <span style={{ color: '#aaa' }}>Assists:</span>{" "}
+        <span style={{ color: '#aaa' }}>Pirates:</span>{" "}
         <span
           style={{
             display: "flex",

@@ -1,10 +1,13 @@
 export interface BadgeReusable {
-  id: bigint;
+  id: string;
   badge_name: string;
   badge_description: string;
   badge_weight: bigint;
-  progression: boolean;
+  prestige: boolean;
   prestige_name: string;
   prestige_level: number;
   subject: string;
+  deleted: boolean;
+  progression: boolean;
+  progression_rank: string;
 }

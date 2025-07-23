@@ -95,6 +95,20 @@ export const fetchAllHitsByUserIdAndPatch = async (user_id: string, patch: strin
   return response.data;
 };
 
+
+/**
+ * Fetch all hitTracker entries between a timeframe.
+ * @param start ISO string or date string for start of timeframe
+ * @param end ISO string or date string for end of timeframe
+ * @returns Array of Hit objects
+ */
+export const fetchHitsByTimeframe = async (start: string, end: string): Promise<Hit[]> => {
+  const response = await axios.get<Hit[]>(`${API_BASE_URL}/api/hittracker/timeframe`, {
+    params: { start, end }
+  });
+  return response.data;
+};
+
 /**
  * Fetch org overview summary for all patches.
  * @returns The overview summary array from the backend (raw JSON from Postgres view)

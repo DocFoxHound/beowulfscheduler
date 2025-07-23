@@ -64,7 +64,7 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
           <table style={{ width: "100%", background: "#23272e", borderRadius: 6, borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Assistance</th>
+                <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Pirate</th>
                 <th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th>
                 <th style={{ color: "#ccc", padding: 6 }}>Marine</th>
                 <th style={{ color: "#ccc", padding: 6 }}>Snare</th>
@@ -160,7 +160,7 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
             aria-label="Add Assist"
             onClick={() => setForm((f: any) => ({ ...f, _showAssistInput: true }))}
           >
-            + Add Assist
+            + Add Pirate
           </button>
         )}
         {/* Show input and autocomplete if visible */}

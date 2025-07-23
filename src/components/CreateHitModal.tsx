@@ -659,7 +659,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
 
           {/* Assists Section */}
           <div className="section-card">
-            <div className="section-title">Assists</div>
+            <div className="section-title">Pirates</div>
             <AssistsSection
               form={form}
               setForm={setForm}

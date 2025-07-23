@@ -10,7 +10,6 @@ import Warehouse from "./pages/Warehouse";
 import Info from './pages/Info';
 import Leaderboards from './pages/Leaderboards';
 import { UserProvider } from "./context/UserContext";
-import AdminBadges from "./pages/admin_badges";
 import AdminActivity from "./pages/admin_activity";
 
 function App() {
@@ -27,7 +26,6 @@ function App() {
         <Route path="/leaderboards" element={<Leaderboards />} />
         <Route path="/scheduler" element={<Scheduler />} />
         <Route path="/warehouse" element={<Warehouse />} />
-        <Route path="/admin/badges" element={<AdminBadges />} />
         <Route path="/admin/activity" element={<AdminActivity />} />
       </Routes>
     </UserProvider>

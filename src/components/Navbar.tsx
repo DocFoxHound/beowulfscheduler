@@ -60,7 +60,6 @@ const Navbar: React.FC<NavbarProps> = ({ dbUser }) => {
                   zIndex: 100,
                 }}
               >
-                <a href="/admin/badges" style={{ display: "block", padding: "0.5rem 1rem", color: "#fff", textDecoration: "none" }}>Badges</a>
                 <a href="/admin/activity" style={{ display: "block", padding: "0.5rem 1rem", color: "#fff", textDecoration: "none" }}>Activity</a>
               </div>
             )}
