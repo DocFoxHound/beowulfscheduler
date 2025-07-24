@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { shouldShowPromoteTag } from "../../utils/promotionUtils";
 import AdminActivityGraph from "./AdminActivityGraphs";
 import { fetchBlackBoxesWithinTimeframe } from "../../api/blackboxApi";
 import { fetchShipLogsByTimeframe } from "../../api/fleetLogApi";
@@ -15,6 +16,7 @@ interface AdminUserListProps {
   loading: boolean;
   onDateChange?: (startDate: string, endDate: string) => void;
   onFilteredUsersChange?: (filtered: any[]) => void;
+  // No change needed here, users already present
 }
 
 // Player ranks from .env
@@ -31,7 +33,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
   const [filter, setFilter] = useState("");
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 7);
+    d.setMonth(d.getMonth() - 1);
     return d.toISOString().slice(0, 10);
   });
   const [endDate, setEndDate] = useState(() => {
@@ -92,52 +94,55 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
     }
   }, [startDate, endDate]);
 
+
   // Baseline list: all users with all associated data (not filtered by timeframe or selection)
-  const baselineUsersWithData = users.map((user) => {
-    const userIdStr = String(user.id);
-    // Voice sessions and hours
-    const userSessions = sessions.filter((session) => String(session.user_id) === userIdStr);
-    const totalMinutes = userSessions.reduce((sum, session) => sum + (session.minutes || 0), 0);
-    // BlackBoxes
-    const userBlackBoxes = blackBoxes.filter((bb) => String(bb.user_id) === userIdStr);
-    // FleetLogs: commander or crew
-    const userFleetLogs = fleetLogs.filter((fl) =>
-      String(fl.commander_id) === userIdStr || (Array.isArray(fl.crew_ids) && fl.crew_ids.map(String).includes(userIdStr))
-    );
-    // RecentGatherings: user in user_ids array
-    const userRecentGatherings = recentGatherings.filter((g) =>
-      Array.isArray(g.user_ids) && g.user_ids.map(String).includes(userIdStr)
-    );
-    // HitTrackers: user in assists array
-    const userHitTrackers = hitTrackers.filter((ht) =>
-      Array.isArray(ht.assists) && ht.assists.map(String).includes(userIdStr)
-    );
-    // SBLeaderboardLogs: user in log array
-    const userSBLogEntries = sbLogEntries.filter(
-      (log) => String(log.user_id) === userIdStr
-    );
+  const baselineUsersWithData = React.useMemo(() =>
+    users.map((user) => {
+      const userIdStr = String(user.id);
+      // Voice sessions and hours
+      const userSessions = sessions.filter((session) => String(session.user_id) === userIdStr);
+      const totalMinutes = userSessions.reduce((sum, session) => sum + (session.minutes || 0), 0);
+      // BlackBoxes
+      const userBlackBoxes = blackBoxes.filter((bb) => String(bb.user_id) === userIdStr);
+      // FleetLogs: commander or crew
+      const userFleetLogs = fleetLogs.filter((fl) =>
+        String(fl.commander_id) === userIdStr || (Array.isArray(fl.crew_ids) && fl.crew_ids.map(String).includes(userIdStr))
+      );
+      // RecentGatherings: user in user_ids array
+      const userRecentGatherings = recentGatherings.filter((g) =>
+        Array.isArray(g.user_ids) && g.user_ids.map(String).includes(userIdStr)
+      );
+      // HitTrackers: user in assists array
+      const userHitTrackers = hitTrackers.filter((ht) =>
+        Array.isArray(ht.assists) && ht.assists.map(String).includes(userIdStr)
+      );
+      // SBLeaderboardLogs: user in log array
+      const userSBLogEntries = sbLogEntries.filter(
+        (log) => String(log.user_id) === userIdStr
+      );
 
-    // Format user.nickname for matching
-    let formattedNickname = (user.nickname || "").replace(/"[^"]*"/g, ""); // Remove quotes and content between
-    formattedNickname = formattedNickname.replace(/\s+/g, ""); // Remove all spaces
+      // Format user.nickname for matching
+      let formattedNickname = (user.nickname || "").replace(/"[^"]*"/g, ""); // Remove quotes and content between
+      formattedNickname = formattedNickname.replace(/\s+/g, ""); // Remove all spaces
 
-    // Find matching SB leaderboard summary
-    const sbPlayerSummary = sbPlayerSummaries.find(
-      (p) => typeof p.displayname === "string" && p.displayname.toLowerCase() === formattedNickname.toLowerCase()
-    );
+      // Find matching SB leaderboard summary
+      const sbPlayerSummary = sbPlayerSummaries.find(
+        (p) => typeof p.displayname === "string" && p.displayname.toLowerCase() === formattedNickname.toLowerCase()
+      );
 
-    return {
-      ...user,
-      voiceSessions: userSessions,
-      voiceHours: +(totalMinutes / 60).toFixed(2),
-      blackBoxes: userBlackBoxes,
-      fleetLogs: userFleetLogs,
-      recentGatherings: userRecentGatherings,
-      hitTrackers: userHitTrackers,
-      sbPlayerSummary,
-      sbLogEntries: userSBLogEntries,
-    };
-  });
+      return {
+        ...user,
+        voiceSessions: userSessions,
+        voiceHours: +(totalMinutes / 60).toFixed(2),
+        blackBoxes: userBlackBoxes,
+        fleetLogs: userFleetLogs,
+        recentGatherings: userRecentGatherings,
+        hitTrackers: userHitTrackers,
+        sbPlayerSummary,
+        sbLogEntries: userSBLogEntries,
+      };
+    })
+  , [users, sessions, blackBoxes, fleetLogs, recentGatherings, hitTrackers, sbPlayerSummaries, sbLogEntries]);
 
   // Filtered list: updates based on timeframe and selected user
   const [filteredUsersWithData, setFilteredUsersWithData] = useState(baselineUsersWithData);
@@ -222,6 +227,14 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
       return 0;
     });
   }
+
+  // Calculate averages for each column using only filteredUsers (the displayed users)
+  const avgVoiceHours = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (u.voiceHours || 0), 0) / filteredUsers.length : 0;
+  const avgFleetLogs = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.fleetLogs) ? u.fleetLogs.length : 0), 0) / filteredUsers.length : 0;
+  const avgRecentGatherings = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.recentGatherings) ? u.recentGatherings.length : 0), 0) / filteredUsers.length : 0;
+  const avgHitTrackers = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.hitTrackers) ? u.hitTrackers.length : 0), 0) / filteredUsers.length : 0;
+  const avgBlackBoxes = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.blackBoxes) ? u.blackBoxes.length : 0), 0) / filteredUsers.length : 0;
+  const avgFlightTime = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (typeof u.sbPlayerSummary?.total_flight_time === 'number' ? u.sbPlayerSummary.total_flight_time : 0), 0) / filteredUsers.length : 0;
 
   return (
     <div>
@@ -312,7 +325,12 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
                   style={{ cursor: "pointer", background: expandedUserId === user.id ? "#333" : undefined }}
                   onClick={() => setExpandedUserId(expandedUserId === user.id ? null : user.id)}
                 >
-                  <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>{user.username || "-"}</td>
+                  <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
+                    {user.username || "-"}
+                    {shouldShowPromoteTag(user) && (
+                      <span title="Eligible for promotion" style={{ marginLeft: 4, cursor: 'help' }}>🔼</span>
+                    )}
+                  </td>
                   {/* <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333" }}>{user.displayName || "-"}</td> */}
                   {(() => {
                     const rank = getUserRank(user);
@@ -324,21 +342,39 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
                   })()}
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {user.voiceHours}
+                    {user.voiceHours > avgVoiceHours && (
+                      <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
+                    )}
                   </td>
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {Array.isArray(user.fleetLogs) ? user.fleetLogs.length : 0}
+                    {Array.isArray(user.fleetLogs) && user.fleetLogs.length > avgFleetLogs && (
+                      <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
+                    )}
                   </td>
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {Array.isArray(user.recentGatherings) ? user.recentGatherings.length : 0}
+                    {Array.isArray(user.recentGatherings) && user.recentGatherings.length > avgRecentGatherings && (
+                      <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
+                    )}
                   </td>
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {Array.isArray(user.hitTrackers) ? user.hitTrackers.length : 0}
+                    {Array.isArray(user.hitTrackers) && user.hitTrackers.length > avgHitTrackers && (
+                      <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
+                    )}
                   </td>
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {Array.isArray(user.blackBoxes) ? user.blackBoxes.length : 0}
+                    {Array.isArray(user.blackBoxes) && user.blackBoxes.length > avgBlackBoxes && (
+                      <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
+                    )}
                   </td>
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {user.sbPlayerSummary?.total_flight_time || "-"}
+                    {typeof user.sbPlayerSummary?.total_flight_time === 'number' && user.sbPlayerSummary.total_flight_time > avgFlightTime && (
+                      <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
+                    )}
                   </td>
                 </tr>
               ))

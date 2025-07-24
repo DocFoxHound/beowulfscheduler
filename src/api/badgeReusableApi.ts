@@ -9,6 +9,12 @@ export const fetchAllBadgeReusables = async (): Promise<BadgeReusable[]> => {
   return response.data;
 };
 
+// Get all active badge reusables
+export const fetchAllActiveBadgeReusables = async (): Promise<BadgeReusable[]> => {
+  const response = await axios.get<BadgeReusable[]>(`${API_BASE_URL}/api/badgereusables/active`);
+  return response.data;
+};
+
 // Get all badges by user ID (query param must be 'id' to match backend)
 export const fetchBadgeReusablesById = async (userId: string): Promise<BadgeReusable[]> => {
   const response = await axios.get<BadgeReusable[]>(`${API_BASE_URL}/api/badgereusables/id`, {

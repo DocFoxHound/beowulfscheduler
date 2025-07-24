@@ -1,5 +1,5 @@
 export interface BadgeReusable {
-  id: string;
+  id?: string;
   badge_name: string;
   badge_description: string;
   badge_weight: bigint;
@@ -10,4 +10,5 @@ export interface BadgeReusable {
   deleted: boolean;
   progression: boolean;
   progression_rank: string;
+  trigger: JSON[];
 }

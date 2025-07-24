@@ -1,14 +1,17 @@
 import React from "react";
-import AdminGeneralManagement from "./AdminGeneralManagement";
+import AdminGeneralManagement from "./AdminManagementGeneral";
+import { type User } from "../../types/user";
 
 interface AdminManagementTabProps {
   selectedPlayer?: any;
+  users: User[];
+  loading: boolean;
 }
 
-const AdminManagementTab: React.FC<AdminManagementTabProps> = ({ selectedPlayer }) => {
+const AdminManagementTab: React.FC<AdminManagementTabProps> = ({ selectedPlayer, users, loading }) => {
   if (!selectedPlayer) {
     // Overall management view
-    return <AdminGeneralManagement />;
+    return <AdminGeneralManagement users={users} loading={loading} />;
   }
   // Player management view
   return (
