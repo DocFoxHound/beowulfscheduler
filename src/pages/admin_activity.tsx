@@ -6,6 +6,7 @@ import { getUserById } from "../api/userService";
 import AdminUserList from "../components/adminComponents/AdminUserList";
 import AdminActivityGraph from "../components/adminComponents/AdminActivityGraphs";
 import AdminManagementTab from "../components/adminComponents/AdminManagementTab";
+import { fetchAllEmojis } from "../api/emojiApi";
 import { getAllUsers } from "../api/userService";
 
 const BLOODED_PLUS_IDS = (import.meta.env.VITE_LIVE_BLOODED_PLUS || "").split(",");
@@ -16,6 +17,16 @@ const AdminActivity: React.FC = () => {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [filteredUsersWithData, setFilteredUsersWithData] = useState<any[]>([]);
+  const [emojis, setEmojis] = useState<any[]>([]);
+  // Fetch emojis on mount
+  useEffect(() => {
+    fetchAllEmojis()
+      .then((data) => {
+        const emojiArray = Array.isArray(data) ? data : [];
+        setEmojis(emojiArray);
+      })
+      .catch(() => setEmojis([]));
+  }, []);
   // Track selected player from AdminUserList
   const selectedPlayer = filteredUsersWithData.length === 1 ? filteredUsersWithData[0] : null;
   const navigate = useNavigate();
@@ -98,6 +109,7 @@ const AdminActivity: React.FC = () => {
               selectedPlayer={selectedPlayer}
               users={allUsers}
               loading={usersLoading}
+              emojis={emojis}
             />
           </div>
         </div>

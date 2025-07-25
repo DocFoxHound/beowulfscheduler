@@ -1,21 +1,5 @@
-// Helper function as arrow function at top-level to avoid ES5 strict mode error and use-before-declaration
-
-const flattenTriggerConditions = (arr: any[]): any[] => {
-  let out: any[] = [];
-  for (const item of arr) {
-    if (item && typeof item === 'object' && 'conditions' in item && Array.isArray(item.conditions)) {
-      out = out.concat(flattenTriggerConditions(item.conditions));
-    } else {
-      out.push(item);
-    }
-  }
-  return out;
-};
-
-// Helper function as arrow function at top-level to avoid ES5 strict mode error and use-before-declaration
-
-
 import React, { useState, useRef } from "react";
+import EmojiPicker from "../EmojiPicker";
 import TriggersWindow, { ConditionGroup } from "./TriggersWindow";
 import { BadgeReusable } from "../../types/badgeReusable";
 import { type User } from "../../types/user";
@@ -30,6 +14,7 @@ interface CreateBadgeModalProps {
   mode?: "create" | "edit";
   submitLabel?: string;
   users: User[];
+  emojis: any[];
 }
 
 const emptyForm = {
@@ -43,18 +28,26 @@ const emptyForm = {
   progression: false,
   progression_rank: "",
   reusable: false,
+  image_url: "", // <-- add image_url to form
 };
 
-
-
-
-const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, onSubmit, initialData, mode = "create", submitLabel, users }) => {
+const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, onSubmit, initialData, mode = "create", submitLabel, users, emojis }) => {
   // Ensure badge_weight is always a string in form state
-  const [form, setForm] = useState(() => ({
-    ...emptyForm,
-    ...initialData,
-    badge_weight: initialData && initialData.badge_weight !== undefined ? String(initialData.badge_weight) : "1",
-  }));
+  const [form, setForm] = useState(() => {
+    let defaultEmoji = null;
+    if (emojis && emojis.length > 0) {
+      defaultEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    }
+    return {
+      ...emptyForm,
+      ...initialData,
+      badge_weight: initialData && initialData.badge_weight !== undefined ? String(initialData.badge_weight) : "1",
+      image_url: initialData && initialData.image_url ? initialData.image_url : (defaultEmoji ? defaultEmoji.url : ""),
+    };
+  });
+  // Emoji selection state
+  const [selectedEmoji, setSelectedEmoji] = useState<import("../../types/emoji").Emoji | null>(null);
+  const [showEmojiMenu, setShowEmojiMenu] = useState(false);
   const weightInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -102,11 +95,16 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
 
   React.useEffect(() => {
     if (isOpen) {
+      let defaultEmoji = null;
+      if (emojis && emojis.length > 0) {
+        defaultEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+      }
       setForm(prev => {
         const base = {
           ...emptyForm,
           ...initialData,
           badge_weight: initialData && initialData.badge_weight !== undefined ? String(initialData.badge_weight) : "1",
+          image_url: initialData && initialData.image_url ? initialData.image_url : (defaultEmoji ? defaultEmoji.url : ""),
         };
         // If editing, always set reusable to true
         if (mode === "edit") {
@@ -123,8 +121,14 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
       }
       setError(null);
       setWeightError(null);
+      // Set a default randomized emoji if none selected
+      if (emojis && emojis.length > 0) {
+        setSelectedEmoji(emojis[Math.floor(Math.random() * emojis.length)]);
+      } else {
+        setSelectedEmoji(null);
+      }
     }
-  }, [isOpen, initialData, mode]);
+  }, [isOpen, initialData, mode, emojis]);
 
 
   const handleChange = (
@@ -253,17 +257,15 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
         const triggerValue = triggerRef.current;
 
         // --- SUBJECT LOGIC ---
-        // Normalize to array of objects
+        // Always flatten and normalize to array of metric objects
         let triggerArray: any[] = [];
         if (Array.isArray(triggerValue)) {
-          triggerArray = triggerValue;
+          triggerArray = flattenTriggerConditions(triggerValue);
         } else if (triggerValue && typeof triggerValue === 'object' && 'conditions' in triggerValue && Array.isArray(triggerValue.conditions)) {
-          triggerArray = triggerValue.conditions;
+          triggerArray = flattenTriggerConditions(triggerValue.conditions);
         }
-        // Flatten if any nested groups
-        const flat = flattenTriggerConditions(triggerArray);
         // Extract categories
-        const categories = flat.map(obj => obj && typeof obj === 'object' && 'category' in obj ? obj.category : undefined).filter(Boolean);
+        const categories = triggerArray.map(obj => obj && typeof obj === 'object' && 'category' in obj ? obj.category : undefined).filter(Boolean);
         let subject = "General";
         if (categories.length === 0) {
           subject = "General";
@@ -280,13 +282,14 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
           ...form,
           id: uniqueId,
           badge_weight: String(num), // Convert to string to avoid BigInt serialization error
-          trigger: Array.isArray(triggerValue) ? triggerValue : [triggerValue],
+          trigger: triggerArray, // Always an array of metric objects
           deleted: false, // Ensure required boolean field
           prestige_name: form.prestige ? (form.prestige_name ? form.prestige_name : null) : null,
           prestige_level: form.prestige ? (form.prestige_level ? form.prestige_level : null) : null,
           progression_rank: null,
           progression: null,
           subject,
+          image_url: form.image_url, // <-- ensure image_url is saved
         };
         try {
           // @ts-ignore: dynamic import for code-splitting or if not imported
@@ -423,10 +426,74 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
           </div>
         </div>
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1rem" }}>
-            <label>Badge Name:<br />
-              <input name="badge_name" value={form.badge_name} onChange={handleChange} required style={{ width: "100%" }} />
-            </label>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', marginBottom: '1rem' }}>
+            {/* Emoji display and picker trigger */}
+            <div style={{ minWidth: 60, position: 'relative' }}>
+              <button
+                type="button"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #3bbca9',
+                  borderRadius: 8,
+                  padding: 6,
+                  minWidth: 60,
+                  minHeight: 60,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setShowEmojiMenu(true)}
+                title={selectedEmoji ? selectedEmoji.name : 'Select emoji'}
+              >
+                {selectedEmoji ? (
+                  <img src={selectedEmoji.url} alt={selectedEmoji.name} style={{ width: 40, height: 40, borderRadius: 4 }} />
+                ) : (
+                  <span style={{ color: '#aaa' }}>?</span>
+                )}
+              </button>
+              {/* Emoji selection modal using EmojiPicker */}
+              {showEmojiMenu && (
+                <div style={{
+                  position: 'absolute',
+                  zIndex: 2000,
+                  background: '#222',
+                  border: '2px solid #3bbca9',
+                  borderRadius: 12,
+                  padding: 16,
+                  top: '60px',
+                  left: '0',
+                  boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
+                  minWidth: 320,
+                  maxHeight: 400,
+                  overflowY: 'auto',
+                }}>
+                  {/* Use EmojiPicker for emoji selection */}
+                  <EmojiPicker
+                    emojis={emojis}
+                    selectedEmoji={selectedEmoji}
+                    onSelect={(emoji) => {
+                      setSelectedEmoji(emoji);
+                      setForm(prev => ({
+                        ...prev,
+                        image_url: emoji.url,
+                      }));
+                      setShowEmojiMenu(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    style={{ marginTop: 16, background: '#444', color: '#fff', border: 'none', borderRadius: 4, padding: '0.5rem 1rem' }}
+                    onClick={() => setShowEmojiMenu(false)}
+                  >Cancel</button>
+                </div>
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <label>Badge Name:<br />
+                <input name="badge_name" value={form.badge_name} onChange={handleChange} required style={{ width: "100%" }} />
+              </label>
+            </div>
           </div>
           <div style={{ marginBottom: "1rem" }}>
             <label>Description:<br />
@@ -673,6 +740,18 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
       </div>
     </div>
   );
+};
+
+const flattenTriggerConditions = (arr: any[]): any[] => {
+  let out: any[] = [];
+  for (const item of arr) {
+    if (item && typeof item === 'object' && 'conditions' in item && Array.isArray(item.conditions)) {
+      out = out.concat(flattenTriggerConditions(item.conditions));
+    } else {
+      out.push(item);
+    }
+  }
+  return out;
 };
 
 export default CreateBadgeModal;

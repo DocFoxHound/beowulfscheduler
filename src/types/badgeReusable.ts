@@ -11,4 +11,5 @@ export interface BadgeReusable {
   progression: boolean;
   progression_rank: string;
   trigger: JSON[];
+  image_url: string;
 }

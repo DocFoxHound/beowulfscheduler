@@ -2,14 +2,16 @@ import React, { useEffect, useState } from "react";
 import { fetchAllBadgeReusables, deleteBadgeReusable, createBadgeReusable, fetchAllActiveBadgeReusables } from "../../api/badgeReusableApi";
 import { BadgeReusable } from "../../types/badgeReusable";
 import CreateBadgeModal from "./CreateBadgeModal";
+import AwardBadgeModal from "./AwardBadgeModal";
 import { type User } from "../../types/user";
 
 interface AdminGeneralManagementProps {
   users: User[];
   loading: boolean;
+  emojis: any[];
 }
 
-const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, loading }) => {
+const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, loading, emojis }) => {
   const [badges, setBadges] = useState<BadgeReusable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +19,10 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
   const [editBadge, setEditBadge] = useState<BadgeReusable | null>(null);
   // State to track expanded/collapsed categories
   const [expandedCategories, setExpandedCategories] = useState<{ [subject: string]: boolean }>({});
+  // State to track which badge's tooltip is open
+  const [tooltipOpenId, setTooltipOpenId] = useState<string | null>(null);
+  // State for Assign modal
+  const [assignModal, setAssignModal] = useState<{ open: boolean; badge: BadgeReusable | null }>({ open: false, badge: null });
 
 
   const visibleBadges = badges.filter((b) => !b.deleted);
@@ -110,6 +116,7 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
         mode={editBadge ? "edit" : "create"}
         submitLabel={editBadge ? "Save" : "Create"}
         users={users}
+        emojis={emojis}
       />
       {isLoading ? (
         <div>Loading...</div>
@@ -148,28 +155,125 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
                       <tr>
                         <th style={{ padding: "0.5rem", borderBottom: "1px solid #444", textAlign: "left" }}>Badge Name</th>
                         <th style={{ padding: "0.5rem", borderBottom: "1px solid #444", textAlign: "left" }}>Weight</th>
-                        <th style={{ padding: "0.5rem", borderBottom: "1px solid #444", textAlign: "left" }}>Prestige Name</th>
+                        <th style={{ padding: "0.5rem", borderBottom: "1px solid #444", textAlign: "center" }}>Trigger</th>
                         <th style={{ padding: "0.5rem", borderBottom: "1px solid #444", textAlign: "left" }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {groupedBadges[subject].map((badge) => (
-                        <tr key={String(badge.id)}>
-                          <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>
-                            <span title={badge.badge_description}>{badge.badge_name}</span>
-                          </td>
-                          <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>{String(badge.badge_weight)}</td>
-                          <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>
-                            {badge.prestige_name
-                              ? `${badge.prestige_name}${badge.prestige_level ? ` - ${badge.prestige_level}` : ""}`
-                              : "-"}
-                          </td>
-                          <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>
-                            <button onClick={() => handleEdit(badge)} style={{ marginRight: "0.5rem", padding: "0.3rem 0.7rem", borderRadius: "4px", background: "#4fd339", color: "#fff", border: "none" }}>Edit</button>
-                            <button onClick={() => handleDelete(String(badge.id))} style={{ padding: "0.3rem 0.7rem", borderRadius: "4px", background: "#e02323", color: "#fff", border: "none" }}>Delete</button>
-                          </td>
-                        </tr>
-                      ))}
+                      {groupedBadges[subject].map((badge, idx) => {
+                        // Show only metric, condition/operator, and value fields for each trigger condition, including nested AND/OR
+                        let triggerInfoRaw = (badge as any).trigger;
+                        let triggerInfo: React.ReactNode;
+                        // Helper to render a single condition line
+                        const renderCondition = (cond: any, idx: number) => (
+                          <div key={idx}>
+                            {`${cond.metric ?? "-"} ${cond.condition ?? cond.operator ?? "-"} ${cond.value ?? "-"}`}
+                          </div>
+                        );
+                        // Helper to handle AND/OR objects
+                        const renderTrigger = (triggerObj: any) => {
+                          if (!triggerObj) return "No trigger info.";
+                          // If it's an AND/OR type with .conditions array
+                          if ((triggerObj.type === "AND" || triggerObj.type === "OR") && Array.isArray(triggerObj.conditions)) {
+                            return (
+                              <div style={{ whiteSpace: "pre-line" }}>
+                                {triggerObj.conditions.map((cond: any, idx: number) => renderTrigger(cond))}
+                              </div>
+                            );
+                          }
+                          // Otherwise, treat as a single condition
+                          return renderCondition(triggerObj, 0);
+                        };
+                        if (Array.isArray(triggerInfoRaw) && triggerInfoRaw.length > 0) {
+                          triggerInfo = (
+                            <div style={{ whiteSpace: "pre-line" }}>
+                              {triggerInfoRaw.map((t: any, idx: number) => renderTrigger(t))}
+                            </div>
+                          );
+                        } else if (typeof triggerInfoRaw === "object" && triggerInfoRaw !== null) {
+                          triggerInfo = (
+                            <div style={{ whiteSpace: "pre-line" }}>
+                              {renderTrigger(triggerInfoRaw)}
+                            </div>
+                          );
+                        } else if (triggerInfoRaw === undefined || triggerInfoRaw === null) {
+                          triggerInfo = "No trigger info.";
+                        } else {
+                          triggerInfo = String(triggerInfoRaw);
+                        }
+                        // Use badge.id if unique, otherwise fallback to subject-idx
+                        const badgeId = badge.id && badge.id !== "" ? String(badge.id) : `${subject}-${idx}`;
+                        return (
+                          <tr key={badgeId}>
+                            <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>
+                              <span title={badge.badge_description} style={{ display: "flex", alignItems: "center" }}>
+                                {badge.image_url && (
+                                  <img
+                                    src={badge.image_url}
+                                    alt="badge icon"
+                                    style={{ width: "24px", height: "24px", marginRight: "0.5em", borderRadius: "4px", objectFit: "cover", background: "#222" }}
+                                  />
+                                )}
+                                <span>
+                                  {badge.badge_name}
+                                  {badge.prestige && badge.prestige_name && badge.prestige_level ? (
+                                    <span style={{ fontSize: "0.85em", marginLeft: "0.4em", opacity: 0.8 }}>
+                                      ({badge.prestige_name} {badge.prestige_level})
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </span>
+                            </td>
+                            <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>{String(badge.badge_weight)}</td>
+                            <td style={{ padding: "0.5rem", borderBottom: "1px solid #333", textAlign: "center" }}>
+                              <div style={{ position: "relative", display: "inline-block" }}>
+                                <span
+                                  style={{
+                                    cursor: "pointer",
+                                    color: "#3bbca9",
+                                    fontSize: "1.2em",
+                                    verticalAlign: "middle",
+                                  }}
+                                  onMouseEnter={() => setTooltipOpenId(badgeId)}
+                                  onMouseLeave={() => setTooltipOpenId(null)}
+                                  tabIndex={0}
+                                  aria-label="Show trigger info"
+                                >
+                                  &#9432;
+                                </span>
+                                {tooltipOpenId === badgeId && (
+                                  <div
+                                    style={{
+                                      visibility: "visible",
+                                      width: "220px",
+                                      background: "#222",
+                                      color: "#fff",
+                                      textAlign: "left",
+                                      borderRadius: "6px",
+                                      padding: "0.7rem 1rem",
+                                      position: "absolute",
+                                      zIndex: 10,
+                                      left: "50%",
+                                      top: "120%",
+                                      transform: "translateX(-50%)",
+                                      boxShadow: "0 2px 8px #0005",
+                                      fontSize: "0.97em",
+                                      pointerEvents: "auto",
+                                    }}
+                                  >
+                                    {triggerInfo}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>
+                              <button onClick={() => handleEdit(badge)} style={{ padding: "0.3rem 0.7rem", borderRadius: "4px", background: "#4fd339", color: "#fff", border: "none", marginRight: "0.5rem" }}>Edit</button>
+                              <button onClick={() => handleDelete(String(badge.id))} style={{ padding: "0.3rem 0.7rem", borderRadius: "4px", background: "#e02323", color: "#fff", border: "none", marginRight: "0.5rem" }}>Delete</button>
+                              <button onClick={() => setAssignModal({ open: true, badge })} style={{ padding: "0.3rem 0.7rem", borderRadius: "4px", background: "#3b6cbc", color: "#fff", border: "none" }}>Award To</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 ) : null}
@@ -178,7 +282,14 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
           )}
         </div>
       )}
-    </div>
+    {/* Assign Modal */}
+    <AwardBadgeModal
+      open={assignModal.open}
+      badge={assignModal.badge}
+      users={users}
+      onClose={() => setAssignModal({ open: false, badge: null })}
+    />
+  </div>
   );
 };
 
