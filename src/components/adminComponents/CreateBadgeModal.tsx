@@ -121,8 +121,11 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
       }
       setError(null);
       setWeightError(null);
-      // Set a default randomized emoji if none selected
-      if (emojis && emojis.length > 0) {
+      // Set selectedEmoji: if editing and initialData.image_url, use that emoji, else randomize
+      if (mode === "edit" && initialData && initialData.image_url && emojis && emojis.length > 0) {
+        const found = emojis.find(e => e.url === initialData.image_url);
+        setSelectedEmoji(found || null);
+      } else if (emojis && emojis.length > 0) {
         setSelectedEmoji(emojis[Math.floor(Math.random() * emojis.length)]);
       } else {
         setSelectedEmoji(null);
@@ -250,9 +253,8 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
       }
       // If 'Reusable' is toggled on, save as BadgeReusable
       if (form.reusable) {
-        // Import createBadgeReusable at the top if not already
-        // Generate a unique string id for the reusable badge
-        const uniqueId = (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000))).toString();
+        // Use updateBadgeReusable if editing, otherwise createBadgeReusable
+        const isEdit = mode === "edit" && initialData && initialData.id;
         // Use the latest trigger JSON from the trigger menu
         const triggerValue = triggerRef.current;
 
@@ -268,36 +270,47 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
         const categories = triggerArray.map(obj => obj && typeof obj === 'object' && 'category' in obj ? obj.category : undefined).filter(Boolean);
         let subject = "General";
         if (categories.length === 0) {
-          subject = "General";
+        subject = "General";
+      } else {
+        const unique = Array.from(new Set(categories));
+        if (unique.length === 1) {
+          subject = unique[0];
         } else {
-          const unique = Array.from(new Set(categories));
-          if (unique.length === 1) {
-            subject = unique[0];
-          } else {
-            subject = "Mixed";
-          }
+          subject = "Mixed";
         }
+      }
 
-        const badgeReusable = {
-          ...form,
-          id: uniqueId,
-          badge_weight: String(num), // Convert to string to avoid BigInt serialization error
-          trigger: triggerArray, // Always an array of metric objects
-          deleted: false, // Ensure required boolean field
-          prestige_name: form.prestige ? (form.prestige_name ? form.prestige_name : null) : null,
-          prestige_level: form.prestige ? (form.prestige_level ? form.prestige_level : null) : null,
-          progression_rank: null,
-          progression: null,
-          subject,
-          image_url: form.image_url, // <-- ensure image_url is saved
-        };
+      // If prestige is toggled, override subject to 'Prestige'
+      if (form.prestige) {
+        subject = "Prestige";
+      }
+
+      // Prepare badgeReusable object
+      const badgeReusable = {
+        ...form,
+        id: isEdit ? initialData.id : (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000))).toString(),
+        badge_weight: String(num),
+        trigger: triggerArray,
+        deleted: false,
+        prestige_name: form.prestige ? (form.prestige_name ? form.prestige_name : null) : null,
+        prestige_level: form.prestige ? (form.prestige_level ? form.prestige_level : null) : null,
+        progression_rank: null,
+        progression: null,
+        subject,
+        image_url: form.image_url,
+        emoji_name: selectedEmoji ? selectedEmoji.name : null,
+      };
         try {
           // @ts-ignore: dynamic import for code-splitting or if not imported
-          const { createBadgeReusable } = await import('../../api/badgeReusableApi');
-          await createBadgeReusable(badgeReusable as any);
+          const badgeReusableApi = await import('../../api/badgeReusableApi');
+          if (isEdit) {
+            await badgeReusableApi.updateBadgeReusable(String(initialData.id), badgeReusable as any);
+          } else {
+            await badgeReusableApi.createBadgeReusable(badgeReusable as any);
+          }
         } catch (err) {
-          console.error('Failed to create badge reusable:', err);
-          setError('Failed to create reusable badge.');
+          console.error('Failed to save badge reusable:', err);
+          setError('Failed to save reusable badge.');
           setLoading(false);
           return;
         }

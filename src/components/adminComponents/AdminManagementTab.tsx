@@ -1,5 +1,7 @@
+
 import React from "react";
 import AdminGeneralManagement from "./AdminManagementGeneral";
+import AdminManagementPlayer from "./AdminManagementPlayer";
 import { type User } from "../../types/user";
 
 interface AdminManagementTabProps {
@@ -7,22 +9,16 @@ interface AdminManagementTabProps {
   users: User[];
   loading: boolean;
   emojis: any[];
+  activeBadgeReusables: any[];
 }
 
-const AdminManagementTab: React.FC<AdminManagementTabProps> = ({ selectedPlayer, users, loading, emojis }) => {
+const AdminManagementTab: React.FC<AdminManagementTabProps> = ({ selectedPlayer, users, loading, emojis, activeBadgeReusables }) => {
   if (!selectedPlayer) {
     // Overall management view
-    return <AdminGeneralManagement users={users} loading={loading} emojis={emojis} />;
+    return <AdminGeneralManagement users={users} loading={loading} emojis={emojis} activeBadgeReusables={activeBadgeReusables} />;
   }
   // Player management view
-  return (
-    <div>
-      <h3>Player Management</h3>
-      <p>Manage player: <strong>{selectedPlayer.username || selectedPlayer.nickname || selectedPlayer.id}</strong></p>
-      {/* Pass emojis to nested components as needed */}
-      {/* Add player-specific management controls and stats here */}
-    </div>
-  );
+  return <AdminManagementPlayer player={selectedPlayer} emojis={emojis} activeBadgeReusables={activeBadgeReusables} />;
 };
 
 export default AdminManagementTab;

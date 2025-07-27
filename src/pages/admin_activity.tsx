@@ -8,6 +8,7 @@ import AdminActivityGraph from "../components/adminComponents/AdminActivityGraph
 import AdminManagementTab from "../components/adminComponents/AdminManagementTab";
 import { fetchAllEmojis } from "../api/emojiApi";
 import { getAllUsers } from "../api/userService";
+import { fetchAllBadgeReusables, deleteBadgeReusable, createBadgeReusable, fetchAllActiveBadgeReusables } from "../api/badgeReusableApi";
 
 const BLOODED_PLUS_IDS = (import.meta.env.VITE_LIVE_BLOODED_PLUS || "").split(",");
 
@@ -18,6 +19,16 @@ const AdminActivity: React.FC = () => {
   const [usersLoading, setUsersLoading] = useState(true);
   const [filteredUsersWithData, setFilteredUsersWithData] = useState<any[]>([]);
   const [emojis, setEmojis] = useState<any[]>([]);
+  const [activeBadgeReusables, setActiveBadgeReusables] = useState<any[]>([]);
+  // Fetch active badge reusables on mount
+  useEffect(() => {
+    fetchAllActiveBadgeReusables()
+      .then((data) => {
+        setActiveBadgeReusables(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setActiveBadgeReusables([]));
+  }, []);
+  
   // Fetch emojis on mount
   useEffect(() => {
     fetchAllEmojis()
@@ -110,6 +121,7 @@ const AdminActivity: React.FC = () => {
               users={allUsers}
               loading={usersLoading}
               emojis={emojis}
+              activeBadgeReusables={activeBadgeReusables}
             />
           </div>
         </div>

@@ -9,10 +9,10 @@ interface AdminGeneralManagementProps {
   users: User[];
   loading: boolean;
   emojis: any[];
+  activeBadgeReusables: any[];
 }
 
-const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, loading, emojis }) => {
-  const [badges, setBadges] = useState<BadgeReusable[]>([]);
+const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, loading, emojis, activeBadgeReusables }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -23,9 +23,14 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
   const [tooltipOpenId, setTooltipOpenId] = useState<string | null>(null);
   // State for Assign modal
   const [assignModal, setAssignModal] = useState<{ open: boolean; badge: BadgeReusable | null }>({ open: false, badge: null });
+  // Local state for badges
+  const [badgeReusables, setBadgeReusabless] = useState<any[]>(activeBadgeReusables);
 
+  useEffect(() => {
+    setBadgeReusabless(activeBadgeReusables);
+  }, [activeBadgeReusables]);
 
-  const visibleBadges = badges.filter((b) => !b.deleted);
+  const visibleBadges = badgeReusables.filter((b: any) => !b.deleted);
 
   // Group badges by subject
   const groupedBadges = visibleBadges.reduce((acc: { [subject: string]: BadgeReusable[] }, badge) => {
@@ -46,13 +51,7 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
     }));
   };
 
-  useEffect(() => {
-    setIsLoading(true);
-    fetchAllActiveBadgeReusables()
-      .then((data) => setBadges(data))
-      .catch((err) => setError("Failed to fetch badges."))
-      .finally(() => setIsLoading(false));
-  }, []);
+
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this badge?")) return;
@@ -60,7 +59,7 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
     try {
       // Use updateBadgeReusable to soft-delete the badge
       const updated = await import("../../api/badgeReusableApi").then(api => api.updateBadgeReusable(String(id), { deleted: true }));
-      setBadges((prev) => prev.map((b) => b.id === id ? { ...b, deleted: true } : b));
+      setBadgeReusabless((prev) => prev.map((b) => b.id === id ? { ...b, deleted: true } : b));
     } catch {
       setError("Failed to delete badge.");
     } finally {
@@ -86,7 +85,7 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
       progression_rank: badge.progression_rank ?? "",
     };
     const created = await createBadgeReusable(newBadge);
-    setBadges((prev) => [...prev, created]);
+    setBadgeReusabless((prev) => [...prev, created]);
   };
 
   const handleEditBadge = async (badge: BadgeReusable) => {
@@ -201,8 +200,8 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
                         } else {
                           triggerInfo = String(triggerInfoRaw);
                         }
-                        // Use badge.id if unique, otherwise fallback to subject-idx
-                        const badgeId = badge.id && badge.id !== "" ? String(badge.id) : `${subject}-${idx}`;
+                        // Use badge.id if unique, otherwise fallback to subject-idx-badge_name for uniqueness
+                        const badgeId = badge.id && badge.id !== "" ? String(badge.id) : `${subject}-${idx}-${badge.badge_name}`;
                         return (
                           <tr key={badgeId}>
                             <td style={{ padding: "0.5rem", borderBottom: "1px solid #333" }}>

@@ -64,6 +64,8 @@ const AwardBadgeModal: React.FC<AwardBadgeModalProps> = ({ open, badge, users, o
           badge_description: badge.badge_description,
           badge_weight: Number(badge.badge_weight),
           patch: patch,
+          badge_icon: badge.emoji_name,
+          badge_url: badge.image_url,
         };
         await createBadge(badgeRecord);
       }

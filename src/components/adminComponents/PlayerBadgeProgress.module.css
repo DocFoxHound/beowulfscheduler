@@ -1,0 +1,38 @@
+/* Tooltip for badge progress bar info icon */
+.badge-progress-info-icon {
+  position: relative;
+  outline: none;
+}
+.badge-progress-info-icon:hover .badge-progress-tooltip,
+.badge-progress-info-icon:focus .badge-progress-tooltip,
+.badge-progress-info-icon.badge-progress-info-icon-active .badge-progress-tooltip {
+  display: block !important;
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+.badge-progress-info-icon:active {
+  background: #1976d2 !important;
+  color: #fff !important;
+  border-color: #1976d2 !important;
+}
+.badge-progress-tooltip {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+}/* Tooltip for badge progress bar */
+.badge-progress-bar-container {
+  position: relative;
+}
+.badge-progress-bar-container:hover .badge-progress-tooltip,
+.badge-progress-bar-container:focus .badge-progress-tooltip {
+  display: block !important;
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+.badge-progress-tooltip {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+}

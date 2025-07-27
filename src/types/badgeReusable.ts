@@ -12,4 +12,5 @@ export interface BadgeReusable {
   progression_rank: string;
   trigger: JSON[];
   image_url: string;
+  emoji_name: string;
 }

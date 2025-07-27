@@ -5,4 +5,6 @@ export interface BadgeRecord {
   badge_description: string;
   badge_weight: number;
   patch?: string | null;
+  badge_icon: string;
+  badge_url: string;
 }

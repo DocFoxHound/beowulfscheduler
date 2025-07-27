@@ -23,6 +23,18 @@ export type ConditionGroup = {
   conditions: (Metric | ConditionGroup)[];
 };
 
+// Metric option type with optional tooltip
+type MetricOption = {
+  metric: string;
+  label: string;
+  tooltip?: string;
+};
+// Metric category type
+type MetricCategory = {
+  label: string;
+  options: MetricOption[];
+};
+
 // Metric options organized by category and subcategory
 import { METRIC_CATEGORIES } from "./metricCategories";
 const OPERATOR_OPTIONS = [
@@ -319,8 +331,8 @@ const updateMetric = (parent: ConditionGroup, idx: number, field: keyof Metric, 
                   let tooltip: string | undefined = undefined;
                   for (const cat of METRIC_CATEGORIES) {
                     const found = cat.options.find(opt => opt.metric === metricKey);
-                    if (found && found.tooltip) {
-                      tooltip = found.tooltip;
+                    if (found && (found as MetricOption).tooltip) {
+                      tooltip = (found as MetricOption).tooltip;
                       break;
                     }
                   }
