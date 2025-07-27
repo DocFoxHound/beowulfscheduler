@@ -8,6 +8,7 @@ interface BadgeProgressProps {
   playerStatsLoading: boolean;
   playerBadges: any[];
   playerBadgesLoading: boolean;
+  isModerator?: boolean;
 }
 
 
@@ -43,10 +44,8 @@ const getProgress = (playerValue: number, operator: string, targetValue: number)
 };
 
 
-const BadgeProgress: React.FC<BadgeProgressProps> = ({ activeBadgeReusables, loading, playerStats, playerBadges }) => {
+const BadgeProgress: React.FC<BadgeProgressProps> = ({ activeBadgeReusables, loading, playerStats, playerBadges, isModerator }) => {
   if (loading) return <div>Loading...</div>;
-
-
 
   // Prepare a Set of badge_names for quick lookup
   const playerBadgeNames = React.useMemo(() => new Set((playerBadges || []).map(b => b.badge_name)), [playerBadges]);

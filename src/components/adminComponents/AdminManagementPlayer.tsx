@@ -10,17 +10,22 @@ interface AdminManagementPlayerProps {
   player: any; // Replace 'any' with your UserWithData type if available
   emojis?: any[];
   activeBadgeReusables: any[];
+  dbUser?: any; // Optional prop for database user context
 }
 
 
-const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, emojis, activeBadgeReusables }) => {
+const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, emojis, activeBadgeReusables, dbUser }) => {
   const [badgeReusables, setBadgeReusables] = useState<any[]>([]);
   const [badgesLoading, setBadgesLoading] = useState(false);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
   const [playerStatsLoading, setPlayerStatsLoading] = useState(false);
   const [badges, setBadges] = useState<any[]>([]); // New state for badges
   const [badgesArrayLoading, setBadgesArrayLoading] = useState(false); // Loading state for badges array
-
+  
+  //check if player is a moderator or not
+  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+  const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+  
   useEffect(() => {
     if (player && player.id) {
       setBadgesLoading(true);
@@ -53,11 +58,11 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
 
   return (
     <div style={{ color: "#fff" }}>
-      <h3>Player Management: {player.username}</h3>
       <PromotionProgress
         playerStats={playerStats}
         playerStatsLoading={playerStatsLoading}
         player={player}
+        isModerator={isModerator}
       />
       <BadgeProgress
         activeBadgeReusables={activeBadgeReusables}
@@ -66,6 +71,7 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
         playerStatsLoading={playerStatsLoading}
         playerBadges={badges}
         playerBadgesLoading={badgesArrayLoading}
+        isModerator={isModerator}
       />
       
       <PrestigeProgress 
@@ -73,6 +79,7 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
         playerStats={playerStats}
         playerStatsLoading={playerStatsLoading}
         player={player}
+        isModerator={isModerator}
       />
     </div>
   );

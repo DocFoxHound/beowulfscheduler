@@ -115,13 +115,13 @@ const AdminActivity: React.FC = () => {
           </div>
           {/* Right side: Recent Gatherings list */}
           <div style={{ flex: 1, background: "#222", borderRadius: "8px", padding: "1rem", minHeight: "400px" }}>
-            <h2>Management</h2>
             <AdminManagementTab
               selectedPlayer={selectedPlayer}
               users={allUsers}
               loading={usersLoading}
               emojis={emojis}
               activeBadgeReusables={activeBadgeReusables}
+              dbUser={dbUser}
             />
           </div>
         </div>

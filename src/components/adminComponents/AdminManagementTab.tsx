@@ -10,15 +10,16 @@ interface AdminManagementTabProps {
   loading: boolean;
   emojis: any[];
   activeBadgeReusables: any[];
+  dbUser?: any; // Optional prop for database user context
 }
 
-const AdminManagementTab: React.FC<AdminManagementTabProps> = ({ selectedPlayer, users, loading, emojis, activeBadgeReusables }) => {
+const AdminManagementTab: React.FC<AdminManagementTabProps> = ({ selectedPlayer, users, loading, emojis, activeBadgeReusables, dbUser }) => {
   if (!selectedPlayer) {
     // Overall management view
     return <AdminGeneralManagement users={users} loading={loading} emojis={emojis} activeBadgeReusables={activeBadgeReusables} />;
   }
   // Player management view
-  return <AdminManagementPlayer player={selectedPlayer} emojis={emojis} activeBadgeReusables={activeBadgeReusables} />;
+  return <AdminManagementPlayer player={selectedPlayer} emojis={emojis} activeBadgeReusables={activeBadgeReusables} dbUser={dbUser} />;
 };
 
 export default AdminManagementTab;
