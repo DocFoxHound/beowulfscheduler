@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { promotePlayer } from "../../api/promotePlayer";
+import { promotePlayer } from "../../api/promotePlayerApi";
 import { getUserById } from "../../api/userService";
 
 interface PlayerPromotionProgressProps {
@@ -8,12 +8,14 @@ interface PlayerPromotionProgressProps {
   playerStatsLoading: boolean;
   player?: any;
   isModerator?: boolean;
+  dbUser?: any; // Optional prop for database user context
+  onPromote?: () => void; // Optional callback to trigger refresh in parent
 }
 
 
 const rankOrder = ["Friendly", "Prospect", "Crew", "Marauder", "Blooded"];
 
-const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats, playerStatsLoading, isModerator, player }) => {
+const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats, playerStatsLoading, isModerator, player, dbUser, onPromote }) => {
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState<string | null>(null);
@@ -183,7 +185,21 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
       const playerId = playerStats?.user_id || playerStats?.id || (player && (player.id || player.user_id));
       await promotePlayer(playerId);
       setShowPromoteModal(false);
+      // Refresh user data after promotion
+      // Refetch user object
+      setUserLoading(true);
+      try {
+        const userObj = await getUserById(playerId);
+        setUser(userObj);
+      } catch (err) {
+        setUser(null);
+      } finally {
+        setUserLoading(false);
+      }
       // Optionally, trigger a refresh or callback here
+      if (typeof onPromote === 'function') {
+        onPromote();
+      }
     } catch (err) {
       setPromoteError("Failed to promote player. Please try again.");
     } finally {
@@ -195,7 +211,7 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
     <div style={{ marginTop: "2rem", position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
         <div style={{ fontWeight: 700, fontSize: 20 }}>Promotion Progress</div>
-        {isModerator && (
+        {isModerator && dbUser?.id !== playerStats?.user_id && (
           <button
             style={{
               background: "#2196f3",

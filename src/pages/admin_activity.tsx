@@ -9,6 +9,7 @@ import AdminManagementTab from "../components/adminComponents/AdminManagementTab
 import { fetchAllEmojis } from "../api/emojiApi";
 import { getAllUsers } from "../api/userService";
 import { fetchAllBadgeReusables, deleteBadgeReusable, createBadgeReusable, fetchAllActiveBadgeReusables } from "../api/badgeReusableApi";
+import { fetchLeaderboardSBLogsByTimespan } from "../api/leaderboardSBLogApi";
 
 const BLOODED_PLUS_IDS = (import.meta.env.VITE_LIVE_BLOODED_PLUS || "").split(",");
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { shouldShowPromoteTag } from "../../utils/promotionUtils";
 import AdminActivityGraph from "./AdminActivityGraphs";
+import AdminFlightHoursGraph from "./AdminFlightHoursGraph";
 import { fetchBlackBoxesWithinTimeframe } from "../../api/blackboxApi";
 import { fetchShipLogsByTimeframe } from "../../api/fleetLogApi";
 import { fetchRecentGatheringsWithinTimeframe } from "../../api/recentGatheringsApi";
@@ -57,7 +58,8 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
     setSessionsLoading(true);
     // Format startDate and endDate to include time for full day coverage
     const startDateTime = `${startDate}T00:00:00`;
-    const endDateTime = `${endDate}T23:59:59`;
+    // Set endDateTime to the end of the day with milliseconds
+    const endDateTime = `${endDate}T23:59:59.999`;
     fetchVoiceChannelSessionsByTimeframe(startDateTime, endDateTime)
       .then((data) => {
         setSessions(data);
@@ -68,13 +70,16 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
       .finally(() => setSessionsLoading(false));
     // Fetch all resources by timeframe
     setResourceLoading(true);
+    // Convert to milliseconds since epoch for SB logs
+    const startMs = new Date(startDateTime).getTime();
+    const endMs = new Date(endDateTime).getTime();
     Promise.all([
       fetchBlackBoxesWithinTimeframe(startDateTime, endDateTime).catch(() => []),
       fetchShipLogsByTimeframe(startDateTime, endDateTime).catch(() => []),
       fetchRecentGatheringsWithinTimeframe(startDateTime, endDateTime).catch(() => []),
       fetchHitsByTimeframe(startDateTime, endDateTime).catch(() => []),
       fetchSBAllPlayerSummaries().catch(() => []),
-      fetchLeaderboardSBLogsByTimespan(startDate, endDate).catch(() => [])
+      fetchLeaderboardSBLogsByTimespan(startMs.toString(), endMs.toString()).catch(() => [])
     ])
       .then(([blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData]) => {
         setBlackBoxes(Array.isArray(blackBoxesData) ? blackBoxesData : []);
@@ -175,9 +180,12 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   // Filter and search logic
+  // Only show users with allowed ranks
+  const allowedRanks = ["Prospect", "Crew", "Marauder", "Blooded"];
   let filteredUsers = filteredUsersWithData.filter((user: any) => {
     const matchesSearch = user.username?.toLowerCase().includes(search.toLowerCase());
     const userRank = getUserRank(user);
+    const matchesAllowedRanks = userRank && allowedRanks.includes(userRank.name);
     const matchesFilter = filter ? (userRank && userRank.name === filter) : true;
     const hasAnyActivity =
       user.voiceHours > 0 ||
@@ -186,7 +194,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
       (Array.isArray(user.recentGatherings) && user.recentGatherings.length > 0) ||
       (Array.isArray(user.hitTrackers) && user.hitTrackers.length > 0) || 
       (Array.isArray(user.sbLogEntries) && user.sbLogEntries.length > 0);
-    return matchesSearch && matchesFilter && hasAnyActivity;
+    return matchesSearch && matchesAllowedRanks && matchesFilter && hasAnyActivity;
   });
 
   // Sorting logic
@@ -279,8 +287,6 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
           />
         </label>
       </div>
-      {/* Activity Graphs */}
-      {/* <AdminActivityGraph usersWithData={filteredUsersWithData} /> */}
       {/* Users table */}
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", background: "#222", color: "#fff", fontSize: "0.95rem" }}>

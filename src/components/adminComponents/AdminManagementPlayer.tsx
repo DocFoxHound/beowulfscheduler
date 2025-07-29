@@ -28,18 +28,8 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
   
   useEffect(() => {
     if (player && player.id) {
-      setBadgesLoading(true);
-      fetchBadgesByUserId(player.id)
-        .then((data) => setBadgeReusables(Array.isArray(data) ? data : []))
-        .catch(() => setBadgeReusables([]))
-        .finally(() => setBadgesLoading(false));
-
-      setBadgesArrayLoading(true);
-      fetchBadgesByUserId(player.id)
-        .then((data) => setBadges(Array.isArray(data) ? data : []))
-        .catch(() => setBadges([]))
-        .finally(() => setBadgesArrayLoading(false));
-
+      refreshBadgeReusables();
+      refreshPlayerBadges();
       setPlayerStatsLoading(true);
       fetchPlayerStatsByUserId(player.id)
         .then((data) => setPlayerStats(data))
@@ -52,6 +42,27 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
     }
   }, [player]);
 
+  // Refresh functions for badge reusables and player badges
+  const refreshBadgeReusables = () => {
+    if (player && player.id) {
+      setBadgesLoading(true);
+      fetchBadgesByUserId(player.id)
+        .then((data) => setBadgeReusables(Array.isArray(data) ? data : []))
+        .catch(() => setBadgeReusables([]))
+        .finally(() => setBadgesLoading(false));
+    }
+  };
+
+  const refreshPlayerBadges = () => {
+    if (player && player.id) {
+      setBadgesArrayLoading(true);
+      fetchBadgesByUserId(player.id)
+        .then((data) => setBadges(Array.isArray(data) ? data : []))
+        .catch(() => setBadges([]))
+        .finally(() => setBadgesArrayLoading(false));
+    }
+  };
+
   if (!player) {
     return <div style={{ color: "#fff" }}>No player selected.</div>;
   }
@@ -63,6 +74,7 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
         playerStatsLoading={playerStatsLoading}
         player={player}
         isModerator={isModerator}
+        dbUser={dbUser}
       />
       <BadgeProgress
         activeBadgeReusables={activeBadgeReusables}
@@ -72,6 +84,10 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
         playerBadges={badges}
         playerBadgesLoading={badgesArrayLoading}
         isModerator={isModerator}
+        dbUser={dbUser}
+        player={player}
+        onRefreshBadges={refreshBadgeReusables}
+        onRefreshPlayerBadges={refreshPlayerBadges}
       />
       
       <PrestigeProgress 
@@ -80,6 +96,7 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
         playerStatsLoading={playerStatsLoading}
         player={player}
         isModerator={isModerator}
+        dbUser={dbUser}
       />
     </div>
   );

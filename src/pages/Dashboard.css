@@ -1,3 +1,30 @@
+/* Org Goals Wide Section */
+.org-goals-wide {
+  width: 100%;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Three-column grid for dashboard */
+.dashboard-grid-3 {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  align-items: stretch;
+}
+.dashboard-grid-3 > .dashboard-area {
+  flex: 1 1 0;
+  min-width: 480px;
+  max-width: 900px;
+  background: #181a1b;
+  border-radius: 8px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+}
 /* Basic Layout */
 .dashboard-root {
     min-height: 100vh;
@@ -34,21 +61,69 @@
 }
 
 /* Content */
+
+
+
 .dashboard-content {
-  flex: 1;
-  max-width: 1200px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 2rem;
 }
 
-.dashboard-content {
+.playercard-area {
+  grid-column: 1 / 2;
+  grid-row: 1;
+  min-width: 480px;
+  max-width: 900px;
+  background: #23272e;
+  border-radius: 8px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   display: flex;
   flex-direction: column;
-  flex-grow: 1; /* Allow children to grow */
-  width: 90%; /* Ensure it spans the full width */
-  max-width: 95%; /* Prevent unnecessary constraints */
+}
+
+.org-goals-area {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  background: #23272e;
+  border-radius: 8px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+}
+
+.unified-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+
+.org-goals-span {
+  grid-column: 1 / 4;
+}
+
+.dashboard-area {
+  min-width: 250px;
+  max-width: 1000px;
+  background: #242424;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
 }
 
 /* User Header */

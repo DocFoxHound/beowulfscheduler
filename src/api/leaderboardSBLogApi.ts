@@ -6,42 +6,25 @@ const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.en
 // GET all LeaderboardLog entries
 export const fetchAllLeaderboardSBLogs = async (): Promise<LeaderboardSBLog[]> => {
   const response = await axios.get(`${API_BASE_URL}/api/leaderboardsblog/`);
-  return response.data.map((entry: any) => ({
-    ...entry,
-    user_id: entry.user_id ? BigInt(entry.user_id) : undefined,
-    score: entry.score ? BigInt(entry.score) : undefined,
-    damage_dealt: entry.damage_dealt ? BigInt(entry.damage_dealt) : undefined,
-    damage_taken: entry.damage_taken ? BigInt(entry.damage_taken) : undefined,
-    created_at: entry.created_at ? BigInt(entry.created_at) : undefined,
-  }));
+  return response.data;
 };
 
 // GET LeaderboardLog entry by User ID
 export const fetchLeaderboardSBLogByUserId = async (userId: string | number): Promise<LeaderboardSBLog | null> => {
   const response = await axios.get(`${API_BASE_URL}/api/leaderboardsblog/user/${userId}`);
   if (!response.data) return null;
-  const entry = response.data;
-  return {
-    ...entry,
-    user_id: entry.user_id ? BigInt(entry.user_id) : undefined,
-    score: entry.score ? BigInt(entry.score) : undefined,
-    damage_dealt: entry.damage_dealt ? BigInt(entry.damage_dealt) : undefined,
-    damage_taken: entry.damage_taken ? BigInt(entry.damage_taken) : undefined,
-    created_at: entry.created_at ? BigInt(entry.created_at) : undefined,
-  };
+  return response.data;
 };
 
 // GET all LeaderboardLog entries within a provided timespan
 export const fetchLeaderboardSBLogsByTimespan = async (start: string, end: string): Promise<LeaderboardSBLog[]> => {
-  const response = await axios.get(`${API_BASE_URL}/api/leaderboardsblog/timespan`, {
-    params: { start, end }
-  });
-  return response.data.map((entry: any) => ({
-    ...entry,
-    user_id: entry.user_id ? BigInt(entry.user_id) : undefined,
-    score: entry.score ? BigInt(entry.score) : undefined,
-    damage_dealt: entry.damage_dealt ? BigInt(entry.damage_dealt) : undefined,
-    damage_taken: entry.damage_taken ? BigInt(entry.damage_taken) : undefined,
-    created_at: entry.created_at ? BigInt(entry.created_at) : undefined,
-  }));
+  try{
+    const response = await axios.get(`${API_BASE_URL}/api/leaderboardsblog/timespan`, {
+      params: { start: start, end: end }
+    });
+    return response.data;
+  }catch (error) {
+    console.error("Error fetching leaderboard logs by timespan:", error);
+    return [];
+  }
 };

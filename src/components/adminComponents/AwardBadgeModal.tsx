@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { createBadge } from "../../api/badgeRecordApi";
+import { notifyAward } from "../../api/notifyAwardApi";
 import { getLatestPatch } from "../../api/patchApi";
 import { BadgeReusable } from "../../types/badgeReusable";
 import { User } from "../../types/user";
@@ -68,6 +69,17 @@ const AwardBadgeModal: React.FC<AwardBadgeModalProps> = ({ open, badge, users, o
           badge_url: badge.image_url,
         };
         await createBadge(badgeRecord);
+        // Notify Discord bot about the award
+        try {
+          await notifyAward(
+            badge.badge_name,
+            badge.badge_description,
+            userObj.nickname ? userObj.nickname : userObj.username,
+            String(userObj.id)
+          );
+        } catch (notifyErr) {
+          console.log("Error notifying Discord bot:", notifyErr);
+        }
       }
       setSuccess(`Badge awarded to: ${selectedUsers.join(", ")}`);
     } catch (err) {

@@ -1,5 +1,8 @@
+
 import React from "react";
 import styles from "./PlayerBadgeProgress.module.css";
+import { createBadge } from "../../api/badgeRecordApi";
+import { notifyAward } from "../../api/notifyAwardApi";
 
 interface BadgeProgressProps {
   activeBadgeReusables: any[];
@@ -9,6 +12,10 @@ interface BadgeProgressProps {
   playerBadges: any[];
   playerBadgesLoading: boolean;
   isModerator?: boolean;
+  dbUser?: any; // Optional prop for database user context
+  player?: any; // Optional prop for player context
+  onRefreshBadges?: () => void; // Optional callback to refresh badge reusables
+  onRefreshPlayerBadges?: () => void; // Optional callback to refresh player badges
 }
 
 
@@ -44,7 +51,7 @@ const getProgress = (playerValue: number, operator: string, targetValue: number)
 };
 
 
-const BadgeProgress: React.FC<BadgeProgressProps> = ({ activeBadgeReusables, loading, playerStats, playerBadges, isModerator }) => {
+const BadgeProgress: React.FC<BadgeProgressProps> = ({ activeBadgeReusables, loading, playerStats, playerBadges, isModerator, dbUser, player, onRefreshBadges, onRefreshPlayerBadges }) => {
   if (loading) return <div>Loading...</div>;
 
   // Prepare a Set of badge_names for quick lookup
@@ -97,6 +104,7 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
     return acc;
   }, {});
 
+
   // State for open/closed categories
   const [openCategories, setOpenCategories] = React.useState(() => {
     const initial: Record<string, boolean> = {};
@@ -108,8 +116,64 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
     setOpenCategories(prev => ({ ...prev, [subject]: !prev[subject] }));
   };
 
+  // State for Award confirmation modal
+  const [showAwardModal, setShowAwardModal] = React.useState(false);
+  const [awarding, setAwarding] = React.useState(false);
+  const [awardError, setAwardError] = React.useState<string | null>(null);
+  const [selectedBadge, setSelectedBadge] = React.useState<any>(null);
+
+  // Handler for Award button click
+  const handleAwardClick = (badge: any) => {
+    setSelectedBadge(badge);
+    setShowAwardModal(true);
+    setAwardError(null);
+  };
+
+  // Handler for confirming award
+  const handleConfirmAward = async () => {
+    if (!selectedBadge || !playerStats?.user_id) return;
+    setAwarding(true);
+    setAwardError(null);
+    try {
+      // Construct badge record according to BadgeRecord type
+      const badgeRecord = {
+        id: `${Date.now()}${Math.floor(Math.random() * 10000)}`,
+        user_id: playerStats.user_id,
+        badge_name: selectedBadge.badge_name,
+        badge_description: selectedBadge.badge_description,
+        badge_weight: selectedBadge.badge_weight || 0,
+        patch: selectedBadge.patch || null,
+        badge_icon: selectedBadge.badge_icon || selectedBadge.image_url || "",
+        badge_url: selectedBadge.badge_url || selectedBadge.image_url || "",
+      };
+      // Create badge in DB
+      await createBadge(badgeRecord);
+      // Notify player
+      notifyAward(
+        selectedBadge.badge_name,
+        selectedBadge.badge_description,
+        player.nickname || player.username || "Player",
+        playerStats.user_id
+      );
+      setShowAwardModal(false);
+      setSelectedBadge(null);
+      // Refresh badge reusables if callback provided (after modal closes)
+      if (typeof onRefreshBadges === 'function') {
+        onRefreshBadges();
+      }
+      // Refresh player badges if callback provided
+      if (typeof onRefreshPlayerBadges === 'function') {
+        onRefreshPlayerBadges();
+      }
+    } catch (err) {
+      setAwardError("Failed to award badge. Please try again.");
+    } finally {
+      setAwarding(false);
+    }
+  };
+
   return (
-    <div style={{ marginTop: "2rem" }}>
+    <div style={{ marginTop: "2rem", position: "relative" }}>
       <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>Badge Progress</div>
       {activeBadgeReusables.length === 0 && <div>No active badges.</div>}
       {Object.entries(grouped).map(([subject, badges]) => (
@@ -158,9 +222,27 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
                 return (
                   <div key={badge.id || idx} style={{ marginBottom: '1.5rem', border: '1.5px solid #b0b6c3', borderRadius: 8, padding: 16, position: 'relative', boxShadow: '0 2px 8px rgba(80,90,120,0.08)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {isModerator && dbUser?.id !== playerStats?.user_id && (
+                          <button
+                            style={{
+                              background: '#ff9800',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 5,
+                              padding: '6px 16px',
+                              fontWeight: 700,
+                              fontSize: 14,
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
+                            }}
+                            onClick={() => handleAwardClick(badge)}
+                          >
+                            Award
+                          </button>
+                        )}
                         {badge.image_url && (
-                          <img src={badge.image_url} alt={badge.badge_name} style={{ width: 40, height: 40, marginRight: 12, borderRadius: 6 }} />
+                          <img src={badge.image_url} alt={badge.badge_name} style={{ width: 40, height: 40, borderRadius: 6 }} />
                         )}
                         <div>
                           <strong>{badge.badge_name}</strong>
@@ -176,8 +258,8 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
                               const value = trigger.value;
                               let playerValue = playerStats?.[metric] ?? 0;
                               return (
-                                <li key={i} style={{ whiteSpace: 'nowrap' }}>
-                                  {metric}: {playerValue} {operator} {value}
+                                <li key={i} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                  {metric}: {Math.round(playerValue)} {operator} {Math.round(Number(value))}
                                 </li>
                               );
                             })}
@@ -218,6 +300,69 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
       ))}
       {/* Player earned badges table */}
       <PlayerBadgesTable playerBadges={playerBadges} totalPoints={totalPoints} />
+
+      {/* Award Confirmation Modal */}
+      {showAwardModal && selectedBadge && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          background: "rgba(0,0,0,0.3)",
+          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}>
+          <div style={{
+            background: "#23272f",
+            color: "#fff",
+            borderRadius: 10,
+            padding: 32,
+            minWidth: 320,
+            boxShadow: "0 2px 16px rgba(0,0,0,0.18)"
+          }}>
+            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 16 }}>Confirm Award</div>
+            <div style={{ marginBottom: 18 }}>
+              Are you sure you want to award <strong>{selectedBadge.badge_name}</strong> to this player?
+            </div>
+            {awardError && <div style={{ color: "red", marginBottom: 10 }}>{awardError}</div>}
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => { setShowAwardModal(false); setSelectedBadge(null); }}
+                style={{
+                  background: "#eee",
+                  color: "#333",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 16px",
+                  fontWeight: 500,
+                  cursor: awarding ? "not-allowed" : "pointer"
+                }}
+                disabled={awarding}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAward}
+                style={{
+                  background: "#4caf50",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 16px",
+                  fontWeight: 600,
+                  cursor: awarding ? "not-allowed" : "pointer"
+                }}
+                disabled={awarding}
+              >
+                {awarding ? "Awarding..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

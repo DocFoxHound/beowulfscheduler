@@ -1,3 +1,4 @@
+import { notifyAward } from "../../api/notifyAwardApi";
 import React, { useState, useRef } from "react";
 import EmojiPicker from "../EmojiPicker";
 import TriggersWindow, { ConditionGroup } from "./TriggersWindow";
@@ -242,6 +243,17 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
           };
           console.log("Creating badge record:", badgeRecord);
           await createBadgeRecord(badgeRecord as any);
+          // Notify Discord bot about the award
+          try {
+            await notifyAward(
+              form.badge_name,
+              form.badge_description,
+              getDisplayName(user),
+              String(user.id)
+            );
+          } catch (notifyErr) {
+            console.log("Error notifying Discord bot:", notifyErr);
+          }
         }
         setForm(emptyForm);
         setRecipientArray([]);

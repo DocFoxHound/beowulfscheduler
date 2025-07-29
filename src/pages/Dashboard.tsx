@@ -3,15 +3,28 @@ import axios from "axios";
 import "./Dashboard.css";
 import { getUserById, getUserRank } from "../api/userService";
 import { useUserContext } from "../context/UserContext"; // <-- Import the context hook
-import DashboardGraphs from "../components/DashboardGraphs"; // Add this import
 import Navbar from "../components/Navbar";
-import { fetchFleetByMember } from "../api/fleetApi"; // Add this import
-import DashboardTopPlayers from "../components/DashboardTopPlayers"; // Add this import
+import { fetchFleetByMember } from "../api/fleetApi";
+import OrgGoals from "../components/dashboardComponents/OrgGoals";
+import PlayerCard from "../components/dashboardComponents/playerCard";
+import PlayerBadgeProgress from "../components/adminComponents/PlayerBadgeProgress";
+import PlayerPromotionProgress from "../components/adminComponents/PlayerPromotionProgress";
+import PlayerPrestigeProgress from "../components/adminComponents/PlayerPrestigeProgress";
+import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
+import { fetchAllActiveBadgeReusables, fetchBadgeReusablesById } from "../api/badgeReusableApi";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const { dbUser, setDbUser, userRank, setUserRank } = useUserContext(); 
   const [fleet, setFleet] = useState<any>(null); // Add fleet state
+
+  // New state for badge/progress components
+  const [playerStats, setPlayerStats] = useState<any>(null);
+  const [playerStatsLoading, setPlayerStatsLoading] = useState(false);
+  const [activeBadgeReusables, setActiveBadgeReusables] = useState<any[]>([]);
+  const [activeBadgeReusablesLoading, setActiveBadgeReusablesLoading] = useState(false);
+  const [playerBadges, setPlayerBadges] = useState<any[]>([]);
+  const [playerBadgesLoading, setPlayerBadgesLoading] = useState(false);
 
   useEffect(() => {
     axios
@@ -44,6 +57,34 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  // Fetch playerStats
+  useEffect(() => {
+    if (dbUser && dbUser.id) {
+      setPlayerStatsLoading(true);
+      fetchPlayerStatsByUserId(dbUser.id)
+        .then((stats) => setPlayerStats(stats))
+        .finally(() => setPlayerStatsLoading(false));
+    }
+  }, [dbUser]);
+
+  // Fetch active badge reusables
+  useEffect(() => {
+    setActiveBadgeReusablesLoading(true);
+    fetchAllActiveBadgeReusables()
+      .then((badges) => setActiveBadgeReusables(badges))
+      .finally(() => setActiveBadgeReusablesLoading(false));
+  }, []);
+
+  // Fetch player badges (reusables by user id)
+  useEffect(() => {
+    if (dbUser && dbUser.id) {
+      setPlayerBadgesLoading(true);
+      fetchBadgeReusablesById(dbUser.id)
+        .then((badges) => setPlayerBadges(badges))
+        .finally(() => setPlayerBadgesLoading(false));
+    }
+  }, [dbUser]);
+
   if (!user) {
     return (
       <div className="centered-screen">
@@ -56,58 +97,42 @@ export default function Dashboard() {
     <div className="dashboard-root">
       <Navbar dbUser={dbUser} />
 
-      <main className="dashboard-content">
-        <section className="dashboard-header">
-          <h1>Welcome, {user.username}#{user.discriminator}</h1>
-          <p>Rank: {userRank?.name ? userRank.name : "Unknown"}</p>
-          <img
-            src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
-            alt="User Avatar"
-            className="avatar"
+      <main className="dashboard-content unified-dashboard-grid">
+        {/* Top row: PlayerCard (1/3) and OrgGoals (2/3) */}
+        <div className="dashboard-area playercard-area">
+          <PlayerCard dbUser={dbUser} user={user} />
+        </div>
+        <div className="dashboard-area org-goals-area" style={{ gridColumn: '2 / 4' }}>
+          <OrgGoals dbUser={dbUser} user={user} />
+        </div>
+        {/* Bottom row: three progress sections */}
+        <div className="dashboard-area">
+          <PlayerBadgeProgress
+            activeBadgeReusables={activeBadgeReusables}
+            loading={activeBadgeReusablesLoading}
+            playerStats={playerStats}
+            playerStatsLoading={playerStatsLoading}
+            playerBadges={playerBadges}
+            playerBadgesLoading={playerBadgesLoading}
+            dbUser={dbUser}
           />
-        </section>
-
-        <section className="dashboard-grid">
-          {/* Left column: RecentOtherHits */}
-          <div className="card recent-other-hits">
-            <DashboardGraphs />
-          </div>
-
-          {/* Middle column: Top Players */}
-          <div className="card fleet-performance">
-            <DashboardTopPlayers />
-          </div>
-
-          {/* Right Column: Fleet Assignment card */}
-          <div className="card">
-            <h2>Fleet Assignment</h2>
-            {fleet ? (
-              <>
-                <h4>{fleet.name}</h4>
-                {fleet.avatar && (
-                  <img
-                    src={fleet.avatar}
-                    alt="Fleet Avatar"
-                    style={{ width: "64px", height: "64px", borderRadius: "8px", marginBottom: "8px" }}
-                  />
-                )}
-                <p>
-                  <strong>Primary Mission:</strong> {fleet.primary_mission || "N/A"}
-                </p>
-                <p>
-                  <strong>Secondary Mission:</strong> {fleet.secondary_mission || "N/A"}
-                </p>
-                {fleet.commander_id === user.id && (
-                  <p style={{ color: "green", fontWeight: "bold" }}>You are the Fleet Commander</p>
-                )}
-              </>
-            ) : (
-              <p>No fleet assignment found.</p>
-            )}
-          </div>
-
+        </div>
+        <div className="dashboard-area">
+          <PlayerPromotionProgress
+            playerStats={playerStats}
+            playerStatsLoading={playerStatsLoading}
+            dbUser={dbUser}
+          />
+          <PlayerPrestigeProgress
+            activeBadgeReusables={activeBadgeReusables}
+            playerStats={playerStats}
+            playerStatsLoading={playerStatsLoading}
+            dbUser={dbUser}
+          />
+        </div>
+        <div className="dashboard-area">
           
-        </section>
+        </div>
       </main>
     </div>
   );
