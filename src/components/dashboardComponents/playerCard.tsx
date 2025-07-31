@@ -11,6 +11,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user }) => {
   const avatar = user?.avatar;
   const userId = user?.id;
   const nickname = dbUser?.nickname || "";
+  const rsiHandle = dbUser?.rsi_handle || "N/A";
   const avatarUrl =
     avatar && userId
       ? `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png`
@@ -30,6 +31,12 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user }) => {
           {username}
           <span className="discriminator">#{discriminator}</span>
           <br />{nickname}
+          {rsiHandle && (
+            <>
+              <br />
+              <span className="rsi-handle">RSI: {rsiHandle}</span>
+            </>
+          )}
         </h3>
       </div>
     </>

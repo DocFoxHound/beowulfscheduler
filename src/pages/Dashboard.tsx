@@ -13,6 +13,8 @@ import PlayerPrestigeProgress from "../components/adminComponents/PlayerPrestige
 import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
 import { fetchAllActiveBadgeReusables, fetchBadgeReusablesById } from "../api/badgeReusableApi";
 
+import { getAllGameVersions } from "../api/patchApi";
+
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const { dbUser, setDbUser, userRank, setUserRank } = useUserContext(); 
@@ -25,6 +27,12 @@ export default function Dashboard() {
   const [activeBadgeReusablesLoading, setActiveBadgeReusablesLoading] = useState(false);
   const [playerBadges, setPlayerBadges] = useState<any[]>([]);
   const [playerBadgesLoading, setPlayerBadgesLoading] = useState(false);
+  // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
+  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+  const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+
+  // State for latest patch version string
+  const [latestPatch, setLatestPatch] = useState<string>("");
 
   useEffect(() => {
     axios
@@ -85,6 +93,30 @@ export default function Dashboard() {
     }
   }, [dbUser]);
 
+  // Fetch all game versions and determine the highest version
+  useEffect(() => {
+    getAllGameVersions()
+      .then((patches) => {
+        if (!patches || patches.length === 0) {
+          setLatestPatch("");
+          return;
+        }
+        // Sort by version (assuming semantic versioning)
+        const sorted = patches.slice().sort((a, b) => {
+          const aParts = a.version.split('.').map(Number);
+          const bParts = b.version.split('.').map(Number);
+          for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+            const aNum = aParts[i] || 0;
+            const bNum = bParts[i] || 0;
+            if (aNum !== bNum) return bNum - aNum;
+          }
+          return 0;
+        });
+        setLatestPatch(sorted[0].version);
+      })
+      .catch(() => setLatestPatch(""));
+  }, []);
+
   if (!user) {
     return (
       <div className="centered-screen">
@@ -103,7 +135,7 @@ export default function Dashboard() {
           <PlayerCard dbUser={dbUser} user={user} />
         </div>
         <div className="dashboard-area org-goals-area" style={{ gridColumn: '2 / 4' }}>
-          <OrgGoals dbUser={dbUser} user={user} />
+          <OrgGoals dbUser={dbUser} user={user} isModerator={isModerator} latestPatch={latestPatch} />
         </div>
         {/* Bottom row: three progress sections */}
         <div className="dashboard-area">
