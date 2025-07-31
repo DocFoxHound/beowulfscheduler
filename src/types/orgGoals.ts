@@ -10,4 +10,6 @@ export interface OrgGoals {
   start_date: Date;
   end_date: Date;
   priority: number;
+  manual_percentage: number;
+  manual_progress: boolean;
 }

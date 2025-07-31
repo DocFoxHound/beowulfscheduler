@@ -163,8 +163,9 @@ const Leaderboards: React.FC = () => {
   return (
     <div className="leaderboards-root" style={{ minHeight: "100vh", background: "#181a1b" }}>
       <Navbar dbUser={dbUser} />
-      <main className="dashboard-content">
-        <section className="dashboard-header" style={{ textAlign: "center", marginBottom: "2rem" }}>
+      <main className="dashboard-content" style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Top Title and Description */}
+        <section className="dashboard-header" style={{ textAlign: "center", marginBottom: "2rem", width: '100%' }}>
           <h1>Leaderboards</h1>
           <p>
             {mode === "dogfighting" && (
@@ -181,8 +182,8 @@ const Leaderboards: React.FC = () => {
             )}
           </p>
         </section>
-        {/* View option buttons */}
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "2rem", marginBottom: "1.5rem" }}>
+        {/* Button Row */}
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "2rem", marginBottom: "1.5rem", width: '100%' }}>
           <button
             onClick={() => setMode("dogfighting")}
             style={{
@@ -265,10 +266,11 @@ const Leaderboards: React.FC = () => {
           </button>
         </div>
         {/* Patch selector below the buttons */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
+        <div style={{ width: '100%', display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
           {patchSelector}
         </div>
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        {/* Results Table */}
+        <div style={{ width: '100%', display: "flex", justifyContent: "center" }}>
           <LeaderboardTable
             data={players}
             loading={loading}
@@ -281,55 +283,55 @@ const Leaderboards: React.FC = () => {
             columns={columns}
           />
         </div>
-      </main>
-      {/* IronPoint Rating Explanation Card */}
-      {mode === "dogfighting" && (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem", marginBottom: "2rem" }}>
-          <div style={{ background: "#23272a", borderRadius: "12px", boxShadow: "0 2px 8px #0008", padding: "1.5rem", maxWidth: "800px", color: "#fff" }}>
-            <h2 style={{ marginTop: 0 }}>🏆 IronPoint Score Equation</h2>
-            <BlockMath math={`
-              \\text{Score} = 0.30E + 0.25I + 0.20D + 0.15KDR + 0.10K
-            `} />
-            <BlockMath math={`
-              \\text{normalized}(x) = \\frac{x - \\min(x)}{\\max(x) - \\min(x)}
-            `} />
-            <p>
-              This formula ranks pilots based on efficiency, impact, consistent damage output, survival, and kill contribution:
-            </p>
-            <ul style={{ marginLeft: "1.5rem" }}>
-              <li><strong>E</strong>: Average score per minute (normalized)</li>
-              <li><strong>I</strong>: Average score per round (normalized)</li>
-              <li><strong>D</strong>: Damage per kill (normalized)</li>
-              <li><strong>KDR</strong>: Kill/Death ratio (normalized)</li>
-              <li><strong>K</strong>: Total kills (normalized)</li>
-            </ul>
-            <h3 style={{ marginTop: "2rem" }}>📊 Explanation</h3>
-            <p>
-              This ranking formula is designed to measure true player performance in dogfighting by combining several metrics:
-            </p>
-            <ul style={{ marginLeft: "1.5rem" }}>
-              <li>
-                <strong>avg_score_minute (E)</strong> rewards players who earn points efficiently over time, rewarding aggressive behavior.
-              </li>
-              <li>
-                <strong>avg_score (I)</strong> emphasizes high-impact gameplay by factoring in kill difficulty, damage, and round performance.
-              </li>
-              <li>
-                <strong>damage_per_kill (D)</strong> discourages kill-stealing by valuing consistent damage over opportunistic kills.
-              </li>
-              <li>
-                <strong>avg_kill_death_ratio (KDR)</strong> rewards players who maintain a good balance between aggression and survival.
-              </li>
-              <li>
-                <strong>total_kills (K)</strong> has minimal weight, recognizing raw output while avoiding overinflation from farming.
-              </li>
-            </ul>
-            <p>
-              The weights are tuned to ensure balanced scoring across play styles, encouraging aggressive but efficient, impactful play rather than passive or opportunistic strategies.
-            </p>
+        {/* IronPoint Rating Explanation Card */}
+        {mode === "dogfighting" && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem", marginBottom: "2rem", width: '100%' }}>
+            <div style={{ background: "#23272a", borderRadius: "12px", boxShadow: "0 2px 8px #0008", padding: "1.5rem", maxWidth: "800px", color: "#fff", margin: '0 auto' }}>
+              <h2 style={{ marginTop: 0 }}>🏆 IronPoint Score Equation</h2>
+              <BlockMath math={`
+                \\text{Score} = 0.30E + 0.25I + 0.20D + 0.15KDR + 0.10K
+              `} />
+              <BlockMath math={`
+                \\text{normalized}(x) = \\frac{x - \\min(x)}{\\max(x) - \\min(x)}
+              `} />
+              <p>
+                This formula ranks pilots based on efficiency, impact, consistent damage output, survival, and kill contribution:
+              </p>
+              <ul style={{ marginLeft: "1.5rem" }}>
+                <li><strong>E</strong>: Average score per minute (normalized)</li>
+                <li><strong>I</strong>: Average score per round (normalized)</li>
+                <li><strong>D</strong>: Damage per kill (normalized)</li>
+                <li><strong>KDR</strong>: Kill/Death ratio (normalized)</li>
+                <li><strong>K</strong>: Total kills (normalized)</li>
+              </ul>
+              <h3 style={{ marginTop: "2rem" }}>📊 Explanation</h3>
+              <p>
+                This ranking formula is designed to measure true player performance in dogfighting by combining several metrics:
+              </p>
+              <ul style={{ marginLeft: "1.5rem" }}>
+                <li>
+                  <strong>avg_score_minute (E)</strong> rewards players who earn points efficiently over time, rewarding aggressive behavior.
+                </li>
+                <li>
+                  <strong>avg_score (I)</strong> emphasizes high-impact gameplay by factoring in kill difficulty, damage, and round performance.
+                </li>
+                <li>
+                  <strong>damage_per_kill (D)</strong> discourages kill-stealing by valuing consistent damage over opportunistic kills.
+                </li>
+                <li>
+                  <strong>avg_kill_death_ratio (KDR)</strong> rewards players who maintain a good balance between aggression and survival.
+                </li>
+                <li>
+                  <strong>total_kills (K)</strong> has minimal weight, recognizing raw output while avoiding overinflation from farming.
+                </li>
+              </ul>
+              <p>
+                The weights are tuned to ensure balanced scoring across play styles, encouraging aggressive but efficient, impactful play rather than passive or opportunistic strategies.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   );
 };

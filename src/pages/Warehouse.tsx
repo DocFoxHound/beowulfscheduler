@@ -178,15 +178,25 @@ const Warehouse: React.FC = () => {
   return (
     <div className="hittracker-root">
       <Navbar dbUser={dbUser} />
-
-      <main className="dashboard-content">
-        <section className="dashboard-header">
-          <h1>Warehouse</h1>
-          <p>Track your hits and performance.</p>
-        </section>
-
-        <div className="hittracker-layout">
-          <div className="column overview-panel-column">
+      {/* Top header spanning full width */}
+      <div className="warehouse-header-fullwidth" style={{
+        width: '100%',
+        background: '#181a1b',
+        borderRadius: 8,
+        margin: '1.5rem 0 2rem 0',
+        padding: '2rem 2rem 1.5rem 2rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1rem',
+      }}>
+        <h1 style={{margin: 0}}>Warehouse</h1>
+        <p style={{margin: 0}}>Track your hits and performance.</p>
+      </div>
+      <main className="dashboard-content" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', width: '100%', gap: '2rem' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ background: "#23272e", borderRadius: 8, padding: 24, color: "#aaa", minHeight: 200 }}>
               <WarehouseItems
                 gameVersion={gameVersion}
@@ -202,7 +212,7 @@ const Warehouse: React.FC = () => {
               />
             </div>
           </div>
-          <div className="column recent-pirate-hits">
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ background: "#23272e", borderRadius: 8, padding: 24, color: "#aaa", minHeight: 200 }}>
               <WarehouseOrgItems
                 gameVersion={gameVersion}

@@ -176,77 +176,81 @@ const Hittracker: React.FC = () => {
   return (
     <div className="hittracker-root">
       <Navbar dbUser={dbUser} />
+      {/* Top header spanning full width */}
+      <div className="piracy-header-fullwidth" style={{
+        width: '100%',
+        background: '#181a1b',
+        borderRadius: 8,
+        margin: '1.5rem 0 2rem 0',
+        padding: '2rem 2rem 1.5rem 2rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1rem',
+      }}>
+        <h1 style={{margin: 0}}>Piracy</h1>
+        <p style={{margin: 0}}>Track your hits and performance.</p>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '1rem',
+          width: '100%'
+        }}>
+          <Select
+            inputId="gameversion-select"
+            options={gameVersions}
+            value={selectedGameVersionOption}
+            onChange={opt => setGameVersion(opt?.value ?? null)}
+            placeholder="Select game version..."
+            isSearchable
+            isClearable={false}
+            styles={{
+              control: (base) => ({
+                ...base,
+                background: "#1a1d21",
+                borderColor: "#2d7aee",
+                color: "#fff",
+                minHeight: 44,
+                fontSize: 16,
+                width: 200,
+              }),
+              menu: (base) => ({
+                ...base,
+                background: "#23272a",
+                color: "#fff",
+              }),
+              option: (base, state) => ({
+                ...base,
+                background: state.isFocused ? "#2d7aee" : "#23272a",
+                color: "#fff",
+                cursor: "pointer",
+              }),
+              singleValue: (base) => ({
+                ...base,
+                color: "#fff",
+              }),
+              input: (base) => ({
+                ...base,
+                color: "#fff",
+              }),
+            }}
+            theme={theme => ({
+              ...theme,
+              borderRadius: 8,
+              colors: {
+                ...theme.colors,
+                primary25: "#2d7aee",
+                primary: "#2d7aee",
+                neutral0: "#23272a",
+                neutral80: "#fff",
+              },
+            })}
+          />
+        </div>
+      </div>
       <main className="dashboard-content">
-        <section className="dashboard-header">
-          <h1>Piracy</h1>
-          <p>Track your hits and performance.</p>
-          {/* Only show Game Version selector */}
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            margin: "1.5rem 0 0.5rem 0",
-            gap: "1rem"
-          }}>
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center"
-            }}>
-              <Select
-                inputId="gameversion-select"
-                options={gameVersions}
-                value={selectedGameVersionOption}
-                onChange={opt => setGameVersion(opt?.value ?? null)}
-                placeholder="Select game version..."
-                isSearchable
-                isClearable={false}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    background: "#1a1d21",
-                    borderColor: "#2d7aee",
-                    color: "#fff",
-                    minHeight: 44,
-                    fontSize: 16,
-                    width: 200,
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    background: "#23272a",
-                    color: "#fff",
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    background: state.isFocused ? "#2d7aee" : "#23272a",
-                    color: "#fff",
-                    cursor: "pointer",
-                  }),
-                  singleValue: (base) => ({
-                    ...base,
-                    color: "#fff",
-                  }),
-                  input: (base) => ({
-                    ...base,
-                    color: "#fff",
-                  }),
-                }}
-                theme={theme => ({
-                  ...theme,
-                  borderRadius: 8,
-                  colors: {
-                    ...theme.colors,
-                    primary25: "#2d7aee",
-                    primary: "#2d7aee",
-                    neutral0: "#23272a",
-                    neutral80: "#fff",
-                  },
-                })}
-              />
-            </div>
-          </div>
-        </section>
-
         <div className="hittracker-layout">
           <div className="column overview-panel-column">
             <OverviewPanel
@@ -282,7 +286,7 @@ const Hittracker: React.FC = () => {
                     userId={dbUser?.id}
                     username={dbUser?.username}
                     isEditMode={false}
-                    hit={undefined} // <-- Fix here
+                    hit={undefined}
                     allUsers={userList}
                     onUpdate={async () => {}}
                     onDelete={async () => {}}
@@ -294,7 +298,6 @@ const Hittracker: React.FC = () => {
                 )}
               </>
             )}
-            {/* Remove Add New Hit Button (since no user context) */}
             <div style={{ borderRadius: 8, minHeight: 200 }} className="column recent-pirate-hits">
               <RecentPirateHits 
                 recentHits={recentHits} 
@@ -312,7 +315,6 @@ const Hittracker: React.FC = () => {
           </div>
         </div>
       </main>
-      {/* Remove AddHitModal */}
     </div>
   );
 };

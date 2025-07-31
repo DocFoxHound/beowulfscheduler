@@ -10,9 +10,10 @@ interface CreateOrgGoalModalProps {
   overGoal: any;
   latestPatch?: any; // Optional prop for latest patch data
   onClose: () => void;
+  onSaved?: () => void;
 }
 
-const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goal, position, overGoal, latestPatch, onClose }) => {
+const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goal, position, overGoal, latestPatch, onClose, onSaved }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -24,6 +25,9 @@ const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goa
   const [triggerGroup, setTriggerGroup] = useState<ConditionGroup>(defaultGroup);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Manual progression state
+  const [manualProgress, setManualProgress] = useState(false);
+  const [manualPercentage, setManualPercentage] = useState(0);
 
   useEffect(() => {
     if (mode === "edit" && goal) {
@@ -41,6 +45,8 @@ const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goa
       } else {
         setTriggerGroup({ ...defaultGroup });
       }
+      setManualProgress(!!goal.manual_progress);
+      setManualPercentage(typeof goal.manual_percentage === 'number' ? goal.manual_percentage : 0);
     } else if (mode === "create") {
       setName("");
       setDescription("");
@@ -48,6 +54,8 @@ const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goa
       setEndDate("");
       setPriority(position || 1);
       setTriggerGroup({ ...defaultGroup });
+      setManualProgress(false);
+      setManualPercentage(0);
     }
     setError(null);
     setSubmitting(false);
@@ -55,7 +63,9 @@ const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goa
 
 
   // Validation for enabling Save
-  const canSave = name && description && startDate && endDate && triggerGroup && triggerGroup.conditions.length > 0 && !submitting;
+  const canSave = name && description && startDate && endDate && !submitting && (
+    (manualProgress || (triggerGroup && triggerGroup.conditions.length > 0))
+  );
 
   // Save handler
   const handleSave = async (e: React.FormEvent) => {
@@ -74,28 +84,33 @@ const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goa
           id: Date.now().toString(), // Milliseconds since epoch
           goal_name: name,
           goal_description: description,
-          goal_trigger: triggerGroup.conditions.map(c => JSON.parse(JSON.stringify(c))),
+          goal_trigger: manualProgress ? [] : triggerGroup.conditions.map(c => JSON.parse(JSON.stringify(c))),
           start_date: new Date(startDate),
           end_date: new Date(endDate),
           priority,
           deleted: false,
           patch: latestPatch,
           created_at: new Date(),
-          completed_on: null
+          completed_on: null,
+          manual_percentage: manualProgress ? manualPercentage : 0,
+          manual_progress: manualProgress
         });
       } else if (mode === 'edit' && goal && goal.id) {
         // Update the existing goal with new values and trigger
         await updateOrgGoal(goal.id, {
           goal_name: name,
           goal_description: description,
-          goal_trigger: triggerGroup.conditions.map(c => JSON.parse(JSON.stringify(c))),
+          goal_trigger: manualProgress ? [] : triggerGroup.conditions.map(c => JSON.parse(JSON.stringify(c))),
           start_date: new Date(startDate),
           end_date: new Date(endDate),
           priority,
           patch: latestPatch,
+          manual_percentage: manualProgress ? manualPercentage : 0,
+          manual_progress: manualProgress
         });
       }
-      onClose();
+      if (typeof onSaved === 'function') onSaved();
+      else onClose();
     } catch (err: any) {
       setError("Failed to save goal. Please try again.");
     } finally {
@@ -180,16 +195,48 @@ const CreateOrgGoalModal: React.FC<CreateOrgGoalModalProps> = ({ open, mode, goa
               required
             />
           </label>
-          <label style={{ marginBottom: 6 }}>
-            Trigger
-            <button
-              type="button"
-              style={{ width: '100%', padding: 6, borderRadius: 4, border: '1px solid #555', marginTop: 2, background: '#23272e', color: 'white', cursor: 'pointer' }}
-              onClick={() => setShowTriggers(true)}
-            >
-              {triggerGroup && triggerGroup.conditions && triggerGroup.conditions.length > 0 ? 'Edit Trigger' : 'Set Trigger'}
-            </button>
+          {/* Manual Progression Toggle */}
+          <label style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span>Manual Progression</span>
+            <input
+              type="checkbox"
+              checked={manualProgress}
+              onChange={e => setManualProgress(e.target.checked)}
+              style={{ width: 20, height: 20, accentColor: '#4caf50', cursor: 'pointer' }}
+            />
           </label>
+
+          {/* Percentage slider, only if manualProgress is on */}
+          {manualProgress && (
+            <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+              <label style={{ marginBottom: 4, fontWeight: 500, color: '#fff' }}>Manual Progress (%)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={manualPercentage}
+                  onChange={e => setManualPercentage(Number(e.target.value))}
+                  style={{ flex: 1, accentColor: '#4caf50', height: 4 }}
+                />
+                <span style={{ minWidth: 40, textAlign: 'right', color: '#4caf50', fontWeight: 600 }}>{manualPercentage}%</span>
+              </div>
+            </div>
+          )}
+
+          {/* Triggers button, only if manualProgress is off */}
+          {!manualProgress && (
+            <label style={{ marginBottom: 6 }}>
+              Trigger
+              <button
+                type="button"
+                style={{ width: '100%', padding: 6, borderRadius: 4, border: '1px solid #555', marginTop: 2, background: '#23272e', color: 'white', cursor: 'pointer' }}
+                onClick={() => setShowTriggers(true)}
+              >
+                {triggerGroup && triggerGroup.conditions && triggerGroup.conditions.length > 0 ? 'Edit Trigger' : 'Set Trigger'}
+              </button>
+            </label>
+          )}
           {error && <div style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
             <button type="button" onClick={onClose} style={{ padding: '6px 16px', borderRadius: 4, border: 'none', background: '#222', color: 'white', cursor: 'pointer' }}>Close</button>

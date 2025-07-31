@@ -226,27 +226,23 @@ const Hittracker: React.FC = () => {
   return (
     <div className="hittracker-root">
       <Navbar dbUser={dbUser} />
-
+      {/* Top header spanning full width */}
+      <div className="fleets-header-fullwidth" style={{
+        width: '100%',
+        background: '#181a1b',
+        borderRadius: 8,
+        margin: '1.5rem 0 2rem 0',
+        padding: '2rem 2rem 1.5rem 2rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1rem',
+      }}>
+        <h1 style={{margin: 0}}>Fleets</h1>
+        <p style={{margin: 0}}>View, Join, and Manage fleets</p>
+      </div>
       <main className="dashboard-content">
-        <section className="dashboard-header">
-          <h1>Fleets</h1>
-          <p>View, Join, and Manage fleets</p>
-          {/* Move the selection box here, right under the title */}
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            margin: "1.5rem 0 0.5rem 0"
-          }}>
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center"
-            }}>
-            </div>
-          </div>
-        </section>
-
         <div className="hittracker-layout">
           {/* LEFT COLUMN: Log Activity (was center) */}
           <div className="column overview-panel-column">
@@ -301,38 +297,12 @@ const Hittracker: React.FC = () => {
           </div>
         </div>
       </main>
-      {/* Modal for Add Hit Form */}
-      {/* {showAddHitModal && (
-        <AddHitModal
-          show={showAddHitModal}
-          onClose={() => setShowAddHitModal(false)}
-          gameVersion={gameVersion}
-          userId={dbUser.id}
-          username={dbUser.username}
-          summarizedItems={summarizedItems}
-          onSubmit={async (hit) => {
-            setIsSubmitting(true);
-            setFormError(null);
-            try {
-              // await your API call here
-              setShowAddHitModal(false);
-            } catch (err) {
-              setFormError("Failed to submit. Please try again.");
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
-          isSubmitting={isSubmitting}
-          formError={formError}
-          setFormError={setFormError}
-        />
-      )} */}
       {showLogFleetModal && (
         <LogFleetModal
           isOpen={showLogFleetModal}
           onClose={() => setLogFleetModal(false)}
           onSubmit={handleLogFleetActivity}
-          fleets={fleets} // Pass the full fleet objects
+          fleets={fleets}
           userId={dbUser.id}
           username={dbUser.username}
           patch={gameVersion ?? ""}

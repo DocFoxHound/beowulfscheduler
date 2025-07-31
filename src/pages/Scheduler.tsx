@@ -340,18 +340,26 @@ export default function Scheduler() {
 
   return (
     <div className="dashboard-root">
-      {/* Top Navigation */}
       <Navbar dbUser={dbUser} />
-
-      {/* Main Content */}
-      <main className="dashboard-content">
-        <section className="dashboard-header">
-          <h1>Scheduler</h1>
-          <p>Create and sign up for training availabilities.</p>
-        </section>
-
+      {/* Top header spanning full width */}
+      <div className="scheduler-header-fullwidth" style={{
+        width: '100%',
+        background: '#181a1b',
+        borderRadius: 8,
+        margin: '1.5rem 0 2rem 0',
+        padding: '2rem 2rem 1.5rem 2rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1rem',
+      }}>
+        <h1 style={{margin: 0}}>Scheduler</h1>
+        <p style={{margin: 0}}>Create and sign up for training availabilities.</p>
+      </div>
+      <main className="dashboard-content" style={{ width: '100%', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
         {/* VIEW MODE TOGGLE */}
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 16, width: '100%' }}>
           <button
             onClick={() => setViewMode("normal")}
             style={{
@@ -382,9 +390,8 @@ export default function Scheduler() {
             Events
           </button>
         </div>
-
-        {/* Calendar UI */}
-        <section className="calendar-container">
+        {/* Calendar UI - truly full width */}
+        <section className="calendar-container" style={{ width: '100%', maxWidth: '100vw', minWidth: 0, margin: 0, padding: 0 }}>
           {/* Always show type selector, but grey out and disable in events view */}
           <div className="availability-type-selector" style={{ opacity: viewMode === "events" ? 0.5 : 1, pointerEvents: viewMode === "events" ? "none" : "auto" }}>
             {availabilityTypes

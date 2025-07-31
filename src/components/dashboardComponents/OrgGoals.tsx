@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import PlayerCard from "./playerCard";
 import { fetchAllActiveOrgGoals, fetchAllOrgGoals } from "../../api/orgGoalsApi";
 import CreateOrgGoalModal from "./CreateOrgGoalModal";
+import OrgGoalProgress from "./OrgGoalProgress";
 
 interface OrgGoalsProps {
   dbUser: any;
@@ -25,18 +26,21 @@ const OrgGoals: React.FC<OrgGoalsProps> = ({ dbUser, user, isModerator, latestPa
   const [modalPosition, setModalPosition] = useState<number | null>(null);
   const [modalOverGoal, setModalOverGoal] = useState<any>(null);
 
+  // Expose fetchGoals so it can be called after modal save
+  const fetchGoals = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchAllActiveOrgGoals();
+      console.log('Fetched org goals:', data);
+      setGoals(data);
+    } catch (err) {
+      setError("Failed to load org goals.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchGoals = async () => {
-      try {
-        const data = await fetchAllActiveOrgGoals();
-        console.log('Fetched org goals:', data);
-        setGoals(data);
-      } catch (err) {
-        setError("Failed to load org goals.");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchGoals();
   }, []);
 
@@ -99,24 +103,44 @@ const OrgGoals: React.FC<OrgGoalsProps> = ({ dbUser, user, isModerator, latestPa
                           )}
                         </span>
                         <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{goal.goal_description}</div>
-                        {/* Stand-in progress bar */}
-                        <div style={{
-                          height: 12,
-                          background: '#eee',
-                          borderRadius: 6,
-                          overflow: 'hidden',
-                          marginBottom: 4,
-                          marginTop: 2,
-                          width: '100%'
-                        }}>
-                          <div style={{
-                            width: '40%', // Stand-in width
-                            height: '100%',
-                            background: '#4caf50',
-                            borderRadius: 6,
-                            transition: 'width 0.3s'
-                          }} />
-                        </div>
+                        {/* OrgGoalProgress bar for triggers */}
+                        {(() => {
+                          let triggers: any[] = [];
+                          if (goal.triggers) {
+                            if (Array.isArray(goal.triggers)) {
+                              // If triggers are already objects, use them
+                              triggers = goal.triggers.map((t: any) => {
+                                if (typeof t === 'string') {
+                                  try {
+                                    return JSON.parse(t);
+                                  } catch {
+                                    return null;
+                                  }
+                                }
+                                return t;
+                              }).filter(Boolean);
+                            } else if (typeof goal.triggers === 'string') {
+                              // If triggers is a single stringified object or array
+                              try {
+                                const parsed = JSON.parse(goal.triggers);
+                                if (Array.isArray(parsed)) {
+                                  triggers = parsed;
+                                } else {
+                                  triggers = [parsed];
+                                }
+                              } catch {
+                                triggers = [];
+                              }
+                            }
+                          }
+                          return (
+                            <OrgGoalProgress
+                              triggers={triggers}
+                              manual_progress={goal.manual_progress}
+                              manual_percentage={goal.manual_percentage}
+                            />
+                          );
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -167,6 +191,10 @@ const OrgGoals: React.FC<OrgGoalsProps> = ({ dbUser, user, isModerator, latestPa
           overGoal={modalMode === 'create' ? modalOverGoal : undefined}
           latestPatch={latestPatch}
           onClose={() => setModalOpen(false)}
+          onSaved={() => {
+            setModalOpen(false);
+            fetchGoals();
+          }}
         />
       )}
     </>

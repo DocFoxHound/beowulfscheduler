@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { getSummarizedItems } from "../../api/summarizedItemApi";
 
 // --- Visual Trigger Builder Types ---
 type Metric = {
   metric: string;
   operator: string;
   value: number | boolean;
+  item?: string; // For itemCollected
 };
 export type ConditionGroup = {
   type: "AND" | "OR";
@@ -86,6 +88,12 @@ const OPERATOR_OPTIONS = [
   { value: "!=", label: "!=" },
 ];
 
+const ITEM_COLLECTED_OPERATORS = [
+  { value: ">=", label: ">=" },
+  { value: "==", label: "==" },
+  { value: "!=", label: "!=" },
+];
+
 function isGroup(obj: any): obj is ConditionGroup {
   return obj && typeof obj === "object" && (obj.type === "AND" || obj.type === "OR") && Array.isArray(obj.conditions);
 }
@@ -112,6 +120,24 @@ const GoalTriggers: React.FC<GoalTriggersProps> = ({ isOpen, onClose, group, set
 
   const [metricDropdownOpen, setMetricDropdownOpen] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
+
+  // For item autocomplete
+  const [itemOptions, setItemOptions] = useState<string[]>([]);
+  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
+  const [itemInput, setItemInput] = useState<string>("");
+  const [itemFocusIdx, setItemFocusIdx] = useState<number>(-1);
+  const itemInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Only fetch once
+    getSummarizedItems().then(data => {
+      if (Array.isArray(data)) {
+        setItemOptions(data.map((item: any) => item.commodity_name));
+      } else if (data && data.commodity_name) {
+        setItemOptions([data.commodity_name]);
+      }
+    });
+  }, []);
 
   const removeCondition = (parent: ConditionGroup, idx: number) => {
     const newGroup = JSON.parse(JSON.stringify(group));
@@ -180,9 +206,83 @@ const GoalTriggers: React.FC<GoalTriggersProps> = ({ isOpen, onClose, group, set
                       </optgroup>
                     ))}
                   </select>
+                  {(cond as Metric).metric === 'itemCollected' && (
+                    <div style={{ position: 'relative', width: 180 }}>
+                      <input
+                        ref={itemInputRef}
+                        type="text"
+                        placeholder="Item name"
+                        value={(cond as Metric).item || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateMetric(grp, idx, "item", val);
+                          setItemInput(val);
+                          if (val.length > 0) {
+                            setItemSuggestions(itemOptions.filter(opt => opt.toLowerCase().includes(val.toLowerCase())).slice(0, 8));
+                          } else {
+                            setItemSuggestions([]);
+                          }
+                          setItemFocusIdx(-1);
+                        }}
+                        onFocus={e => {
+                          const val = (cond as Metric).item || '';
+                          if (val.length > 0) {
+                            setItemSuggestions(itemOptions.filter(opt => opt.toLowerCase().includes(val.toLowerCase())).slice(0, 8));
+                          }
+                        }}
+                        onBlur={() => setTimeout(() => setItemSuggestions([]), 120)}
+                        onKeyDown={e => {
+                          if (itemSuggestions.length === 0) return;
+                          if (e.key === 'ArrowDown') {
+                            setItemFocusIdx(idx => Math.min(idx + 1, itemSuggestions.length - 1));
+                          } else if (e.key === 'ArrowUp') {
+                            setItemFocusIdx(idx => Math.max(idx - 1, 0));
+                          } else if (e.key === 'Enter' && itemFocusIdx >= 0) {
+                            updateMetric(grp, idx, "item", itemSuggestions[itemFocusIdx]);
+                            setItemInput(itemSuggestions[itemFocusIdx]);
+                            setItemSuggestions([]);
+                          }
+                        }}
+                        style={{ width: 140, background: "#222", color: "#fff", border: "1px solid #3bbca9", borderRadius: 4, padding: "2px 8px" }}
+                      />
+                      {itemSuggestions.length > 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          width: '100%',
+                          background: '#222',
+                          border: '1px solid #3bbca9',
+                          borderRadius: 4,
+                          zIndex: 100,
+                          maxHeight: 180,
+                          overflowY: 'auto',
+                        }}>
+                          {itemSuggestions.map((suggestion, sidx) => (
+                            <div
+                              key={suggestion}
+                              onMouseDown={() => {
+                                updateMetric(grp, idx, "item", suggestion);
+                                setItemInput(suggestion);
+                                setItemSuggestions([]);
+                              }}
+                              style={{
+                                padding: '6px 12px',
+                                background: sidx === itemFocusIdx ? '#3bbca9' : 'transparent',
+                                color: sidx === itemFocusIdx ? '#fff' : '#eee',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {suggestion}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <select value={(cond as Metric).operator} onChange={e => updateMetric(grp, idx, "operator", e.target.value)}
                     style={{ background: "#222", color: "#fff", border: "1px solid #3bbca9", borderRadius: 4, padding: "2px 8px" }}>
-                    {OPERATOR_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    {((cond as Metric).metric === 'itemCollected' ? ITEM_COLLECTED_OPERATORS : OPERATOR_OPTIONS).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                   </select>
                   <input
                     type="number"
@@ -208,12 +308,19 @@ const GoalTriggers: React.FC<GoalTriggersProps> = ({ isOpen, onClose, group, set
         break;
       }
     }
-    return {
+    const base = {
       metric: metric.metric,
       operator: metric.operator,
       value: metric.value,
       category
     };
+    if (metric.metric === 'itemCollected') {
+      return {
+        ...base,
+        item: metric.item || ''
+      };
+    }
+    return base;
   }
 
   function normalizeGroup(obj: any): any {
