@@ -43,7 +43,56 @@ export const getUserRank = async (rankId: string): Promise<User | null> => {
   }
 };
 
-// export const getWeeklySchedule = async (startOfWeek: Date, endOfWeek: Date): Promise<User> => {
+/**
+ * Fetches users whose roles contain any RONIN_IDS
+ * @returns Promise with array of User data
+ */
+export const getUsersByRoninRole = async (): Promise<User[] | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/by-ronin-role`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users by Ronin role:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches users whose roles contain any FLEET_COMMANDER_IDS
+ * @returns Promise with array of User data
+ */
+export const getUsersByFleetCommanderRole = async (): Promise<User[] | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/by-fleet-commander-role`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users by Fleet Commander role:', error);
+    throw error;
+  }
+};
+
+/**
+ * Updates an existing user by ID
+ * @param userId - The ID of the user to update
+ * @param userData - The user data to update
+ * @returns Promise with the updated User data
+ */
+export const editUser = async (userId: string, userData: Partial<User>): Promise<User | null> => {
+  try {
+    const response = await axios.put(`${API_URL}/api/users/${userId}`, userData, {
+      withCredentials: true,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+};
 //   console.log("Fetching weekly schedule from", startOfWeek, "to", endOfWeek);
 //   try {
 //     const response = await axios.get(`${API_URL}/schedule`, {

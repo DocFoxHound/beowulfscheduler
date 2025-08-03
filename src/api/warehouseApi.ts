@@ -1,3 +1,16 @@
+// Fetch all warehouse items (admin/global)
+export const fetchAllWarehouseItems = async (): Promise<WarehouseItem[]> => {
+  try {
+    const response = await axios.get<WarehouseItem[]>(`${API_BASE_URL}/api/warehouse/`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response && error.response.status === 404) {
+      // No items found, return empty array
+      return [];
+    }
+    throw error;
+  }
+};
 import axios from 'axios';
 import { WarehouseItem } from '../types/warehouse';
 

@@ -6,10 +6,13 @@ import { useUserContext } from "../context/UserContext"; // <-- Import the conte
 import Navbar from "../components/Navbar";
 import { fetchFleetByMember } from "../api/fleetApi";
 import OrgGoals from "../components/dashboardComponents/OrgGoals";
+import { fetchSBAllOrgSummaries } from "../api/leaderboardApi";
+import { SBLeaderboardOrgSummary } from "../types/sb_leaderboard_org_summary";
 import PlayerCard from "../components/dashboardComponents/playerCard";
 import PlayerBadgeProgress from "../components/adminComponents/PlayerBadgeProgress";
 import PlayerPromotionProgress from "../components/adminComponents/PlayerPromotionProgress";
 import PlayerPrestigeProgress from "../components/adminComponents/PlayerPrestigeProgress";
+import SpecializedTeams from "../components/dashboardComponents/SpecializedTeams";
 import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
 import { fetchAllActiveBadgeReusables, fetchBadgeReusablesById } from "../api/badgeReusableApi";
 
@@ -33,6 +36,8 @@ export default function Dashboard() {
 
   // State for latest patch version string
   const [latestPatch, setLatestPatch] = useState<string>("");
+  // State for org summaries
+  const [orgSummaries, setOrgSummaries] = useState<SBLeaderboardOrgSummary[]>([]);
 
   useEffect(() => {
     axios
@@ -117,6 +122,13 @@ export default function Dashboard() {
       .catch(() => setLatestPatch(""));
   }, []);
 
+  // Fetch org summaries
+  useEffect(() => {
+    fetchSBAllOrgSummaries()
+      .then(setOrgSummaries)
+      .catch(() => setOrgSummaries([]));
+  }, []);
+
   if (!user) {
     return (
       <div className="centered-screen">
@@ -132,10 +144,21 @@ export default function Dashboard() {
       <main className="dashboard-content unified-dashboard-grid">
         {/* Top row: PlayerCard (1/3) and OrgGoals (2/3) */}
         <div className="dashboard-area playercard-area">
-          <PlayerCard dbUser={dbUser} user={user} />
+          <PlayerCard 
+            dbUser={dbUser} 
+            user={user}
+            playerStats={playerStats}
+            playerStatsLoading={playerStatsLoading}
+             />
         </div>
         <div className="dashboard-area org-goals-area" style={{ gridColumn: '2 / 4' }}>
-          <OrgGoals dbUser={dbUser} user={user} isModerator={isModerator} latestPatch={latestPatch} />
+          <OrgGoals
+            dbUser={dbUser}
+            user={user}
+            isModerator={isModerator}
+            latestPatch={latestPatch}
+            orgSummaries={orgSummaries}
+          />
         </div>
         {/* Bottom row: three progress sections */}
         <div className="dashboard-area">
@@ -150,11 +173,6 @@ export default function Dashboard() {
           />
         </div>
         <div className="dashboard-area">
-          <PlayerPromotionProgress
-            playerStats={playerStats}
-            playerStatsLoading={playerStatsLoading}
-            dbUser={dbUser}
-          />
           <PlayerPrestigeProgress
             activeBadgeReusables={activeBadgeReusables}
             playerStats={playerStats}
@@ -163,7 +181,11 @@ export default function Dashboard() {
           />
         </div>
         <div className="dashboard-area">
-          
+          <SpecializedTeams 
+            dbUser={dbUser} 
+            orgSummaries={orgSummaries}
+            latestPatch={latestPatch}
+          />
         </div>
       </main>
     </div>

@@ -104,11 +104,22 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
     return acc;
   }, {});
 
+  // Sort badges alphabetically by badge_name within each category
+  Object.keys(grouped).forEach(subject => {
+    grouped[subject].sort((a, b) => {
+      const nameA = (a.badge_name || '').toLowerCase();
+      const nameB = (b.badge_name || '').toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+  });
+
 
   // State for open/closed categories
   const [openCategories, setOpenCategories] = React.useState(() => {
     const initial: Record<string, boolean> = {};
-    Object.keys(grouped).forEach(subject => { initial[subject] = true; });
+    Object.keys(grouped).forEach(subject => { initial[subject] = false; });
     return initial;
   });
 

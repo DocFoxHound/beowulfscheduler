@@ -10,6 +10,7 @@ export interface User {
   radier_level: number;
   rank: number;
   roles: string[];
+  verification_code?: string;
 }
 
 /**

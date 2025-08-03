@@ -1,0 +1,14 @@
+.playercard-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.org-goals-user-avatar {
+  margin-bottom: 0.5rem;
+}
+
+.org-goals-user-details {
+  text-align: center;
+}
