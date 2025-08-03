@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
+import CreateBadgeModal from "./adminComponents/CreateBadgeModal";
 import { UserFleet } from "../types/fleet";
 import { FleetLog } from "../types/fleet_log";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { editFleet, fetchFleetById } from "../api/fleetApi";
+import { fetchBadgeAccoladessById } from "../api/badgeAccoladeRecordApi";
 
 interface Props {
   fleet: UserFleet;
@@ -13,15 +15,45 @@ interface Props {
   isNotInAnyFleet?: boolean;
   userId?: string;
   dbUser?: any;
-  onActionComplete?: () => void; // <-- Add this line
+  onActionComplete?: () => void; 
+  isModerator?: boolean; 
+  emojis: any[]; // Optional prop for emojis, if needed
 }
 
 const ActiveFleetCard: React.FC<Props> = ({
-  fleet, fleetLogs, commander_username, members_usernames, original_commander_username, isNotInAnyFleet, userId, dbUser, onActionComplete
+  fleet, fleetLogs, commander_username, members_usernames, original_commander_username, isNotInAnyFleet, userId, dbUser, onActionComplete, isModerator, emojis
 }) => {
   const [showMembers, setShowMembers] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [activityData, setActivityData] = useState<{ date: string; count: number }[]>([]);
+  // Accolade modal state
+  const [showAccoladeModal, setShowAccoladeModal] = useState(false);
+  // Accolade badge state
+  const [accoladeBadges, setAccoladeBadges] = useState<any[]>([]);
+  const [hoveredPreviewAccolade, setHoveredPreviewAccolade] = useState<string|null>(null);
+  const [hoveredExpandedAccolade, setHoveredExpandedAccolade] = useState<string|null>(null);
+  // Accolades expanded view state
+  const [showAccolades, setShowAccolades] = useState(false);
+
+  useEffect(() => {
+    async function fetchAccolades() {
+      if (Array.isArray(fleet.accolades) && fleet.accolades.length > 0) {
+        try {
+          // Import fetchBadgeAccoladessById dynamically
+          const badges = await Promise.all(
+            fleet.accolades.map((id: string) => fetchBadgeAccoladessById(id))
+          );
+          // Flatten in case any badge is an array
+          setAccoladeBadges(badges.flat().filter(Boolean));
+        } catch (err) {
+          setAccoladeBadges([]);
+        }
+      } else {
+        setAccoladeBadges([]);
+      }
+    }
+    fetchAccolades();
+  }, [fleet.accolades]);
 
   useEffect(() => {
     const counts: Record<string, number> = {};
@@ -95,7 +127,7 @@ const ActiveFleetCard: React.FC<Props> = ({
         opacity: isActive ? 1 : 0.6,
         border: isActive ? "2px solid rgb(238, 45, 45)" : "2px solid #555",
         position: "relative",
-        overflow: "hidden",
+        overflow: "visible", // Allow tooltips to overflow
         fontFamily: "'Share Tech Mono', 'Consolas', monospace",
         cursor: "pointer",
         transition: "box-shadow 0.2s, border 0.2s"
@@ -123,7 +155,66 @@ const ActiveFleetCard: React.FC<Props> = ({
             Commander: {commander_username || fleet.commander_id}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+          {/* Accolade badge icons in 3x3 grid, sorted by badge_weight */}
+          {accoladeBadges.length > 0 && (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateRows: "repeat(3, 1fr)",
+              gap: "6px",
+              marginRight: 10,
+              minWidth: 110,
+              maxWidth: 120,
+            }}>
+              {accoladeBadges
+                .slice() // copy
+                .sort((a, b) => (b.badge_weight ?? 0) - (a.badge_weight ?? 0))
+                .slice(0, 9)
+                .map((badge, idx) => (
+                  <div
+                    key={badge.id || idx}
+                    style={{ position: "relative", display: "inline-block" }}
+                    onMouseEnter={() => setHoveredPreviewAccolade(badge.id)}
+                    onMouseLeave={() => setHoveredPreviewAccolade(null)}
+                  >
+                    {(badge.badge_url || badge.image_url) ? (
+                      <img
+                        src={badge.badge_url || badge.image_url}
+                        alt={badge.badge_name}
+                        style={{ width: 32, height: 32, borderRadius: 8, cursor: "pointer", boxShadow: "0 1px 6px #000a" }}
+                      />
+                    ) : (
+                      <span style={{ width: 32, height: 32, display: "inline-block", background: "#333", borderRadius: 8, textAlign: "center", lineHeight: "32px", color: "#aaa" }}>?</span>
+                    )}
+                    {hoveredPreviewAccolade === badge.id && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: 40,
+                          minWidth: 220,
+                          background: "#222",
+                          color: "#fff",
+                          border: "2px solid #3bbca9",
+                          borderRadius: 10,
+                          padding: "0.75rem 1rem",
+                          boxShadow: "0 2px 16px rgba(0,0,0,0.25)",
+                          zIndex: 9999, // Ensure tooltip is above everything
+                          fontSize: "1rem",
+                          pointerEvents: "none",
+                          whiteSpace: "normal"
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: "1.1em", marginBottom: 4 }}>{badge.badge_name}</div>
+                        <div style={{ color: "#aaa", marginBottom: 4 }}>{badge.badge_description}</div>
+                        <div style={{ color: "#3bbca9", fontWeight: 600 }}>Weight: {badge.badge_weight}</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
+          )}
           {isNotInAnyFleet && isActive && (
               <button
                 onClick={handleJoin}
@@ -245,6 +336,86 @@ const ActiveFleetCard: React.FC<Props> = ({
                   )}
                 </ul>
               )}
+              {/* Show Accolades Button */}
+              <button
+                onClick={e => { e.stopPropagation(); setShowAccolades(v => !v); }}
+                style={{
+                  background: "none",
+                  color: "#2d7aee",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "1rem",
+                  marginTop: 8,
+                  textShadow: "0 0 4px #000"
+                }}
+              >
+                {showAccolades ? "Hide Accolades ▲" : "Show Accolades ▼"}
+              </button>
+              {showAccolades && (
+                <div style={{
+                  width: "100%",
+                  marginTop: 10,
+                  background: "#181c22",
+                  borderRadius: 8,
+                  padding: "1rem",
+                  boxShadow: "0 1px 4px #000a"
+                }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8, color: "#7fd7ff" }}>All Accolades</div>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(48px, 1fr))",
+                    gap: "10px",
+                    justifyItems: "center"
+                  }}>
+                    {accoladeBadges
+                      .slice() // copy
+                      .sort((a, b) => (b.badge_weight ?? 0) - (a.badge_weight ?? 0))
+                      .map((badge, idx) => (
+                        <div
+                          key={badge.id || idx}
+                          style={{ position: "relative", display: "inline-block" }}
+                          onMouseEnter={() => setHoveredExpandedAccolade(badge.id)}
+                          onMouseLeave={() => setHoveredExpandedAccolade(null)}
+                        >
+                          {(badge.badge_url || badge.image_url) ? (
+                            <img
+                              src={badge.badge_url || badge.image_url}
+                              alt={badge.badge_name}
+                              style={{ width: 40, height: 40, borderRadius: 8, cursor: "pointer", boxShadow: "0 1px 6px #000a" }}
+                            />
+                          ) : (
+                            <span style={{ width: 40, height: 40, display: "inline-block", background: "#333", borderRadius: 8, textAlign: "center", lineHeight: "40px", color: "#aaa" }}>?</span>
+                          )}
+                          {hoveredExpandedAccolade === badge.id && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                right: 0,
+                                top: 44,
+                                minWidth: 220,
+                                background: "#222",
+                                color: "#fff",
+                                border: "2px solid #3bbca9",
+                                borderRadius: 10,
+                                padding: "0.75rem 1rem",
+                                boxShadow: "0 2px 16px rgba(0,0,0,0.25)",
+                                zIndex: 9999,
+                                fontSize: "1rem",
+                                pointerEvents: "none",
+                                whiteSpace: "normal"
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, fontSize: "1.1em", marginBottom: 4 }}>{badge.badge_name}</div>
+                              <div style={{ color: "#aaa", marginBottom: 4 }}>{badge.badge_description}</div>
+                              <div style={{ color: "#3bbca9", fontWeight: 600 }}>Weight: {badge.badge_weight}</div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -291,6 +462,46 @@ const ActiveFleetCard: React.FC<Props> = ({
             <span style={{ color: "#7fd7ff" }}>Secondary Mission:</span>{" "}
             <span style={{ fontStyle: "italic" }}>{fleet.secondary_mission || "N/A"}</span>
           </div>
+          {/* Award Accolade Button (Moderator only) */}
+          {isModerator && (
+            <div style={{ marginTop: 18, textAlign: "right" }}>
+              <button
+                style={{
+                  background: "#f4ff53ff",
+                  color: "#222",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "8px 18px",
+                  fontWeight: 700,
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 4px #000a"
+                }}
+                onClick={e => {
+                  e.stopPropagation();
+                  setShowAccoladeModal(true);
+                }}
+              >
+                🏅 Award Accolade
+              </button>
+              {/* Accolade Modal */}
+              <CreateBadgeModal
+                isOpen={showAccoladeModal}
+                onClose={() => setShowAccoladeModal(false)}
+                onSubmit={async (badge) => {
+                  // TODO: Implement accolade creation logic here
+                  setShowAccoladeModal(false);
+                }}
+                initialData={undefined}
+                mode="create"
+                submitLabel="Award Accolade"
+                users={[]}
+                fleet={fleet}
+                emojis={emojis}
+                badgeType="accolade"
+              />
+            </div>
+          )}
         </>
       )}
 

@@ -58,7 +58,6 @@ const ManageFleet: React.FC<ManageFleetProps> = ({
     const commander = commanderUser
       ? { id: commanderUser.id, username: commanderUser.username }
       : null;
-      console.log("Commander:", commander);
     return (
       <FleetOwnerManageView
         fleet={ownedFleet}

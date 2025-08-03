@@ -116,6 +116,7 @@ const AdminGeneralManagement: React.FC<AdminGeneralManagementProps> = ({ users, 
         submitLabel={editBadge ? "Save" : "Create"}
         users={users}
         emojis={emojis}
+        badgeType="player"
       />
       {isLoading ? (
         <div>Loading...</div>

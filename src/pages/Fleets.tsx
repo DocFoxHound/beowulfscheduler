@@ -26,6 +26,7 @@ import ManageFleet from '../components/ManageFleet';
 const Hittracker: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
   const [user, setUser] = useState<any>(null);
+  const [emojis, setEmojis] = useState<any[]>([]);
   const [gameVersion, setGameVersion] = useState<string | null>(null);
   const [recentHits, setRecentHits] = useState<Hit[]>([]);
   const [allPirateHits, setAllPirateHits] = useState<Hit[]>([]);
@@ -46,6 +47,18 @@ const Hittracker: React.FC = () => {
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
   const isMember = dbUser?.roles?.some((role: string) => CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
+
+  // Fetch emojis on mount
+  useEffect(() => {
+    import('../api/emojiApi').then(({ fetchAllEmojis }) => {
+      fetchAllEmojis()
+        .then((data) => {
+          const emojiArray = Array.isArray(data) ? data : [];
+          setEmojis(emojiArray);
+        })
+        .catch(() => setEmojis([]));
+    });
+  }, []);
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -279,7 +292,9 @@ const Hittracker: React.FC = () => {
               userId={dbUser.id}
               isNotInAnyFleet={isNotInAnyFleet}
               dbUser={dbUser}
-              />
+              isModerator={isModerator}
+              emojis={emojis}
+            />
           </div>
 
           {/* RIGHT COLUMN: YOUR FLEET */}

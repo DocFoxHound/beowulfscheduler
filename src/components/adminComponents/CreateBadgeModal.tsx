@@ -6,6 +6,10 @@ import { BadgeReusable } from "../../types/badgeReusable";
 import { type User } from "../../types/user";
 import { createBadge as createBadgeRecord } from "../../api/badgeRecordApi";
 import { getLatestPatch } from "../../api/patchApi";
+import { createBadgeAccolade } from "../../api/badgeAccoladeRecordApi";
+import { editFleet } from "../../api/fleetApi";
+import { createBadge } from "../../api/badgeRecordApi"
+
 
 interface CreateBadgeModalProps {
   isOpen: boolean;
@@ -15,7 +19,9 @@ interface CreateBadgeModalProps {
   mode?: "create" | "edit";
   submitLabel?: string;
   users: User[];
+  fleet?: any;
   emojis: any[];
+  badgeType: "player" | "accolade";
 }
 
 const emptyForm = {
@@ -32,7 +38,7 @@ const emptyForm = {
   image_url: "", // <-- add image_url to form
 };
 
-const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, onSubmit, initialData, mode = "create", submitLabel, users, emojis }) => {
+const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, onSubmit, initialData, mode = "create", submitLabel, users, emojis, badgeType, fleet }) => {
   // Ensure badge_weight is always a string in form state
   const [form, setForm] = useState(() => {
     let defaultEmoji = null;
@@ -206,62 +212,158 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
     setLoading(true);
 
     try {
-      // Fetch latest patch version
+      // Fetch latest patch version and select the highest
       let patchVersion = undefined;
       try {
         const patchData = await getLatestPatch();
-        if (Array.isArray(patchData) && patchData.length > 0) {
-          patchVersion = patchData[0].version;
+        let versions: number[] = [];
+        if (Array.isArray(patchData)) {
+          versions = patchData
+            .map(p => {
+              if (typeof p.version === "string") {
+                const num = parseFloat(p.version);
+                return isNaN(num) ? null : num;
+              }
+              return null;
+            })
+            .filter(v => v !== null);
         } else if (patchData && typeof patchData.version === "string") {
-          patchVersion = patchData.version;
+          const num = parseFloat(patchData.version);
+          if (!isNaN(num)) versions = [num];
+        }
+        if (versions.length > 0) {
+          const maxVersion = Math.max(...versions);
+          patchVersion = maxVersion.toString();
         }
       } catch (e) {
         patchVersion = undefined;
       }
 
       if (!form.reusable) {
-        // Save as BadgeRecord for each recipient
-        if (recipientArray.length === 0) {
-          setError("Please add at least one recipient.");
-          setLoading(false);
+        if (badgeType === "accolade" && fleet && fleet.id) {
+          try {
+            // 1. Create badgeAccolade for the fleet
+            const accoladePayload = {
+              id: String(BigInt(Date.now()) * BigInt(1000)) + BigInt(Math.floor(Math.random() * 1000)),
+              badge_name: form.badge_name,
+              badge_description: form.badge_description,
+              badge_weight: Number(form.badge_weight),
+              patch: patchVersion,
+              badge_icon: selectedEmoji ? selectedEmoji.name : "",
+              badge_url: form.image_url,
+              fleet_id: fleet.id,
+            };
+            const newAccolade = await createBadgeAccolade(accoladePayload);
+            // 2. Update fleet's accolades array
+            if (newAccolade && newAccolade.id) {
+              const updatedAccolades = Array.isArray(fleet.accolades)
+                ? [...fleet.accolades.map(String), String(newAccolade.id)]
+                : [String(newAccolade.id)];
+              await editFleet(fleet.id, {
+                accolades: updatedAccolades,
+                updated_at: fleet.updated_at,
+              });
+            }
+            // 3. Award badgeRecord to every user in the users array
+            if (Array.isArray(users) && users.length > 0) {
+              for (const user of users) {
+                if (!user.id || isNaN(Number(user.id))) continue;
+                const badgeRecordPayload = {
+                  id: (String(BigInt(Date.now()) * BigInt(1000)) + BigInt(Math.floor(Math.random() * 1000))).toString(),
+                  user_id: String(user.id),
+                  badge_name: form.badge_name,
+                  badge_description: form.badge_description,
+                  badge_weight: Number(form.badge_weight),
+                  patch: patchVersion,
+                  badge_icon: selectedEmoji ? selectedEmoji.name : "",
+                  badge_url: form.image_url,
+                };
+                await createBadge(badgeRecordPayload);
+              }
+            }
+            // Also award badge to all fleet members and commander
+            let fleetUserIds: string[] = [];
+            if (Array.isArray(fleet?.members_ids)) {
+              fleetUserIds = fleet.members_ids.map(String);
+            }
+            if (fleet?.commander_id) {
+              fleetUserIds.push(String(fleet.commander_id));
+            }
+            fleetUserIds = Array.from(new Set(fleetUserIds)); // Remove duplicates
+            console.log("Fleet Users: ", fleetUserIds);
+            for (const userId of fleetUserIds) {
+              if (!userId || isNaN(Number(userId))) continue;
+              // Ensure unique ID per user by adding userId and random
+              const uniqueId = (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000)) + BigInt(userId)).toString();
+              const badgeRecordPayload = {
+                id: uniqueId,
+                user_id: userId,
+                badge_name: form.badge_name,
+                badge_description: form.badge_description,
+                badge_weight: Number(form.badge_weight),
+                patch: patchVersion,
+                badge_icon: selectedEmoji ? selectedEmoji.name : "",
+                badge_url: form.image_url,
+              };
+              await createBadge(badgeRecordPayload);
+            }
+            setForm(emptyForm);
+            setTriggerGroup({ type: "AND", conditions: [] });
+            if (typeof fleet?.onActionComplete === "function") {
+              fleet.onActionComplete();
+            }
+            onClose();
+            return;
+          } catch (err) {
+            console.error("Accolade badge creation error:", err);
+            setError("Failed to create accolade badge.");
+            setLoading(false);
+            return;
+          }
+        } else {
+          // Save as BadgeRecord for each recipient
+          if (recipientArray.length === 0) {
+            setError("Please add at least one recipient.");
+            setLoading(false);
+            return;
+          }
+          for (const user of recipientArray) {
+            if (!user.id || isNaN(Number(user.id))) {
+              console.error("Invalid user id for badge record:", user);
+              continue;
+            }
+            // Generate a unique BigInt ID (timestamp + random)
+            const uniqueId = (BigInt(Date.now()) * BigInt(1000)) + BigInt(Math.floor(Math.random() * 1000));
+            const badgeRecord = {
+              id: uniqueId.toString(),
+              user_id: String(user.id),
+              badge_name: form.badge_name,
+              badge_description: form.badge_description,
+              badge_weight: String(num),
+              patch: patchVersion,
+            };
+            console.log("Creating badge record:", badgeRecord);
+            await createBadgeRecord(badgeRecord as any);
+            // Notify Discord bot about the award
+            try {
+              await notifyAward(
+                form.badge_name,
+                form.badge_description,
+                getDisplayName(user),
+                String(user.id)
+              );
+            } catch (notifyErr) {
+              console.log("Error notifying Discord bot:", notifyErr);
+            }
+          }
+          setForm(emptyForm);
+          setRecipientArray([]);
+          setRecipientValue("");
+          setShowRecipientInput(false);
+          setTriggerGroup({ type: "AND", conditions: [] });
+          onClose();
           return;
         }
-        for (const user of recipientArray) {
-          if (!user.id || isNaN(Number(user.id))) {
-            console.error("Invalid user id for badge record:", user);
-            continue;
-          }
-          // Generate a unique BigInt ID (timestamp + random)
-          const uniqueId = (BigInt(Date.now()) * BigInt(1000)) + BigInt(Math.floor(Math.random() * 1000));
-          const badgeRecord = {
-            id: uniqueId.toString(),
-            user_id: String(user.id),
-            badge_name: form.badge_name,
-            badge_description: form.badge_description,
-            badge_weight: String(num),
-            patch: patchVersion,
-          };
-          console.log("Creating badge record:", badgeRecord);
-          await createBadgeRecord(badgeRecord as any);
-          // Notify Discord bot about the award
-          try {
-            await notifyAward(
-              form.badge_name,
-              form.badge_description,
-              getDisplayName(user),
-              String(user.id)
-            );
-          } catch (notifyErr) {
-            console.log("Error notifying Discord bot:", notifyErr);
-          }
-        }
-        setForm(emptyForm);
-        setRecipientArray([]);
-        setRecipientValue("");
-        setShowRecipientInput(false);
-        setTriggerGroup({ type: "AND", conditions: [] });
-        onClose();
-        return;
       }
       // If 'Reusable' is toggled on, save as BadgeReusable
       if (form.reusable) {
@@ -353,103 +455,117 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
   if (!isOpen) return null;
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-      <div style={{ background: "#222", color: "#fff", padding: "2rem", borderRadius: "8px", minWidth: 350, maxWidth: 400 }}>
-        <h3>{mode === "edit" ? "Edit Badge" : "Create Badge"}</h3>
-        {/* Prestige and Reusable toggles at the top */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-          {/* Prestige toggle (left) */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-              <span>Prestige:</span>
-              <span style={{ position: 'relative', display: 'inline-block', width: 44, height: 24 }}>
-                <input
-                  type="checkbox"
-                  name="prestige"
-                  checked={form.prestige}
-                  onChange={handleChange}
-                  style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                  id="prestige-toggle"
-                />
-                <span
-                  style={{
-                    position: 'absolute',
-                    cursor: 'pointer',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: form.prestige ? '#3bbca9' : '#888',
-                    borderRadius: 24,
-                    transition: 'background 0.2s',
-                  }}
-                ></span>
-                <span
-                  style={{
-                    position: 'absolute',
-                    left: form.prestige ? 22 : 2,
-                    top: 2,
-                    width: 20,
-                    height: 20,
-                    background: '#fff',
-                    borderRadius: '50%',
-                    transition: 'left 0.2s',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                  }}
-                ></span>
-              </span>
-            </label>
-            <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: 2, width: 90, textAlign: 'center' }}>
-              Required for prestige level
+    <div
+      style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+      onClick={() => {
+        if (showEmojiMenu) {
+          setShowEmojiMenu(false);
+        } else {
+          onClose();
+        }
+      }}
+    >
+      <div
+        style={{ background: "#222", color: "#fff", padding: "2rem", borderRadius: "8px", minWidth: 350, maxWidth: 400 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3>{mode === "edit" ? (badgeType === "accolade" ? "Edit Accolade" : "Edit Badge") : (badgeType === "accolade" ? "Create Accolade" : "Create Badge")}</h3>
+        {/* Hide prestige/reusable for accolade type */}
+        {badgeType !== "accolade" && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+            {/* Prestige toggle (left) */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                <span>Prestige:</span>
+                <span style={{ position: 'relative', display: 'inline-block', width: 44, height: 24 }}>
+                  <input
+                    type="checkbox"
+                    name="prestige"
+                    checked={form.prestige}
+                    onChange={handleChange}
+                    style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                    id="prestige-toggle"
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: form.prestige ? '#3bbca9' : '#888',
+                      borderRadius: 24,
+                      transition: 'background 0.2s',
+                    }}
+                  ></span>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: form.prestige ? 22 : 2,
+                      top: 2,
+                      width: 20,
+                      height: 20,
+                      background: '#fff',
+                      borderRadius: '50%',
+                      transition: 'left 0.2s',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                    }}
+                  ></span>
+                </span>
+              </label>
+              <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: 2, width: 90, textAlign: 'center' }}>
+                Required for prestige level
+              </div>
+            </div>
+            {/* Reusable toggle (right) */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                <span>Reusable:</span>
+                <span style={{ position: 'relative', display: 'inline-block', width: 44, height: 24 }}>
+                  <input
+                    type="checkbox"
+                    name="reusable"
+                    checked={form.reusable}
+                    onChange={handleChange}
+                    disabled={form.prestige}
+                    style={{ opacity: 0, width: 0, height: 0, position: 'absolute', cursor: form.prestige ? 'not-allowed' : 'pointer' }}
+                    id="reusable-toggle"
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: form.reusable ? '#3bbca9' : '#888',
+                      borderRadius: 24,
+                      transition: 'background 0.2s',
+                    }}
+                  ></span>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: form.reusable ? 22 : 2,
+                      top: 2,
+                      width: 20,
+                      height: 20,
+                      background: '#fff',
+                      borderRadius: '50%',
+                      transition: 'left 0.2s',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                    }}
+                  ></span>
+                </span>
+              </label>
+              <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: 2, width: 90, textAlign: 'center' }}>
+                Can award multiple times
+              </div>
             </div>
           </div>
-          {/* Reusable toggle (right) */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-              <span>Reusable:</span>
-              <span style={{ position: 'relative', display: 'inline-block', width: 44, height: 24 }}>
-                <input
-                  type="checkbox"
-                  name="reusable"
-                  checked={form.reusable}
-                  onChange={handleChange}
-                  disabled={form.prestige}
-                  style={{ opacity: 0, width: 0, height: 0, position: 'absolute', cursor: form.prestige ? 'not-allowed' : 'pointer' }}
-                  id="reusable-toggle"
-                />
-                <span
-                  style={{
-                    position: 'absolute',
-                    cursor: 'pointer',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: form.reusable ? '#3bbca9' : '#888',
-                    borderRadius: 24,
-                    transition: 'background 0.2s',
-                  }}
-                ></span>
-                <span
-                  style={{
-                    position: 'absolute',
-                    left: form.reusable ? 22 : 2,
-                    top: 2,
-                    width: 20,
-                    height: 20,
-                    background: '#fff',
-                    borderRadius: '50%',
-                    transition: 'left 0.2s',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                  }}
-                ></span>
-              </span>
-            </label>
-            <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: 2, width: 90, textAlign: 'center' }}>
-              Can award multiple times
-            </div>
-          </div>
-        </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', marginBottom: '1rem' }}>
             {/* Emoji display and picker trigger */}
@@ -468,7 +584,7 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
                   justifyContent: 'center',
                   cursor: 'pointer',
                 }}
-                onClick={() => setShowEmojiMenu(true)}
+                onClick={e => { e.stopPropagation(); setShowEmojiMenu(true); }}
                 title={selectedEmoji ? selectedEmoji.name : 'Select emoji'}
               >
                 {selectedEmoji ? (
@@ -479,20 +595,23 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
               </button>
               {/* Emoji selection modal using EmojiPicker */}
               {showEmojiMenu && (
-                <div style={{
-                  position: 'absolute',
-                  zIndex: 2000,
-                  background: '#222',
-                  border: '2px solid #3bbca9',
-                  borderRadius: 12,
-                  padding: 16,
-                  top: '60px',
-                  left: '0',
-                  boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
-                  minWidth: 320,
-                  maxHeight: 400,
-                  overflowY: 'auto',
-                }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    zIndex: 2000,
+                    background: '#222',
+                    border: '2px solid #3bbca9',
+                    borderRadius: 12,
+                    padding: 16,
+                    top: '60px',
+                    left: '0',
+                    boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
+                    minWidth: 320,
+                    maxHeight: 400,
+                    overflowY: 'auto',
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
                   {/* Use EmojiPicker for emoji selection */}
                   <EmojiPicker
                     emojis={emojis}
@@ -572,7 +691,7 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
               return null;
             })()}
           </div>
-          {form.prestige && (
+          {badgeType !== "accolade" && form.prestige && (
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
               <label style={{ flex: 1 }}>Prestige Name:<br />
                 <select name="prestige_name" value={form.prestige_name} onChange={handleChange} style={{ width: "100%" }}>
@@ -591,8 +710,8 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
               </label>
             </div>
           )}
-          {/* Add Recipient Button and Input (hidden if Reusable is on) */}
-          {!form.reusable && (
+          {/* Hide recipients for accolade type */}
+          {badgeType !== "accolade" && !form.reusable && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginTop: '1.5rem' }}>
               <button
                 type="button"
@@ -729,7 +848,8 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
           )} */}
           {error && <div style={{ color: "#e02323", marginBottom: "1rem" }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
-            {form.reusable && (
+            {/* Hide triggers for accolade type */}
+            {badgeType !== "accolade" && form.reusable && (
               <button
                 type="button"
                 style={{ background: "#3bbca9", color: "#fff", border: "none", borderRadius: 4, padding: "0.5rem 1rem", fontWeight: 600 }}

@@ -11,10 +11,12 @@ interface ActiveFleetsProps {
   allUsers: User[];
   userId: string;
   isNotInAnyFleet: boolean;
-  dbUser: User; // <-- Add this
+  dbUser: User; 
+  isModerator?: boolean; 
+  emojis?: any[]; // Optional prop for emojis, if needed
 }
 
-const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAnyFleet, userId, dbUser }) => {
+const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAnyFleet, userId, dbUser, isModerator, emojis }) => {
   const [fleetLogsMap, setFleetLogsMap] = useState<Record<string, FleetLog[]>>({});
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,7 +111,9 @@ const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAn
               isNotInAnyFleet={isNotInAnyFleet}
               userId={String(userId)}
               dbUser={dbUser}
-              onActionComplete={() => window.location.reload()} // <-- Add this line
+              onActionComplete={() => window.location.reload()} 
+              isModerator={isModerator}
+              emojis={emojis} // Pass emojis prop if needed
             />
           );
         })}

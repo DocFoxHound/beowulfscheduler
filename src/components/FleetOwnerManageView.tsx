@@ -265,7 +265,6 @@ const FleetOwnerManageView: React.FC<FleetOwnerManageViewProps> = ({
                 <span style={{ color: "#bbb", fontStyle: "italic" }}>No members (fleet closing)</span>
               )
               : (membersState || []).map((member, idx) => {
-                console.log("CommanderId:", commanderId, "Member ID:", member.id);
                 const isCurrentCommander =
                   commanderId !== undefined && String(member.id) === String(commanderId);
                 return (

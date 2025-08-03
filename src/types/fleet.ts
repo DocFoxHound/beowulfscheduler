@@ -21,4 +21,5 @@ export interface UserFleet {
   original_commander_id?: string;
   avatar: string;
   updated_at?: string;
+  accolades?: string[];
 }
