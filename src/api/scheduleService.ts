@@ -7,30 +7,44 @@ const API_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VIT
  * Fetches the user's schedule from the API
  * @returns Promise with the user's availability data
  */
-export const getSchedule = async (): Promise<Availability> => {
-  try {
-    const response = await axios.get(`${API_URL}/schedule/weekly`, {
-      withCredentials: true
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching schedule:', error);
-    throw error;
-  }
-};
+// export const getSchedule = async (): Promise<Availability> => {
+//   try {
+//     const response = await axios.get(`${API_URL}/schedule/weekly`, {
+//       withCredentials: true
+//     });
+//     return response.data;
+//   } catch (error) {
+//     console.error('Error fetching schedule:', error);
+//     throw error;
+//   }
+// };
 
-export const getWeeklySchedule = async (startOfWeek: Date, endOfWeek: Date): Promise<Availability> => {
+// export const getWeeklySchedule = async (startOfWeek: Date, endOfWeek: Date): Promise<Availability> => {
+//   try {
+//     const response = await axios.get(`${API_URL}/schedule`, {
+//       params: {
+//         start: startOfWeek.toISOString(),
+//         end: endOfWeek.toISOString(),
+//       },
+//       withCredentials: true,
+//     });
+//     return response.data;
+//   } catch (error) {
+//     console.error('Error fetching weekly schedule:', error);
+//     throw error;
+//   }
+// };
+
+// Get weekly availabilities (by date range)
+export const getWeeklySchedule = async (startDate: string, endDate: string) => {
   try {
-    const response = await axios.get(`${API_URL}/schedule`, {
-      params: {
-        start: startOfWeek.toISOString(),
-        end: endOfWeek.toISOString(),
-      },
+    const response = await axios.get(`${API_URL}/api/schedule/weekly`, {
+      params: { startDate, endDate },
       withCredentials: true,
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching weekly schedule:', error);
+    console.error('Error fetching week availabilities:', error);
     throw error;
   }
 };
@@ -45,7 +59,7 @@ export const saveSchedule = async (availability: Availability): Promise<Availabi
     // Set .action to null on all availability objects before saving
     const cleaned = availability.map(a => ({ ...a, action: null }));
 
-    const response = await axios.post(`${API_URL}/schedule`, cleaned, {
+    const response = await axios.post(`${API_URL}/api/schedule`, cleaned, {
       withCredentials: true,
       headers: { 'Content-Type': 'application/json' }
     });

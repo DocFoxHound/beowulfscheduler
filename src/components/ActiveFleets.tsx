@@ -113,7 +113,7 @@ const ActiveFleets: React.FC<ActiveFleetsProps> = ({ fleets, allUsers, isNotInAn
               dbUser={dbUser}
               onActionComplete={() => window.location.reload()} 
               isModerator={isModerator}
-              emojis={emojis} // Pass emojis prop if needed
+              emojis={emojis ?? []} 
             />
           );
         })}

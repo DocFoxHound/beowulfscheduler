@@ -24,6 +24,9 @@ interface CreateEventModalProps {
   currentUsername: string;
   userRoleIds: string[];
   view?: "training" | "events";
+  dbUser: any;
+  RONIN_IDS: string[];
+  timezone: string;
 }
 
 const CreateEventModal: React.FC<CreateEventModalProps> = ({
@@ -34,9 +37,20 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   defaultHour,
   currentUserId,
   currentUsername,
-  userRoleIds
+  userRoleIds,
+  dbUser,
+  RONIN_IDS,
+  timezone
 }) => {
+  console.log("dbUser:", dbUser);
   const isLive = import.meta.env.VITE_IS_LIVE === "true";
+  // Determine if Fleet Association should be shown
+  const showFleetAssociation = dbUser && dbUser.fleet && Array.isArray(dbUser.fleet)
+    ? dbUser.fleet.length > 0
+    : !!dbUser?.fleet;
+
+  // Determine if user is Ronin
+  const isRonin = Array.isArray(dbUser?.roles) && dbUser.roles.some((role: string) => RONIN_IDS.includes(role));
 
   const PUBLIC_EVENTS_CHANNEL = isLive
     ? import.meta.env.VITE_PUBLIC_EVENTS_CHANNEL
@@ -84,6 +98,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   const emojiPickerRef = useRef<any>(null);
 
   const [fleetAssociation, setFleetAssociation] = useState(false);
+  const [roninAssociation, setRoninAssociation] = useState(false);
   const [fleetSelection, setFleetSelection] = useState("");
   const [fleets, setFleets] = useState<UserFleet[]>([]);
   const [showFleetPicker, setShowFleetPicker] = useState(false);
@@ -141,8 +156,15 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
       setValidationError("Description is required.");
       return;
     }
+
     if (rsvpOptions.length === 0 || rsvpOptions.some(opt => !opt.emoji || !opt.name.trim())) {
       setValidationError("At least one RSVP position with both emoji and name is required.");
+      return;
+    }
+
+    // Require at least one fleet if Fleet Association is checked
+    if (fleetAssociation && selectedFleets.length === 0) {
+      setValidationError("At least one fleet must be selected when Fleet Association is checked.");
       return;
     }
 
@@ -165,31 +187,44 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     };
 
     // Helper to generate a single event object
-    const makeEvent = (start: string, repeatSeries: number = 0) => ({
-      id: Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000,
-      author_id: currentUserId,
-      type: "Event",
-      attendees: [],
-      author_username: currentUsername,
-      attendees_usernames: [],
-      timestamp: new Date(start).toISOString(),
-      start_time: new Date(start).toISOString(),
-      end_time: endTime ? new Date(endTime).toISOString() : undefined,
-      appearance,
-      repeat,
-      repeat_end_date: repeat ? repeatEndDate : undefined,
-      repeat_frequency: repeat ? repeatFrequency : undefined,
-      rsvp_options: JSON.stringify(rsvpOptions),
-      fleet: fleetAssociation && selectedFleets.length > 0
-        ? selectedFleets.map(f => f.id)
-        : [],
-      patch: patchVersion,
-      active: false,
-      repeat_series: repeatSeries,
-      discord_channel: String(channel),
-      first_notice: false,
-      second_notice: false
-    });
+    const makeEvent = (start: string, repeatSeries: number = 0) => {
+      let type = "Event";
+      if (isRonin && roninAssociation && fleetAssociation && selectedFleets.length > 0) {
+        type = "RoninFleet";
+      } else if (isRonin && roninAssociation && (!fleetAssociation || selectedFleets.length === 0)) {
+        type = "Ronin";
+      } else if (fleetAssociation && selectedFleets.length > 0) {
+        type = "Fleet";
+      } // If neither Ronin nor Fleet Association is checked, type remains "Event"
+      return {
+        id: Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000,
+        author_id: currentUserId,
+        type,
+        title,
+        description,
+        attendees: [],
+        author_username: currentUsername,
+        attendees_usernames: [],
+        // Convert start, end to UTC using timezone
+        timestamp: window.moment ? window.moment.tz(start, timezone).utc().toISOString() : new Date(start).toISOString(),
+        start_time: window.moment ? window.moment.tz(start, timezone).utc().toISOString() : new Date(start).toISOString(),
+        end_time: endTime ? (window.moment ? window.moment.tz(endTime, timezone).utc().toISOString() : new Date(endTime).toISOString()) : undefined,
+        appearance,
+        repeat,
+        repeat_end_date: repeat ? repeatEndDate : undefined,
+        repeat_frequency: repeat ? repeatFrequency : undefined,
+        rsvp_options: JSON.stringify(rsvpOptions),
+        fleet: fleetAssociation && selectedFleets.length > 0
+          ? selectedFleets.map(f => f.id)
+          : [],
+        patch: patchVersion,
+        active: false,
+        repeat_series: repeatSeries,
+        discord_channel: String(channel),
+        first_notice: false,
+        second_notice: false
+      };
+    };
 
     let events: any[] = [];
 
@@ -548,207 +583,246 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   </label>
                 </>
               )}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  marginBottom: fleetAssociation ? 8 : 0,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={fleetAssociation}
-                  onChange={e => setFleetAssociation(e.target.checked)}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    accentColor: "#5865F2",
-                    cursor: "pointer",
-                    verticalAlign: "middle",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 17,
-                    fontWeight: 500,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  Fleet Association
-                </span>
-              </label>
-              {fleetAssociation && (
+              {/* Only show Fleet Association if dbUser.fleet is not null or empty */}
+              {showFleetAssociation && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setShowFleetPicker(true)}
-                    style={{ marginBottom: 8 }}
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      marginBottom: fleetAssociation ? 8 : 0,
+                    }}
                   >
-                    Select Fleets
-                  </button>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                    {selectedFleets.map(fleet => (
-                      <div
-                        key={fleet.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          padding: "4px 12px 4px 4px",
-                          borderRadius: 20,
-                          border: "2px solid #5865F2",
-                          background: "#5865F222",
-                          minWidth: 0,
-                          marginRight: 8,
-                        }}
-                      >
-                        <img
-                          src={fleet.avatar}
-                          alt={fleet.name || `Fleet #${fleet.id}`}
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            marginRight: 8,
-                            border: "1px solid #ccc",
-                            background: "#fff"
-                          }}
-                          onError={e => (e.currentTarget.style.display = "none")}
-                        />
-                        <span style={{
-                          fontWeight: 500,
-                          fontSize: 15,
-                          color: "#fff",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: 100
-                        }}>
-                          {fleet.name || `Fleet #${fleet.id}`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFleets(selectedFleets.filter(f => f.id !== fleet.id))}
-                          style={{
-                            marginLeft: 8,
-                            color: "#c00",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            fontWeight: 700,
-                            fontSize: 16,
-                          }}
-                          aria-label="Remove fleet"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Fleet Picker Modal/Area */}
-                  {showFleetPicker && (
-                    <div
+                    <input
+                      type="checkbox"
+                      checked={fleetAssociation}
+                      onChange={e => setFleetAssociation(e.target.checked)}
                       style={{
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        width: "100vw",
-                        height: "100vh",
-                        background: "rgba(0,0,0,0.6)",
-                        zIndex: 2000,
+                        width: 24,
+                        height: 24,
+                        accentColor: "#5865F2",
+                        cursor: "pointer",
+                        verticalAlign: "middle",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 17,
+                        fontWeight: 500,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center"
                       }}
-                      onClick={() => setShowFleetPicker(false)}
                     >
-                      <div
+                      Fleet Association
+                    </span>
+                  </label>
+                  {/* Ronin Checkbox, only if user is Ronin */}
+                  {isRonin && (
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        marginBottom: roninAssociation ? 8 : 0,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={roninAssociation}
+                        onChange={e => setRoninAssociation(e.target.checked)}
                         style={{
-                          background: "#23272a",
-                          borderRadius: 12,
-                          padding: 24,
-                          minWidth: 340,
-                          maxWidth: 600,
-                          maxHeight: "70vh",
-                          overflowY: "auto",
-                          boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
+                          width: 24,
+                          height: 24,
+                          accentColor: "#5865F2",
+                          cursor: "pointer",
+                          verticalAlign: "middle",
                         }}
-                        onClick={e => e.stopPropagation()}
+                      />
+                      <span
+                        style={{
+                          fontSize: 17,
+                          fontWeight: 500,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
                       >
-                        <h3 style={{ color: "#fff", marginBottom: 16 }}>Select Fleets</h3>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                          {fleets.map(fleet => (
-                            <div
-                              key={fleet.id}
-                              onClick={() => {
-                                if (!selectedFleets.some(f => f.id === fleet.id)) {
-                                  setSelectedFleets([...selectedFleets, fleet]);
-                                }
-                              }}
+                        Ronin Team
+                      </span>
+                    </label>
+                  )}
+                  {fleetAssociation && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowFleetPicker(true)}
+                        style={{ marginBottom: 8 }}
+                      >
+                        Select Fleets
+                      </button>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                        {selectedFleets.map(fleet => (
+                          <div
+                            key={fleet.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              padding: "4px 12px 4px 4px",
+                              borderRadius: 20,
+                              border: "2px solid #5865F2",
+                              background: "#5865F222",
+                              minWidth: 0,
+                              marginRight: 8,
+                            }}
+                          >
+                            <img
+                              src={fleet.avatar}
+                              alt={fleet.name || `Fleet #${fleet.id}`}
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                padding: "4px 12px 4px 4px",
-                                borderRadius: 20,
-                                border: selectedFleets.some(f => f.id === fleet.id)
-                                  ? "2px solid #5865F2"
-                                  : "1px solid #444",
-                                background: selectedFleets.some(f => f.id === fleet.id)
-                                  ? "#5865F222"
-                                  : "#23272a",
-                                cursor: selectedFleets.some(f => f.id === fleet.id)
-                                  ? "not-allowed"
-                                  : "pointer",
-                                opacity: selectedFleets.some(f => f.id === fleet.id)
-                                  ? 0.5
-                                  : 1,
-                                minWidth: 0,
-                                marginBottom: 8,
-                                transition: "border 0.2s, background 0.2s",
+                                width: 28,
+                                height: 28,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                marginRight: 8,
+                                border: "1px solid #ccc",
+                                background: "#fff"
                               }}
+                              onError={e => (e.currentTarget.style.display = "none")}
+                            />
+                            <span style={{
+                              fontWeight: 500,
+                              fontSize: 15,
+                              color: "#fff",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              maxWidth: 100
+                            }}>
+                              {fleet.name || `Fleet #${fleet.id}`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFleets(selectedFleets.filter(f => f.id !== fleet.id))}
+                              style={{
+                                marginLeft: 8,
+                                color: "#c00",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                fontWeight: 700,
+                                fontSize: 16,
+                              }}
+                              aria-label="Remove fleet"
                             >
-                              <img
-                                src={fleet.avatar}
-                                alt={fleet.name || `Fleet #${fleet.id}`}
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: "50%",
-                                  objectFit: "cover",
-                                  marginRight: 10,
-                                  border: "1px solid #ccc",
-                                  background: "#fff"
-                                }}
-                                onError={e => (e.currentTarget.style.display = "none")}
-                              />
-                              <span style={{
-                                fontWeight: 500,
-                                fontSize: 15,
-                                color: "#fff",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                maxWidth: 120
-                              }}>
-                                {fleet.name || `Fleet #${fleet.id}`}
-                              </span>
-                              {selectedFleets.some(f => f.id === fleet.id) && (
-                                <span style={{ marginLeft: 8, color: "#5865F2", fontWeight: 700 }}>✓</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowFleetPicker(false)}
-                          style={{ marginTop: 16 }}
-                        >
-                          Done
-                        </button>
+                              ×
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                      {/* Fleet Picker Modal/Area */}
+                      {showFleetPicker && (
+                        <div
+                          style={{
+                            position: "fixed",
+                            top: 0,
+                            left: 0,
+                            width: "100vw",
+                            height: "100vh",
+                            background: "rgba(0,0,0,0.6)",
+                            zIndex: 2000,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                          }}
+                          onClick={() => setShowFleetPicker(false)}
+                        >
+                          <div
+                            style={{
+                              background: "#23272a",
+                              borderRadius: 12,
+                              padding: 24,
+                              minWidth: 340,
+                              maxWidth: 600,
+                              maxHeight: "70vh",
+                              overflowY: "auto",
+                              boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
+                            }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <h3 style={{ color: "#fff", marginBottom: 16 }}>Select Fleets</h3>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                              {fleets.map(fleet => (
+                                <div
+                                  key={fleet.id}
+                                  onClick={() => {
+                                    if (!selectedFleets.some(f => f.id === fleet.id)) {
+                                      setSelectedFleets([...selectedFleets, fleet]);
+                                    }
+                                  }}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    padding: "4px 12px 4px 4px",
+                                    borderRadius: 20,
+                                    border: selectedFleets.some(f => f.id === fleet.id)
+                                      ? "2px solid #5865F2"
+                                      : "1px solid #444",
+                                    background: selectedFleets.some(f => f.id === fleet.id)
+                                      ? "#5865F222"
+                                      : "#23272a",
+                                    cursor: selectedFleets.some(f => f.id === fleet.id)
+                                      ? "not-allowed"
+                                      : "pointer",
+                                    opacity: selectedFleets.some(f => f.id === fleet.id)
+                                      ? 0.5
+                                      : 1,
+                                    minWidth: 0,
+                                    marginBottom: 8,
+                                    transition: "border 0.2s, background 0.2s",
+                                  }}
+                                >
+                                  <img
+                                    src={fleet.avatar}
+                                    alt={fleet.name || `Fleet #${fleet.id}`}
+                                    style={{
+                                      width: 32,
+                                      height: 32,
+                                      borderRadius: "50%",
+                                      objectFit: "cover",
+                                      marginRight: 10,
+                                      border: "1px solid #ccc",
+                                      background: "#fff"
+                                    }}
+                                    onError={e => (e.currentTarget.style.display = "none")}
+                                  />
+                                  <span style={{
+                                    fontWeight: 500,
+                                    fontSize: 15,
+                                    color: "#fff",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    maxWidth: 120
+                                  }}>
+                                    {fleet.name || `Fleet #${fleet.id}`}
+                                  </span>
+                                  {selectedFleets.some(f => f.id === fleet.id) && (
+                                    <span style={{ marginLeft: 8, color: "#5865F2", fontWeight: 700 }}>✓</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowFleetPicker(false)}
+                              style={{ marginTop: 16 }}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}

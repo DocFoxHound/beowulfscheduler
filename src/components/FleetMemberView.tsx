@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { UserFleet } from "../types/fleet";
 import { editFleet, fetchFleetById } from "../api/fleetApi";
+import { editUser } from "../api/userService";
 
 interface FleetMemberViewProps {
   fleet: UserFleet;
@@ -36,6 +37,8 @@ const FleetMemberView: React.FC<FleetMemberViewProps> = ({ fleet, userId, userna
         action: "remove_member",
         changed_user_id: userId,
       });
+      // Update user's fleet field to null
+      await editUser(userId, { fleet: undefined });
       window.location.reload(); // Refresh the page after leaving
     } catch (err: any) {
       if (err.response && err.response.status === 409) {

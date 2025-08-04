@@ -5,6 +5,7 @@ import { FleetLog } from "../types/fleet_log";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { editFleet, fetchFleetById } from "../api/fleetApi";
 import { fetchBadgeAccoladessById } from "../api/badgeAccoladeRecordApi";
+import { editUser } from "../api/userService";
 
 interface Props {
   fleet: UserFleet;
@@ -97,6 +98,11 @@ const ActiveFleetCard: React.FC<Props> = ({
     const newMembers = [...currentMembers, userId];
     try {
       await editFleet(String(fleet.id), { ...latestFleet, members_ids: newMembers, action: "add_member", changed_user_id: userId });
+      // Update user's fleet field
+      if (dbUser && dbUser.id && dbUser.fleet !== fleet.id) {
+        // Import editUser dynamically to avoid circular deps if needed
+        await editUser(dbUser.id, { fleet: fleet.id });
+      }
       if (typeof onActionComplete === "function") onActionComplete(); // <-- Use callback
     } catch (err: any) {
       if (err.response && err.response.status === 409) {
@@ -249,6 +255,10 @@ const ActiveFleetCard: React.FC<Props> = ({
                     action: "take_command",
                     changed_user_id: dbUser.id,
                   });
+                  // Update user's fleet field
+                  if (dbUser && dbUser.id && dbUser.fleet !== fleet.id) {
+                    await editUser(dbUser.id, { fleet: fleet.id });
+                  }
                   if (typeof onActionComplete === "function") onActionComplete(); // <-- Use callback
                 } catch (err: any) {
                   if (err.response && err.response.status === 409) {

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { UserFleet } from "../types/fleet";
 import { editFleet } from "../api/fleetApi";
+import { editUser } from "../api/userService";
 
 interface FleetOwnerManageViewProps {
   fleet: UserFleet;
@@ -34,8 +35,14 @@ const FleetOwnerManageView: React.FC<FleetOwnerManageViewProps> = ({
 
   // Kick member
   const handleKick = (idx: number) => {
+    const kickedMember = membersState[idx];
     const newMembers = membersState.filter((_, i) => i !== idx);
     setMembersState(newMembers);
+
+    // Update kicked user's fleet field to undefined
+    if (kickedMember && kickedMember.id) {
+      editUser(String(kickedMember.id), { fleet: undefined });
+    }
 
     if (newMembers.length === 0) {
       setIsClosing(true);
@@ -103,6 +110,16 @@ const FleetOwnerManageView: React.FC<FleetOwnerManageViewProps> = ({
         action: isClosing ? "close_fleet" : "edit_fleet",
         changed_user_id: dbUser?.id,
       });
+      // If closing, update all members and commander user.fleet to undefined
+      if (isClosing) {
+        const memberIds = Array.isArray(fleet.members_ids) ? fleet.members_ids : [];
+        // Update each member
+        await Promise.all(memberIds.map(id => editUser(String(id), { fleet: undefined })));
+        // Update commander if present and not already in members_ids
+        if (fleet.commander_id && !memberIds.includes(fleet.commander_id)) {
+          await editUser(String(fleet.commander_id), { fleet: undefined });
+        }
+      }
       setIsEditing(false);
       setShowAvatarInput(false);
       setIsClosing(false);

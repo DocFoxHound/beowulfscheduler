@@ -7,10 +7,11 @@ export interface User {
   nickname: string;
   corsair_level: number;
   raptor_level: number;
-  radier_level: number;
+  raider_level: number;
   rank: number;
   roles: string[];
   verification_code?: string;
+  fleet: string;
 }
 
 /**
