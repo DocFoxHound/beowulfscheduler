@@ -4,7 +4,8 @@ import { fetchShipLogsByPatch } from "../../api/fleetLogApi";
 
 interface FleetCommandTeamProps {
   dbUser: any;
-  latestPatch: string; // Optional prop for latest patch version
+  latestPatch: string; 
+  isFleetMember?: boolean; 
 }
 
 export default function FleetCommandTeam({ dbUser, latestPatch }: FleetCommandTeamProps) {

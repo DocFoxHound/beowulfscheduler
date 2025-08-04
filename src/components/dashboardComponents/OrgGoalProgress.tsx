@@ -63,7 +63,6 @@ async function getMetricCompletionAsync(trigger: Trigger, start_date?: string, e
     if (start_date && end_date) {
       try {
         const blackboxes = await fetchBlackBoxesWithinTimeframe(start_date, end_date);
-        console.log('[OrgGoalProgress] Fetched blackboxes:', blackboxes);
         switch (trigger.metric) {
           case "puShipKills":
             // count every blackbox where .ship_killed !== FPS, and .game_mode === PU
@@ -71,7 +70,6 @@ async function getMetricCompletionAsync(trigger: Trigger, start_date?: string, e
           case "acShipKills": {
             // count every blackbox where .ship_killed !== FPS, and .game_mode === AC
             const filtered = blackboxes.filter(bb => bb.ship_killed !== "FPS" && bb.game_mode === "AC");
-            console.log('[OrgGoalProgress] acShipKills filtered:', filtered);
             return filtered.length;
           }
           case "puShipDamages":
@@ -131,11 +129,9 @@ async function getMetricCompletionAsync(trigger: Trigger, start_date?: string, e
       let compareIdx = typeof trigger.value === "number" && trigger.value > 0 ? Math.round(trigger.value) - 1 : 9;
       if (compareIdx >= sorted.length) compareIdx = sorted.length - 1;
       const compareOrg = sorted[compareIdx];
-      console.log("IronPoint total_rating:", ironpoint?.total_rating, "Compare Org:", compareOrg?.name, "at index:", compareOrg?.total_rating);
       if (ironpoint && compareOrg) {
         // Calculate percentage: IRONPOINT's rating / compareOrg's rating * 100
         const percent = (Number(ironpoint.total_rating) / Number(compareOrg.total_rating)) * 100;
-        console.log("Calculated percentage:", percent);
         return percent;
       }
       // If IRONPOINT exists but compareOrg doesn't, compare to last org

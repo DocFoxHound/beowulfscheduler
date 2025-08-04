@@ -17,6 +17,8 @@ export default function SpecializedTeams({ dbUser, orgSummaries, latestPatch }: 
   const userRoles = dbUser?.roles || [];
   const isRonin = userRoles.some((role: string) => RONIN_IDS.includes(role));
   const isFleetCommander = userRoles.some((role: string) => FLEET_COMMANDER_IDS.includes(role));
+  const isFleetMember = dbUser?.fleetId;
+  console.log("DB User:", dbUser);
   let sections: React.ReactNode[] = [];
   if (isRonin) {
     sections.push(
@@ -35,7 +37,7 @@ export default function SpecializedTeams({ dbUser, orgSummaries, latestPatch }: 
       </section>
     );
   }
-  if (isFleetCommander) {
+  if (isFleetMember) {
     sections.push(
       <section
         key="fleet-commander-section"
@@ -48,7 +50,7 @@ export default function SpecializedTeams({ dbUser, orgSummaries, latestPatch }: 
           border: '2px solid #00ff4cff',
         }}
       >
-        <FleetCommandTeam dbUser={dbUser} latestPatch={latestPatch} />
+        <FleetCommandTeam dbUser={dbUser} latestPatch={latestPatch} isFleetMember={isFleetMember} />
       </section>
     );
   }

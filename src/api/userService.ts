@@ -93,7 +93,6 @@ export const editUser = async (userId: string, userData: Partial<User>): Promise
     throw error;
   }
 };
-//   console.log("Fetching weekly schedule from", startOfWeek, "to", endOfWeek);
 //   try {
 //     const response = await axios.get(`${API_URL}/schedule`, {
 //       params: {
@@ -115,13 +114,11 @@ export const editUser = async (userId: string, userData: Partial<User>): Promise
 //  * @returns Promise with the saved User data
 //  */
 // export const saveSchedule = async (User: User): Promise<User> => {
-//   console.log("Saving schedule:", User);
 //   try {
 //     const results = await Promise.all(
 //       User.map(async (item) => {
 //         if (item.action === "add") {
 //           item.action = "";
-//           console.log("Item:", item);
 //           // POST to create new User
 //           //create new User entry
 //           const response = await axios.post(`${API_URL}/schedule`, item, {

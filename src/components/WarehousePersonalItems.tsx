@@ -118,7 +118,6 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
     return String(item.user_id).trim() === String(user_id).trim();
   });
   // Debug: log personalItems
-  // console.log('personalItems', personalItems.length, personalItems);
   // Filtering logic
   const filteredItems = personalItems.filter(item => {
     const matchesText =
@@ -182,7 +181,6 @@ const WarehouseItems: React.FC<Props> = ({ user_id, gameVersion, summarizedItems
   };
 
   const handleSave = async () => {
-    console.log("Edit Save")
     if (!editingId) return;
     const updatedItem = { ...editValues, id: editingId } as WarehouseItem;
     if (Number(updatedItem.total_scu) <= 0) {

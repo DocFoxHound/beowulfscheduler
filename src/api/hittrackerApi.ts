@@ -48,19 +48,16 @@ export const fetchLatest100Hits = async (): Promise<Hit[]> => {
 };
 
 export const createHit = async (hit: Hit): Promise<Hit> => {
-  console.log("Creating hit:", hit);
   const response = await axios.post<Hit>(`${API_BASE_URL}/api/hittracker/`, hit);
   return response.data;
 };
 
 export const updateHit = async (hit: Hit): Promise<Hit> => {
-  console.log("Updating hit:", hit);
   const response = await axios.put<Hit>(`${API_BASE_URL}/api/hittracker/${hit.id}`, hit);
   return response.data;
 };
 
 export const deleteHit = async (hit: Hit): Promise<void> => {
-  console.log("Deleting hit:", hit);
   await axios.delete(`${API_BASE_URL}/api/hittracker/${hit}`, { data: hit });
 };
 

@@ -78,12 +78,10 @@ const AwardBadgeModal: React.FC<AwardBadgeModalProps> = ({ open, badge, users, o
             String(userObj.id)
           );
         } catch (notifyErr) {
-          console.log("Error notifying Discord bot:", notifyErr);
         }
       }
       setSuccess(`Badge awarded to: ${selectedUsers.join(", ")}`);
     } catch (err) {
-      console.log("Error awarding badge:", err);
       setSuccess("Error awarding badge(s). Please try again.");
     }
     setSelectedUsers([]);

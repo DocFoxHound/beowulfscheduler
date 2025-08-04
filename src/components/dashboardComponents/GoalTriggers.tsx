@@ -338,7 +338,6 @@ const GoalTriggers: React.FC<GoalTriggersProps> = ({ isOpen, onClose, group, set
 
   const handleSave = () => {
     const result = normalizeGroup(group.conditions);
-    console.log("[Goal Trigger JSON]", JSON.stringify(result, null, 2));
     onSave(result);
     onClose();
   };

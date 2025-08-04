@@ -290,7 +290,6 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
               fleetUserIds.push(String(fleet.commander_id));
             }
             fleetUserIds = Array.from(new Set(fleetUserIds)); // Remove duplicates
-            console.log("Fleet Users: ", fleetUserIds);
             for (const userId of fleetUserIds) {
               if (!userId || isNaN(Number(userId))) continue;
               // Ensure unique ID per user by adding userId and random
@@ -342,7 +341,6 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
               badge_weight: String(num),
               patch: patchVersion,
             };
-            console.log("Creating badge record:", badgeRecord);
             await createBadgeRecord(badgeRecord as any);
             // Notify Discord bot about the award
             try {
@@ -353,7 +351,6 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
                 String(user.id)
               );
             } catch (notifyErr) {
-              console.log("Error notifying Discord bot:", notifyErr);
             }
           }
           setForm(emptyForm);

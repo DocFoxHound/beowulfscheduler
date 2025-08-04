@@ -598,7 +598,6 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
   };
 
   const handleHitSelect = (hit: Hit) => {
-    console.log("Selected hit:", hit);
     // Add hit.id to associated_hits if not already present
     if (!Array.isArray(form.associated_hits)) {
       handleChange("associated_hits", [hit.id]);
@@ -611,7 +610,6 @@ const LogFleetModal: React.FC<LogFleetModalProps> = ({
       hit.assists.forEach((assist: any) => {
         // Try to match by id or username
         let user: User | undefined;
-        console.log("Assist:", assist);
         if (assist !== undefined) {
           user = allUsers.find(u => String(u.id) === String(assist));
         }

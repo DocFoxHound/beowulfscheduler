@@ -8,7 +8,6 @@ interface EmojiPickerProps {
 }
 
 const EmojiPicker: React.FC<EmojiPickerProps> = ({ emojis, selectedEmoji, onSelect }) => {
-  console.log("Rendering EmojiPicker with emojis:", emojis);
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 120, overflowY: "auto", background: "#181818", borderRadius: 8, padding: 6, border: "1px solid #3bbca9", minWidth: 60, alignItems: "center", justifyContent: "center" }}>
       {emojis.length === 0 ? (

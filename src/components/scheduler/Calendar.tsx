@@ -606,7 +606,7 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
                         pointerEvents: "none"
                       }}>
                         {cellEvents.map((ev, idx) => (
-                          <div key={idx} style={{ marginBottom: idx < cellEvents.length - 1 ? 12 : 0 }}>
+                          <div key={ev.id || idx} style={{ marginBottom: idx < cellEvents.length - 1 ? 12 : 0 }}>
                             <div><b>Type:</b> {ev.type === "RoninFleet" ? "Fleet & Ronin" : ev.type}</div>
                             <div><b>Title:</b> {ev.title}</div>
                             <div><b>Description:</b> {ev.description}</div>

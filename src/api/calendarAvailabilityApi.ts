@@ -71,7 +71,6 @@ export const getAvailabilityByPatch = async (patch: string) => {
 
 // Create a new badge record
 export const createAvailability = async (availability: Availability): Promise<Availability> => {
-  console.log("Creating availability:", availability);
   const response = await axios.post<Availability>(`${API_URL}/api/calendaravailability/`, availability);
   return response.data;
 };

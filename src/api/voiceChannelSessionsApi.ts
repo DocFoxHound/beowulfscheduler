@@ -50,7 +50,6 @@ export const fetchVoiceChannelSessionsByTimeframe = async (
   start: string,
   end: string
 ): Promise<VoiceChannelSession[]> => {
-  console.log('Fetching voice channel sessions from', start, 'to', end);
   const response = await axios.get<VoiceChannelSession[]>(
     `${API_BASE_URL}/api/voicechannelsessions/timeframe`,
     {

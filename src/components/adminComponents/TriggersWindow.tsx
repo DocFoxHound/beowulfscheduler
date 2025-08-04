@@ -388,7 +388,6 @@ const updateMetric = (parent: ConditionGroup, idx: number, field: keyof Metric, 
   // Save handler: flatten to array if top-level is AND and all children are metrics (for compatibility), always normalized
   const handleSave = () => {
     const result = normalizeGroup(group.conditions);
-    console.log("[Trigger JSON]", JSON.stringify(result, null, 2));
     onSave(result);
     onClose();
   };

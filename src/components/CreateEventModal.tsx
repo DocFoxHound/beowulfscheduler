@@ -42,7 +42,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   RONIN_IDS,
   timezone
 }) => {
-  console.log("dbUser:", dbUser);
   const isLive = import.meta.env.VITE_IS_LIVE === "true";
   // Determine if Fleet Association should be shown
   const showFleetAssociation = dbUser && dbUser.fleet && Array.isArray(dbUser.fleet)
@@ -112,7 +111,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     if (!open) return;
     fetchAllFleets()
       .then(fleets => {
-        console.log("Fleets fetched:", fleets);
         // Sort by last_active descending (most recent first)
         const sorted = [...fleets].sort((a, b) => {
           if (!a.last_active && !b.last_active) return 0;
@@ -122,7 +120,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
         });
         setFleets(sorted);
         // Debug: log fleets to verify
-        // console.log("Sorted fleets:", sorted);
       })
       .catch(() => setFleets([]));
   }, [open]);

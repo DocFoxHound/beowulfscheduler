@@ -193,14 +193,14 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       setGuests(h.guests || []);
 
       // Prepare guest assists
-      const guestAssists = Array.isArray(h.guests) && h.guests.length > 0
+      const guestAssists: AssistUserWithExperience[] = Array.isArray(h.guests) && h.guests.length > 0
         ? h.guests.map(guestName => ({
             id: `guest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             username: '',
             nickname: guestName,
             corsair_level: 0,
             raptor_level: 0,
-            radier_level: 0,
+            raider_level: 0,
             rank: 0,
             roles: [],
             dogfighter: false,
@@ -212,7 +212,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             air_leadership: false,
             ground_leadership: false,
             commander: false,
-            guest: true
+            guest: true,
+            fleet: '', // Ensure this property exists
           }))
         : [];
 
@@ -226,7 +227,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             nickname: h.assists_usernames?.[idx] || "",
             corsair_level: 0,
             raptor_level: 0,
-            radier_level: 0,
+            raider_level: 0,
             rank: 0,
             roles: [],
             dogfighter: !!exp?.dogfighter,
@@ -238,6 +239,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             air_leadership: !!exp?.air_leadership,
             ground_leadership: !!exp?.ground_leadership,
             commander: !!exp?.commander,
+            guest: false,
+            fleet: '', // Fix: use empty string instead of null
           };
         });
         setAssistsUsers([...assistsArr, ...guestAssists]);
@@ -265,7 +268,7 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             nickname: username,
             corsair_level: 0,
             raptor_level: 0,
-            radier_level: 0,
+            raider_level: 0,
             rank: 0,
             roles: [],
             dogfighter: false,
@@ -276,7 +279,8 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
             salvage: false,
             air_leadership: false,
             ground_leadership: false,
-            commander: false, // <-- Default to false
+            commander: false,
+            fleet: '', // Add missing fleet property
           },
           ...prev,
         ];
@@ -359,7 +363,6 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
       victims: victimsArray,
       guests: guests,
     };
-    console.log(hit)
 
     try {
       await createHit(hit);
