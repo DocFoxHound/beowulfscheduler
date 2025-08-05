@@ -16,7 +16,6 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   const prestigeGroups: Record<string, any[]> = {
     RAPTOR: [],
     RAIDER: [],
-    CORSAIR: [],
   };
 
   activeBadgeReusables?.forEach((badge) => {
@@ -36,7 +35,6 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
 
   // Local state for prestige levels to allow UI refresh after grant
   const [localLevels, setLocalLevels] = useState({
-    corsair: player?.corsair_level ?? 0,
     raider: player?.raider_level ?? 0,
     raptor: player?.raptor_level ?? 0,
   });
@@ -44,16 +42,13 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   // Update localLevels if player prop changes (e.g., on prop refresh)
   React.useEffect(() => {
     setLocalLevels({
-      corsair: player?.corsair_level ?? 0,
       raider: player?.raider_level ?? 0,
       raptor: player?.raptor_level ?? 0,
     });
-  }, [player?.corsair_level, player?.raider_level, player?.raptor_level]);
+  }, [player?.raider_level, player?.raptor_level]);
 
-  const corsairLevel = localLevels.corsair;
   const raiderLevel = localLevels.raider;
   const raptorLevel = localLevels.raptor;
-  const nextCorsair = getNextLevelRequirements("CORSAIR", corsairLevel);
   const nextRaider = getNextLevelRequirements("RAIDER", raiderLevel);
   const nextRaptor = getNextLevelRequirements("RAPTOR", raptorLevel);
 
@@ -149,7 +144,7 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   const [granting, setGranting] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
   // Track which prestige is being granted
-  const [selectedPrestige, setSelectedPrestige] = useState<null | "RAPTOR" | "RAIDER" | "CORSAIR">(null);
+  const [selectedPrestige, setSelectedPrestige] = useState<null | "RAPTOR" | "RAIDER">(null);
 
   // Handler for Grant action
   const handleGrant = async () => {
@@ -166,10 +161,6 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
       if (selectedPrestige === "RAIDER") {
         prestigeLevel = raiderLevel + 1;
         prestigeKey = "raider";
-      }
-      if (selectedPrestige === "CORSAIR") {
-        prestigeLevel = corsairLevel + 1;
-        prestigeKey = "corsair";
       }
       await grantPrestige(player?.id, selectedPrestige, prestigeLevel);
       // Update local level for the granted prestige
@@ -278,70 +269,6 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
         {raiderLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
           nextRaider.length === 0 ? <li>No requirements for next level.</li> :
           nextRaider.map((badge, idx) => (
-            <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{badge.badge_name || badge.name || badge.display_name || `Badge #${badge.id}`}</div>
-                <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{badge.badge_description}</div>
-                {(!badge.trigger || badge.trigger.length === 0) ? (
-                  <div><em>Given Manually</em></div>
-                ) : (
-                  <div style={{ fontSize: 13 }}>
-                    {badge.trigger.map((triggerStr: string, tIdx: number) => {
-                      let triggerObj;
-                      try {
-                        triggerObj = typeof triggerStr === 'string' ? JSON.parse(triggerStr) : triggerStr;
-                      } catch {
-                        return <div key={tIdx}>Invalid requirement</div>;
-                      }
-                      if (!triggerObj.metric || !triggerObj.operator || triggerObj.value === undefined) return null;
-                      const playerValue = playerStats?.[triggerObj.metric] ?? 0;
-                      let met = false;
-                      switch (triggerObj.operator) {
-                        case '>=':
-                          met = playerValue >= triggerObj.value;
-                          break;
-                        case '<=':
-                          met = playerValue <= triggerObj.value;
-                          break;
-                        case '=':
-                        case '==':
-                          met = playerValue === triggerObj.value;
-                          break;
-                        default:
-                          met = false;
-                      }
-                      return (
-                        <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
-                          <strong>{triggerObj.metric}</strong> {triggerObj.operator} <strong>{triggerObj.value}</strong> &nbsp;
-                          (<span>you: {playerValue}</span>)
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </li>
-          ))}
-      </ul>
-      <div style={{ marginBottom: "1rem" }}>
-        <strong>CORSAIR {corsairLevel} → {corsairLevel + 1} Requirements:</strong>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ProgressBar progress={corsairLevel >= MAX_PRESTIGE_LEVEL ? 1 : getPrestigeProgress(nextCorsair)} />
-          {canGrant && corsairLevel < MAX_PRESTIGE_LEVEL && (
-            <button
-              style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-              onClick={() => { setShowGrantModal(true); setSelectedPrestige("CORSAIR"); }}
-            >
-              Grant
-            </button>
-          )}
-        </div>
-      </div>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {corsairLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
-          nextCorsair.length === 0 ? <li>No requirements for next level.</li> :
-          nextCorsair.map((badge, idx) => (
             <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
               <div>

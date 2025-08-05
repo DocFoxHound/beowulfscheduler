@@ -94,39 +94,6 @@ const prestiges = [
             },
         ],
     },
-    {
-        name: "CORSAIR",
-        focus: "Fleet Leadership",
-        lead: "Mercuriuss",
-        assistants: ["Instructor Commander"],
-        desc: "Ties the other two PRESTIGES together for successful operations. Learn to lead Dogfighting and FPS teams in Events and Operations.",
-        img: "https://i.imgur.com/O6TpgjD.png",
-        poster: "https://i.imgur.com/96RzdPG.png", // <-- Add poster
-        tiers: [
-            {
-                name: "Tier I",
-                requirements: ["Fleet Support Badge"],
-                
-            },
-            {
-                name: "Tier II",
-                requirements: ["Fleet Staff Badge"],
-            },
-            {
-                name: "Tier III",
-                requirements: ["Fleet Commander Badge"],
-                
-            },
-            {
-                name: "Tier IV",
-                requirements: ["Fleet Captain Badge"],
-            },
-            {
-                name: "Tier V",
-                requirements: ["Fleet Admiral Badge"],
-            },
-        ],
-    },
 ];
 
 const badgeDescriptions: Record<string, string> = {
@@ -245,104 +212,6 @@ const raptorBadgeCategories = [
     },
 ];
 
-// List of progression badges (from RAPTOR progression)
-const raptorProgressionBadges = [
-    "Hooligan Badge",
-    "Initiation Badge",
-    "Brawler Badge",
-    "Competitor Badge",
-    "Dogfighter",
-    "Mercenary Badge",
-    "Assassin",
-    "Ace Badge",
-];
-
-const raiderBadgeCategories = [
-    {
-        category: "Pirate Hits & Boarding",
-        badges: [
-            "Boarding Party",
-            "Saboteur",
-            "Ghost",
-            "Demolitionist",
-            "Quartermaster",
-        ],
-    },
-    {
-        category: "FPS Raids & Combat",
-        badges: [
-            "Headhunter",
-            "Enforcer",
-            "Wetwork",
-        ],
-    },
-    {
-        category: "AC FPS Kills",
-        badges: [
-            "Duck Hunter",
-            "Cyber Terror",
-            "Ocelot",
-            "Megalomania",
-        ],
-    },
-    {
-        category: "Leadership & Coordination",
-        badges: [
-            "Ringleader",
-            "RAIDER Badge",
-        ],
-    },
-];
-
-const raiderProgressionBadges = [
-    "RAIDER Badge",
-];
-
-const corsairBadgeCategories = [
-    {
-        category: "Command",
-        badges: [
-            "Lieutenant",
-            "Bridge Officer",
-            "Fleet Captain Badge",
-        ],
-    },
-    {
-        category: "Participation",
-        badges: [
-            "Fleet Support Badge",
-            "Deck Hand",
-            "Expert Crewman",
-            "Master Chief",
-        ],
-    },
-    {
-        category: "Small Team",
-        badges: [
-            "Fleet Staff Badge",
-            "Fleet Commander Badge",
-            "Overlord",
-            "Rear Admiral",
-        ],
-    },
-    {
-        category: "Team Leader",
-        badges: [
-            "Forward Deployed",
-            "Tactical Master",
-            "Strategist",
-        ],
-    },
-];
-
-const corsairProgressionBadges = [
-    "Fleet Support Badge",
-    "Fleet Staff Badge",
-    "Fleet Commander Badge",
-    "Fleet Captain Badge",
-    "Fleet Admiral Badge",
-];
-
 const BadgeChip: React.FC<{ name: string; description?: string; subdued?: boolean }> = ({ name, description, subdued }) => (
     <span className={`badge-chip${subdued ? " badge-chip-subdued" : ""}`}>
         {name}
@@ -433,165 +302,30 @@ const Info: React.FC = () => {
 				</section>
 
 				<section className="info-section">
-					<div className="info-duo-flex">
-						<div className="info-duo-block">
-							<h2>Requirements to Progress</h2>
-							<ul>
-								<li>Active participation in org events and missions</li>
-								<li>Demonstrate teamwork, communication, and respect</li>
-								<li>Complete training modules and pass evaluations</li>
-								<li>Mentor new members as you advance</li>
-								<li>Specialize in a Prestige for advanced ranks</li>
-							</ul>
-						</div>
-						<div className="info-duo-block">
-							<h2>Expectations</h2>
-							<ul>
-								<li>Be respectful and supportive to all members</li>
-								<li>Represent IronPoint positively in-game and in the community</li>
-								<li>Follow org rules and chain of command</li>
-								<li>Strive for improvement and help others grow</li>
-								<li>Work as a team and help your peers and crew mates</li>
-								<li>Above-average combat skills expected</li>
-							</ul>
-						</div>
-					</div>
-				</section>
-
-				<section className="info-section">
-					<h2>Prestiges (Schools of Training)</h2>
+					<h2>Prestiges (Ares of Proficiency)</h2>
 					<img
 						src="https://i.imgur.com/XiXYhrP.png"
 						alt="All Prestige Banners"
 						className="info-prestige-banners"
 					/>
-					<div className="info-prestige-list">
-						{prestiges.map((p) => (
-							<div className="info-prestige-flex" key={p.name}>
-								{/* Poster image removed */}
-								<div className="info-prestige-card">
-									<div style={{ display: "flex", alignItems: "center", gap: "0.75em" }}>
-										<img
-											src={p.img}
-											alt={p.name}
-											className="info-prestige-logo-small"
-										/>
-										<div className="info-prestige-title">
-											{p.name}
-											<br />
-											{p.focus}
-										</div>
-									</div>
-									<div className="info-prestige-lead">
-										<strong>Lead:</strong> {p.lead}
-									</div>
-									<div className="info-prestige-desc">{p.desc}</div>
-									<div className="info-prestige-tiers">
-										{p.tiers.map((tier) => (
-											<div className="info-prestige-tier" key={tier.name}>
-												<strong>{tier.name}</strong>
-												<ul>
-													{tier.requirements.map((req, i) => {
-                                                    // Try to match the badge name at the start of the requirement string
-                                                    const badgeMatch = Object.keys(badgeDescriptions).find(badge =>
-                                                        req.startsWith(badge)
-                                                    );
-                                                    return (
-                                                        <li key={i}>
-                                                            {badgeMatch ? (
-                                                                <>
-                                                                    <BadgeChip name={badgeMatch} description={badgeDescriptions[badgeMatch]} />
-                                                                    {req.slice(badgeMatch.length)}
-                                                                </>
-                                                            ) : (
-                                                                req
-                                                            )}
-                                                        </li>
-                                                    );
-                                                })}
-											</ul>
-										</div>
-										))}
-									</div>
-									<div className="info-prestige-badges">
-                                    </div>
-								</div>
-							</div>
-						))}
-					</div>
+                    <section className="info-section">
+                        <div className="info-duo-flex">
+                            <div className="info-duo-block">
+                                <h2>RAPTOR (Dogfighting)</h2>
+                                The RAPTOR Prestige focuses on Dogfighting and pilot skill, from basic duels to competing with the best in the game. IronPoint values Pirates that are able to defend their catch and keep what they stole, so we put emphasis on learning the combat trade.
+                            </div>
+                            <div className="info-duo-block">
+                                <h2>RAIDER (Piracy)</h2>
+                                The RAIDER Prestige focuses on Piracy and FPS. All things dirty and grungy: boarding, ground objectives, snare routes, creative piracy. These are all skills that are needed to be a successful Pirate in the verse'.
+                            </div>
+                        </div>
+                    </section>
 					<img
 						src="https://i.imgur.com/gNTZzqI.png"
 						alt="Prestige Overview"
 						className="info-graphic"
 					/>
 				</section>
-
-                {/* All Badges Section */}
-                <section className="info-section">
-                    <h2>All Badges</h2>
-                    <p style={{ marginBottom: "2em", color: "#c0c7d1" }}>
-                        The IronPoint badging system is designed to add fun, challenge, and recognition to your time in the org. Each badge represents a specific achievement, skill, or contribution, and many come with a point value or a special title as a reward and metric of your accomplishments. While earning badges is not required for general membership, certain badges are prerequisites for progressing through the tiers of a Prestige school. Progression itself is based on meeting the requirements for each tier, which may include earning specific badges. Collect badges for the challenge, the bragging rights, and to show your dedication to your chosen path!
-                    </p>
-                    <div className="info-badges-columns">
-                        <div>
-                            <h3>RAPTOR All Badges</h3>
-                            {raptorBadgeCategories.map(cat => (
-                <div key={cat.category} style={{ marginBottom: "1.2em" }}>
-                    <div style={{ fontWeight: "bold", color: "#4fa3ff", marginBottom: "0.3em" }}>{cat.category}</div>
-                    <ul>
-                        {cat.badges.map(badge => (
-                            <li key={badge}>
-                                <BadgeChip
-                                    name={badge}
-                                    description={badgeDescriptions[badge]}
-                                    subdued={!raptorProgressionBadges.includes(badge)}
-                                />
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
-                        </div>
-                        <div>
-                            <h3>RAIDER All Badges</h3>
-                            {raiderBadgeCategories.map(cat => (
-                <div key={cat.category} style={{ marginBottom: "1.2em" }}>
-                    <div style={{ fontWeight: "bold", color: "#ff4f4f", marginBottom: "0.3em" }}>{cat.category}</div>
-                    <ul>
-                        {cat.badges.map(badge => (
-                            <li key={badge}>
-                                <BadgeChip
-                                    name={badge}
-                                    description={badgeDescriptions[badge]}
-                                    subdued={!raiderProgressionBadges.includes(badge)}
-                                />
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
-                        </div>
-                        <div>
-                            <h3>CORSAIR All Badges</h3>
-                            {corsairBadgeCategories.map(cat => (
-                <div key={cat.category} style={{ marginBottom: "1.2em" }}>
-                    <div style={{ fontWeight: "bold", color: "#00e6b8", marginBottom: "0.3em" }}>{cat.category}</div>
-                    <ul>
-                        {cat.badges.map(badge => (
-                            <li key={badge}>
-                                <BadgeChip
-                                    name={badge}
-                                    description={badgeDescriptions[badge]}
-                                    subdued={!corsairProgressionBadges.includes(badge)}
-                                />
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
-                        </div>
-                    </div>
-                </section>
 			</main>
 		</div>
 	);

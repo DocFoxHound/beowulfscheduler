@@ -54,6 +54,16 @@ interface CalendarProps {
 }
 
 const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
+  // Import org role IDs from .env
+  const PROSPECT_IDS = (import.meta.env.VITE_PROSPECT_ID || "").split(',').map((id: string) => id.trim()).filter(Boolean);
+  const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(',').map((id: string) => id.trim()).filter(Boolean);
+  const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(',').map((id: string) => id.trim()).filter(Boolean);
+  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(',').map((id: string) => id.trim()).filter(Boolean);
+  // Combine all org member IDs
+  const ORG_MEMBER_IDS = [...PROSPECT_IDS, ...CREW_IDS, ...MARAUDER_IDS, ...BLOODED_IDS];
+
+  // Check if dbUser is a member (has any org role)
+  const isMember = dbUser?.roles?.some((role: string) => ORG_MEMBER_IDS.includes(role)) ?? false;
   // State for EditEventModal
   const [showEditEvent, setShowEditEvent] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
@@ -736,22 +746,24 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
           <div style={{ height: 40 }} />
           {/* Save and Create Event buttons, always visible */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "-40px", position: "relative" }}>
-            <button
-              style={{
-                padding: "10px 24px",
-                background: "#43b581",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: 16,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                cursor: "pointer"
-              }}
-              onClick={() => setShowCreateEvent(true)}
-            >
-              + Create Event
-            </button>
+            {isMember && (
+              <button
+                style={{
+                  padding: "10px 24px",
+                  background: "#43b581",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  fontWeight: 600,
+                  fontSize: 16,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                  cursor: "pointer"
+                }}
+                onClick={() => setShowCreateEvent(true)}
+              >
+                + Create Event
+              </button>
+            )}
             <button
               style={{
                 padding: "10px 24px",

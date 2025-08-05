@@ -19,12 +19,12 @@ const Navbar: React.FC<NavbarProps> = ({ dbUser }) => {
       <div className="navbar-title">IronPoint</div>
       <nav className="navbar-links" style={{ display: "flex", alignItems: "center" }}>
         <a href="/dashboard">Dashboard</a>
-        <a href="/info">Info</a>
         <a href="/piracy">Piracy</a>
         <a href="/fleets">Fleets</a>
-        <a href="/leaderboards">Leaderboards</a>
-        <a href="/scheduler">Scheduler</a>
         <a href="/warehouse">Warehouse</a>
+        <a href="/scheduler">Scheduler</a>
+        <a href="/leaderboards">Leaderboards</a>
+        <a href="/info">About</a>
         {isAdmin && (
           <div
             className="navbar-dropdown"
