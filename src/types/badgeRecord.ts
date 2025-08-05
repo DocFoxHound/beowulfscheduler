@@ -7,4 +7,6 @@ export interface BadgeRecord {
   patch?: string | null;
   badge_icon: string;
   badge_url: string;
+  series_id?: string | null;
+  series_position?: string | null;
 }

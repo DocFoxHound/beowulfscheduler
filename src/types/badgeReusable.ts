@@ -13,4 +13,6 @@ export interface BadgeReusable {
   trigger: JSON[];
   image_url: string;
   emoji_name: string;
+  series_id: string;
+  series_position?: string;
 }

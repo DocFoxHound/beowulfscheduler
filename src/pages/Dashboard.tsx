@@ -170,7 +170,7 @@ export default function Dashboard() {
         {/* Bottom row: three progress sections */}
         <div className="dashboard-area">
           <PlayerBadgeProgress
-            activeBadgeReusables={activeBadgeReusables}
+            badgeReusables={activeBadgeReusables}
             loading={activeBadgeReusablesLoading}
             playerStats={playerStats}
             playerStatsLoading={playerStatsLoading}

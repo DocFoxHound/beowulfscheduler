@@ -77,7 +77,7 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
         dbUser={dbUser}
       />
       <BadgeProgress
-        activeBadgeReusables={activeBadgeReusables}
+        badgeReusables={activeBadgeReusables}
         loading={badgesLoading}
         playerStats={playerStats}
         playerStatsLoading={playerStatsLoading}

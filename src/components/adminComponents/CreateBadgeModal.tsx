@@ -3,12 +3,14 @@ import React, { useState, useRef } from "react";
 import EmojiPicker from "../EmojiPicker";
 import TriggersWindow, { ConditionGroup } from "./TriggersWindow";
 import { BadgeReusable } from "../../types/badgeReusable";
+import SelectSeriesModal from "./SelectSeriesModal";
 import { type User } from "../../types/user";
 import { createBadge as createBadgeRecord } from "../../api/badgeRecordApi";
 import { getLatestPatch } from "../../api/patchApi";
 import { createBadgeAccolade } from "../../api/badgeAccoladeRecordApi";
 import { editFleet } from "../../api/fleetApi";
-import { createBadge } from "../../api/badgeRecordApi"
+import { createBadge } from "../../api/badgeRecordApi";
+import { fetchAllBadgeReusables } from "../../api/badgeReusableApi";
 
 
 interface CreateBadgeModalProps {
@@ -35,10 +37,34 @@ const emptyForm = {
   progression: false,
   progression_rank: "",
   reusable: false,
+  series: false, // <-- new toggle for Series
   image_url: "", // <-- add image_url to form
+  series_name: "",
+  series_position: "",
+  series_id: "",
 };
 
 const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, onSubmit, initialData, mode = "create", submitLabel, users, emojis, badgeType, fleet }) => {
+  // State for selected series badge (from SelectSeriesModal)
+  const [selectedSeriesBadge, setSelectedSeriesBadge] = useState<import("../../types/badgeReusable").BadgeReusable | null>(null);
+  // State to store all badge reusables
+  const [badgeReusables, setBadgeReusables] = useState<BadgeReusable[]>([]);
+  // State to control SelectSeriesModal visibility
+  const [showSeriesModal, setShowSeriesModal] = useState(false);
+  // Fetch all badge reusables when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      fetchAllBadgeReusables()
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setBadgeReusables(data);
+          } else {
+            setBadgeReusables([]);
+          }
+        })
+        .catch(() => setBadgeReusables([]));
+    }
+  }, [isOpen]);
   // Ensure badge_weight is always a string in form state
   const [form, setForm] = useState(() => {
     let defaultEmoji = null;
@@ -160,6 +186,29 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
         ...prev,
         prestige: checked,
         reusable: checked ? true : prev.reusable,
+        // If prestige is turned on, turn off series
+        series: checked ? false : prev.series,
+      }));
+      return;
+    }
+    if (name === "series") {
+      const checked = (target as HTMLInputElement).checked;
+      setForm((prev) => ({
+        ...prev,
+        series: checked,
+        // If series is turned on, force reusable on and prestige off
+        reusable: checked ? true : prev.reusable,
+        prestige: checked ? false : prev.prestige,
+      }));
+      return;
+    }
+    if (name === "reusable") {
+      const checked = (target as HTMLInputElement).checked;
+      setForm((prev) => ({
+        ...prev,
+        reusable: checked,
+        // If reusable is turned off, turn off series
+        series: checked ? prev.series : false,
       }));
       return;
     }
@@ -381,36 +430,49 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
         const categories = triggerArray.map(obj => obj && typeof obj === 'object' && 'category' in obj ? obj.category : undefined).filter(Boolean);
         let subject = "General";
         if (categories.length === 0) {
-        subject = "General";
-      } else {
-        const unique = Array.from(new Set(categories));
-        if (unique.length === 1) {
-          subject = unique[0];
+          subject = "General";
         } else {
-          subject = "Mixed";
+          const unique = Array.from(new Set(categories));
+          if (unique.length === 1) {
+            subject = unique[0];
+          } else {
+            subject = "Mixed";
+          }
         }
-      }
 
-      // If prestige is toggled, override subject to 'Prestige'
-      if (form.prestige) {
-        subject = "Prestige";
-      }
+        // If prestige is toggled, override subject to 'Prestige'
+        if (form.prestige) {
+          subject = "Prestige";
+        }
 
-      // Prepare badgeReusable object
-      const badgeReusable = {
-        ...form,
-        id: isEdit ? initialData.id : (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000))).toString(),
-        badge_weight: String(num),
-        trigger: triggerArray,
-        deleted: false,
-        prestige_name: form.prestige ? (form.prestige_name ? form.prestige_name : null) : null,
-        prestige_level: form.prestige ? (form.prestige_level ? form.prestige_level : null) : null,
-        progression_rank: null,
-        progression: null,
-        subject,
-        image_url: form.image_url,
-        emoji_name: selectedEmoji ? selectedEmoji.name : null,
-      };
+        // Prepare badgeReusable object (exclude series_name)
+        const {
+          series_name, // exclude from save
+          ...formToSave
+        } = form;
+        // Only set series_id and series_position if series toggle is on and both are set
+        let series_id = undefined;
+        let series_position = undefined;
+        if (form.series && form.series_id && form.series_position !== "") {
+          series_id = form.series_id;
+          series_position = form.series_position;
+        }
+        const badgeReusable = {
+          ...formToSave,
+          series_id,
+          series_position,
+          id: isEdit ? initialData.id : (BigInt(Date.now()) * BigInt(1000) + BigInt(Math.floor(Math.random() * 1000))).toString(),
+          badge_weight: String(num),
+          trigger: triggerArray,
+          deleted: false,
+          prestige_name: form.prestige ? (form.prestige_name ? form.prestige_name : null) : null,
+          prestige_level: form.prestige ? (form.prestige_level ? form.prestige_level : null) : null,
+          progression_rank: null,
+          progression: null,
+          subject,
+          image_url: form.image_url,
+          emoji_name: selectedEmoji ? selectedEmoji.name : null,
+        };
         try {
           // @ts-ignore: dynamic import for code-splitting or if not imported
           const badgeReusableApi = await import('../../api/badgeReusableApi');
@@ -515,7 +577,7 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
                 Required for prestige level
               </div>
             </div>
-            {/* Reusable toggle (right) */}
+            {/* Reusable toggle (middle) */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
                 <span>Reusable:</span>
@@ -561,133 +623,243 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
                 Can award multiple times
               </div>
             </div>
+            {/* Series toggle (right) */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                <span>Series:</span>
+                <span style={{ position: 'relative', display: 'inline-block', width: 44, height: 24 }}>
+                  <input
+                    type="checkbox"
+                    name="series"
+                    checked={form.series}
+                    onChange={handleChange}
+                    style={{ opacity: 0, width: 0, height: 0, position: 'absolute', cursor: 'pointer' }}
+                    id="series-toggle"
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: form.series ? '#3bbca9' : '#888',
+                      borderRadius: 24,
+                      transition: 'background 0.2s',
+                    }}
+                  ></span>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: form.series ? 22 : 2,
+                      top: 2,
+                      width: 20,
+                      height: 20,
+                      background: '#fff',
+                      borderRadius: '50%',
+                      transition: 'left 0.2s',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                    }}
+                  ></span>
+                </span>
+              </label>
+              <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: 2, width: 90, textAlign: 'center' }}>
+                Part of a badge series.
+              </div>
+            </div>
           </div>
         )}
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', marginBottom: '1rem' }}>
-            {/* Emoji display and picker trigger */}
-            <div style={{ minWidth: 60, position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', marginBottom: '1rem' }}>
+        {/* Emoji display and picker trigger */}
+        <div style={{ minWidth: 60, position: 'relative' }}>
+          <button
+            type="button"
+            style={{
+              background: 'transparent',
+              border: '1px solid #3bbca9',
+              borderRadius: 8,
+              padding: 6,
+              minWidth: 60,
+              minHeight: 60,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            onClick={e => { e.stopPropagation(); setShowEmojiMenu(true); }}
+            title={selectedEmoji ? selectedEmoji.name : 'Select emoji'}
+          >
+            {selectedEmoji ? (
+              <img src={selectedEmoji.url} alt={selectedEmoji.name} style={{ width: 40, height: 40, borderRadius: 4 }} />
+            ) : (
+              <span style={{ color: '#aaa' }}>?</span>
+            )}
+          </button>
+          {/* Emoji selection modal using EmojiPicker */}
+          {showEmojiMenu && (
+            <div
+              style={{
+                position: 'absolute',
+                zIndex: 2000,
+                background: '#222',
+                border: '2px solid #3bbca9',
+                borderRadius: 12,
+                padding: 16,
+                top: '60px',
+                left: '0',
+                boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
+                minWidth: 320,
+                maxHeight: 400,
+                overflowY: 'auto',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Use EmojiPicker for emoji selection */}
+              <EmojiPicker
+                emojis={emojis}
+                selectedEmoji={selectedEmoji}
+                onSelect={(emoji) => {
+                  setSelectedEmoji(emoji);
+                  setForm(prev => ({
+                    ...prev,
+                    image_url: emoji.url,
+                  }));
+                  setShowEmojiMenu(false);
+                }}
+              />
               <button
                 type="button"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #3bbca9',
-                  borderRadius: 8,
-                  padding: 6,
-                  minWidth: 60,
-                  minHeight: 60,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-                onClick={e => { e.stopPropagation(); setShowEmojiMenu(true); }}
-                title={selectedEmoji ? selectedEmoji.name : 'Select emoji'}
-              >
-                {selectedEmoji ? (
-                  <img src={selectedEmoji.url} alt={selectedEmoji.name} style={{ width: 40, height: 40, borderRadius: 4 }} />
-                ) : (
-                  <span style={{ color: '#aaa' }}>?</span>
-                )}
-              </button>
-              {/* Emoji selection modal using EmojiPicker */}
-              {showEmojiMenu && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    zIndex: 2000,
-                    background: '#222',
-                    border: '2px solid #3bbca9',
-                    borderRadius: 12,
-                    padding: 16,
-                    top: '60px',
-                    left: '0',
-                    boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
-                    minWidth: 320,
-                    maxHeight: 400,
-                    overflowY: 'auto',
-                  }}
-                  onClick={e => e.stopPropagation()}
-                >
-                  {/* Use EmojiPicker for emoji selection */}
-                  <EmojiPicker
-                    emojis={emojis}
-                    selectedEmoji={selectedEmoji}
-                    onSelect={(emoji) => {
-                      setSelectedEmoji(emoji);
-                      setForm(prev => ({
-                        ...prev,
-                        image_url: emoji.url,
-                      }));
-                      setShowEmojiMenu(false);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{ marginTop: 16, background: '#444', color: '#fff', border: 'none', borderRadius: 4, padding: '0.5rem 1rem' }}
-                    onClick={() => setShowEmojiMenu(false)}
-                  >Cancel</button>
-                </div>
-              )}
+                style={{ marginTop: 16, background: '#444', color: '#fff', border: 'none', borderRadius: 4, padding: '0.5rem 1rem' }}
+                onClick={() => setShowEmojiMenu(false)}
+              >Cancel</button>
             </div>
-            <div style={{ flex: 1 }}>
-              <label>Badge Name:<br />
-                <input name="badge_name" value={form.badge_name} onChange={handleChange} required style={{ width: "100%" }} />
-              </label>
-            </div>
-          </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <label>Description:<br />
-              <textarea
-                name="badge_description"
-                value={form.badge_description}
-                onChange={e => {
-                  if (e.target.value.length <= 200) handleChange(e);
-                }}
-                required
-                maxLength={200}
-                style={{ width: "100%" }}
-              />
-            </label>
-            <div style={{ color: form.badge_description.length === 200 ? "#e02323" : "#aaa", fontSize: "0.9em", marginTop: 2, textAlign: "right" }}>
-              {form.badge_description.length}/200 characters
-            </div>
-          </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <label>Weight:<br />
+          )}
+        </div>
+        <div style={{ flex: 1 }}>
+          <label>Badge Name:<br />
+            <input name="badge_name" value={form.badge_name} onChange={handleChange} required style={{ width: "100%" }} />
+          </label>
+        </div>
+      </div>
+      <div style={{ marginBottom: "1rem" }}>
+        <label>Description:<br />
+          <textarea
+            name="badge_description"
+            value={form.badge_description}
+            onChange={e => {
+              if (e.target.value.length <= 200) handleChange(e);
+            }}
+            required
+            maxLength={200}
+            style={{ width: "100%" }}
+          />
+        </label>
+        <div style={{ color: form.badge_description.length === 200 ? "#e02323" : "#aaa", fontSize: "0.9em", marginTop: 2, textAlign: "right" }}>
+          {form.badge_description.length}/200 characters
+        </div>
+      </div>
+      <div style={{ marginBottom: "1rem" }}>
+        <label>Weight:<br />
+          <input
+            ref={weightInputRef}
+            type="text"
+            name="badge_weight"
+            value={form.badge_weight}
+            onChange={handleChange}
+            onBlur={handleWeightBlur}
+            onFocus={e => e.target.select()}
+            inputMode="numeric"
+            pattern="-?[0-9]*"
+            required
+            style={{ width: "100%" }}
+            placeholder="-100 to 100"
+            autoComplete="off"
+          />
+        </label>
+        {weightError && (
+          <div style={{ color: "#e02323", fontSize: "0.9em", marginTop: 2 }}>{weightError}</div>
+        )}
+        {/* Additional warnings for weight value */}
+        {!weightError && (() => {
+          const num = Number(form.badge_weight);
+          if (form.badge_weight !== "" && !isNaN(num)) {
+            if (num > 50) {
+              return <div style={{ color: "#e02323", fontSize: "0.9em", marginTop: 2 }}>Badges over 50 should be awarded seldomly.</div>;
+            }
+            if (num < 0) {
+              return <div style={{ color: "#e02323", fontSize: "0.9em", marginTop: 2 }}>This will harm a player's Badge Score.</div>;
+            }
+          }
+          return null;
+        })()}
+      </div>
+      {/* Show series fields if series toggle is on */}
+      {form.series && (
+        <div style={{ marginBottom: "1rem", display: "flex", gap: "1rem" }}>
+          <div style={{ flex: 1 }}>
+            <label>Series Name:<br />
               <input
-                ref={weightInputRef}
                 type="text"
-                name="badge_weight"
-                value={form.badge_weight}
-                onChange={handleChange}
-                onBlur={handleWeightBlur}
-                onFocus={e => e.target.select()}
-                inputMode="numeric"
-                pattern="-?[0-9]*"
-                required
-                style={{ width: "100%" }}
-                placeholder="-100 to 100"
-                autoComplete="off"
+                name="series_name"
+                value={selectedSeriesBadge ? selectedSeriesBadge.badge_name || "" : form.series_name || ""}
+                readOnly
+                style={{ width: "100%", background: "#181818", color: "#fff", border: "1px solid #888", borderRadius: 4, padding: "0.5rem" }}
               />
             </label>
-            {weightError && (
-              <div style={{ color: "#e02323", fontSize: "0.9em", marginTop: 2 }}>{weightError}</div>
-            )}
-            {/* Additional warnings for weight value */}
-            {!weightError && (() => {
-              const num = Number(form.badge_weight);
-              if (form.badge_weight !== "" && !isNaN(num)) {
-                if (num > 50) {
-                  return <div style={{ color: "#e02323", fontSize: "0.9em", marginTop: 2 }}>Badges over 50 should be awarded seldomly.</div>;
-                }
-                if (num < 0) {
-                  return <div style={{ color: "#e02323", fontSize: "0.9em", marginTop: 2 }}>This will harm a player's Badge Score.</div>;
-                }
-              }
-              return null;
-            })()}
           </div>
+          <div style={{ flex: 1 }}>
+            <label>Series Position:<br />
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button
+                  type="button"
+                  style={{ background: "#3bbca9", color: "#fff", border: "none", borderRadius: 4, padding: "0.25rem 0.75rem", fontWeight: 600, fontSize: "1rem", cursor: "pointer" }}
+                  onClick={() => {
+                    setForm(prev => {
+                      let val = Number(prev.series_position) || 0;
+                      return { ...prev, series_position: String(val - 1) };
+                    });
+                  }}
+                  aria-label="Decrement series position"
+                >-</button>
+                <input
+                  type="number"
+                  name="series_position"
+                  value={form.series_position}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setForm(prev => ({ ...prev, series_position: value }));
+                  }}
+                  style={{ width: "100%", background: "#181818", color: "#fff", border: "1px solid #888", borderRadius: 4, padding: "0.5rem" }}
+                />
+                <button
+                  type="button"
+                  style={{ background: "#3bbca9", color: "#fff", border: "none", borderRadius: 4, padding: "0.25rem 0.75rem", fontWeight: 600, fontSize: "1rem", cursor: "pointer" }}
+                  onClick={() => {
+                    setForm(prev => {
+                      let val = Number(prev.series_position) || 0;
+                      return { ...prev, series_position: String(val + 1) };
+                    });
+                  }}
+                  aria-label="Increment series position"
+                >+</button>
+              </div>
+            </label>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Series ID:<br />
+              <input
+                type="text"
+                name="series_id"
+                value={selectedSeriesBadge ? selectedSeriesBadge.series_id || "" : form.series_id || ""}
+                readOnly
+                style={{ width: "100%", background: "#181818", color: "#fff", border: "1px solid #888", borderRadius: 4, padding: "0.5rem" }}
+              />
+            </label>
+          </div>
+        </div>
+      )}
           {badgeType !== "accolade" && form.prestige && (
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
               <label style={{ flex: 1 }}>Prestige Name:<br />
@@ -845,21 +1017,51 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
           )} */}
           {error && <div style={{ color: "#e02323", marginBottom: "1rem" }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
-            {/* Hide triggers for accolade type */}
-            {badgeType !== "accolade" && form.reusable && (
-              <button
-                type="button"
-                style={{ background: "#3bbca9", color: "#fff", border: "none", borderRadius: 4, padding: "0.5rem 1rem", fontWeight: 600 }}
-                onClick={() => setShowTriggers(true)}
-              >
-                Triggers
-              </button>
-            )}
             <div style={{ display: "flex", gap: "1rem" }}>
+              {/* Hide triggers for accolade type */}
+              {badgeType !== "accolade" && form.reusable && (
+                <>
+                  <button
+                    type="button"
+                    style={{ background: "#3bbca9", color: "#fff", border: "none", borderRadius: 4, padding: "0.5rem 1rem", fontWeight: 600 }}
+                    onClick={() => setShowTriggers(true)}
+                  >
+                    Triggers
+                  </button>
+                  {form.series && (
+                    <button
+                      type="button"
+                      style={{ background: "#3bbca9", color: "#fff", border: "none", borderRadius: 4, padding: "0.5rem 1rem", fontWeight: 600 }}
+                      onClick={() => setShowSeriesModal(true)}
+                    >
+                      Series
+                    </button>
+                  )}
+                </>
+              )}
+              {/* Cancel and Save buttons should always be visible */}
               <button type="button" onClick={onClose} style={{ background: "#444", color: "#fff", border: "none", borderRadius: 4, padding: "0.5rem 1rem" }}>Cancel</button>
               <button type="submit" disabled={loading} style={{ background: "#3bbca9", color: "#fff", border: "none", borderRadius: 4, padding: "0.5rem 1rem" }}>{submitLabel || (mode === "edit" ? "Save" : "Create")}</button>
             </div>
           </div>
+
+        {/* SelectSeriesModal should be rendered here, outside the button group */}
+        {showSeriesModal && (
+          <SelectSeriesModal
+            isOpen={showSeriesModal}
+            onClose={() => setShowSeriesModal(false)}
+            badgeReusables={badgeReusables}
+            onSelect={(series: import("../../types/badgeReusable").BadgeReusable) => {
+              setForm(prev => ({
+                ...prev,
+                series_id: String(series.series_id ?? series.id ?? ""),
+                series_name: series.badge_name || "",
+                series_position: series.series_position || "",
+              }));
+              setShowSeriesModal(false);
+            }}
+          />
+        )}
 
           {/* Triggers Modal */}
           <TriggersWindow

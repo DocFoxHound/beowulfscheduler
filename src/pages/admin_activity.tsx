@@ -23,7 +23,7 @@ const AdminActivity: React.FC = () => {
   const [activeBadgeReusables, setActiveBadgeReusables] = useState<any[]>([]);
   // Fetch active badge reusables on mount
   useEffect(() => {
-    fetchAllActiveBadgeReusables()
+    fetchAllBadgeReusables()
       .then((data) => {
         setActiveBadgeReusables(Array.isArray(data) ? data : []);
       })
