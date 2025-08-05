@@ -55,10 +55,11 @@ export default function FleetCommandTeam({ dbUser, latestPatch }: FleetCommandTe
 
   return (
     <div>
-      <h2>Fleet Command</h2>
+      <h2>Fleet Stats</h2>
       {/* Quick summary of the fleet owned by dbUser */}
       {(() => {
-        const ownedFleetStat = fleetStats.find(f => f.fleet.commander_id === dbUser?.id);
+        const ownedFleetId = dbUser?.fleet;
+        const ownedFleetStat = fleetStats.find(f => f.fleet.id === ownedFleetId);
         if (!ownedFleetStat) return null;
         const { fleet, totalLogs, totalKills, valueStolen, damagesValue, totalPlayers } = ownedFleetStat;
         return (

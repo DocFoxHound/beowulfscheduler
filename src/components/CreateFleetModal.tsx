@@ -34,14 +34,13 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
   formError = null,
   dbUser,
 }) => {
-  // Calculate capacity from dbUser
-  const capacity = (dbUser?.corsair_level ?? 1) * 8;
+  // ...existing code...
   const [form, setForm] = useState({ ...initialForm});
   const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     setForm(f => ({ ...f}));
-  }, [capacity, show]);
+  }, [show]);
 
   if (!show) return null;
 
@@ -121,9 +120,9 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
           />
         </label>
 
-        {/* Fleet Title & Member Capacity (side by side) */}
-        <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
-          <label style={{ flex: 1 }}>
+        {/* Fleet Title */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ width: "100%" }}>
             Fleet Title:
             <input
               type="text"
@@ -135,23 +134,6 @@ const CreateFleetModal: React.FC<CreateFleetModalProps> = ({
             />
             <div style={{ fontSize: "0.95em", color: "rgb(197, 197, 197)" }}>
               Choose wisely! Fleet names are permanent and unique.
-            </div>
-          </label>
-          <label style={{ flex: 1 }}>
-            Member Capacity:
-            <input
-              type="number"
-              value={capacity}
-              readOnly
-              style={{
-                background: "#f3f4f6", // Softer, more muted gray
-                color: "#888",
-                width: "100%",
-                border: "1px solid #d1d5db"
-              }}
-            />
-            <div style={{ fontSize: "0.95em", color: "rgb(197, 197, 197)" }}>
-              Capacity is <b>{capacity}</b> and increases by 8 with each CORSAIR level.
             </div>
           </label>
         </div>

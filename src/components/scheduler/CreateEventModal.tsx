@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import Modal from "./Modal";
-import { saveSchedule } from "../api/scheduleService";
-import { ScheduleEntry } from "../types/schedule";
-import { fetchAllFleets } from "../api/fleetApi"; // <-- Import this
+import Modal from "../Modal";
+import { saveSchedule, updateSchedule, getNextScheduleByRepeatSeries, deleteSeries } from "../../api/scheduleService";
+import { ScheduleEntry } from "../../types/schedule";
+import { fetchAllFleets } from "../../api/fleetApi"; // <-- Import this
 import "emoji-picker-element";
-import { UserFleet } from "../types/fleet"; // <-- Add this import
-import { getLatestPatch } from "../api/patchApi"; // Add this import
+import { UserFleet } from "../../types/fleet"; // <-- Add this import
+import { getLatestPatch } from "../../api/patchApi"; // Add this import
 
 // Allow usage of <emoji-picker> as a JSX element
 declare namespace JSX {
@@ -27,21 +27,28 @@ interface CreateEventModalProps {
   dbUser: any;
   RONIN_IDS: string[];
   timezone: string;
+  mode: "create" | "edit";
+  editingEvent?: ScheduleEntry; // Optional prop for editing an existing event
+  isModerator?: boolean; // Optional prop to indicate if the user is a moderator
 }
 
 const CreateEventModal: React.FC<CreateEventModalProps> = ({
-  open,
-  onClose,
-  onCreate,
-  defaultDate,
-  defaultHour,
-  currentUserId,
-  currentUsername,
-  userRoleIds,
-  dbUser,
-  RONIN_IDS,
-  timezone
+open,
+onClose,
+onCreate,
+defaultDate,
+defaultHour,
+currentUserId,
+currentUsername,
+userRoleIds,
+dbUser,
+RONIN_IDS,
+timezone,
+mode,
+isModerator,
+editingEvent
 }) => {
+
   const isLive = import.meta.env.VITE_IS_LIVE === "true";
   // Determine if Fleet Association should be shown
   const showFleetAssociation = dbUser && dbUser.fleet && Array.isArray(dbUser.fleet)
@@ -72,32 +79,91 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
   };
 
-  const [title, setTitle] = useState("Event Title");
-  const [description, setDescription] = useState("");
-  const [startTime, setStartTime] = useState(() =>
-    getLocalDateTimeString(defaultDate, defaultHour)
+  // State initialization with editingEvent if in edit mode
+  const [title, setTitle] = useState<string>(
+    mode === "edit" && editingEvent && typeof editingEvent.title === "string"
+      ? editingEvent.title
+      : "Event Title"
   );
-  const [endTime, setEndTime] = useState<string | undefined>(() => {
-    return getLocalDateTimeString(defaultDate, defaultHour + 1);
+  const [description, setDescription] = useState(() =>
+    mode === "edit" && editingEvent ? editingEvent.description : ""
+  );
+  const [startTime, setStartTime] = useState(() => {
+    if (mode === "edit" && editingEvent && editingEvent.start_time) {
+      // Convert to local datetime string for input
+      const d = new Date(editingEvent.start_time);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    return getLocalDateTimeString(defaultDate, defaultHour);
   });
-  const [channel, setChannel] = useState(""); // Default to Public Events
-  const [rsvpOptions, setRsvpOptions] = useState([
-    { emoji: "✅", name: "Yes" },
-    { emoji: "❔", name: "Maybe" },
-    { emoji: "❌", name: "No" }
-  ]);
-  const [appearanceColor, setAppearanceColor] = useState("#5865F2");
-  const [appearanceImage, setAppearanceImage] = useState("");
-  const [repeat, setRepeat] = useState(false);
-  const [repeatFrequency, setRepeatFrequency] = useState("weekly");
-  const [repeatEndDate, setRepeatEndDate] = useState<string | undefined>(undefined);
+  const [endTime, setEndTime] = useState<string | undefined>(() => {
+    if (mode === "edit" && editingEvent && editingEvent.end_time) {
+      const d = new Date(editingEvent.end_time);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    const start = getLocalDateTimeString(defaultDate, defaultHour);
+    const d = new Date(start);
+    d.setHours(d.getHours() + 1);
+    return getLocalDateTimeString(d, d.getHours());
+  });
+  const [channel, setChannel] = useState(() =>
+    mode === "edit" && editingEvent ? String(editingEvent.discord_channel) : ""
+  );
+  const [rsvpOptions, setRsvpOptions] = useState(() => {
+    if (mode === "edit" && editingEvent && editingEvent.rsvp_options) {
+      try {
+        const opts = JSON.parse(editingEvent.rsvp_options);
+        if (Array.isArray(opts)) return opts;
+      } catch {}
+    }
+    return [
+      { emoji: "✅", name: "Yes" },
+      { emoji: "❔", name: "Maybe" },
+      { emoji: "❌", name: "No" }
+    ];
+  });
+  const [appearanceColor, setAppearanceColor] = useState(() => {
+    if (mode === "edit" && editingEvent && editingEvent.appearance && editingEvent.appearance.color) {
+      return editingEvent.appearance.color;
+    }
+    return "#5865F2";
+  });
+  const [appearanceImage, setAppearanceImage] = useState(() => {
+    if (mode === "edit" && editingEvent && editingEvent.appearance && editingEvent.appearance.image) {
+      return editingEvent.appearance.image;
+    }
+    return "";
+  });
+  const [repeat, setRepeat] = useState(() =>
+    mode === "edit" && editingEvent ? !!editingEvent.repeat : false
+  );
+  const [repeatFrequency, setRepeatFrequency] = useState(() =>
+    mode === "edit" && editingEvent && editingEvent.repeat_frequency ? editingEvent.repeat_frequency : "weekly"
+  );
+  const [repeatEndDate, setRepeatEndDate] = useState<string | undefined>(() => {
+    if (mode === "edit" && editingEvent && editingEvent.repeat_end_date) {
+      // Convert to yyyy-mm-dd
+      const d = new Date(editingEvent.repeat_end_date);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+    return undefined;
+  });
 
   const [emojiPickerIdx, setEmojiPickerIdx] = useState<number | null>(null);
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState<DOMRect | null>(null);
   const emojiPickerRef = useRef<any>(null);
 
-  const [fleetAssociation, setFleetAssociation] = useState(false);
-  const [roninAssociation, setRoninAssociation] = useState(false);
+  // Fleet/Ronin association state for edit mode
+  const [fleetAssociation, setFleetAssociation] = useState(() =>
+    mode === "edit" && editingEvent && editingEvent.fleet && editingEvent.fleet.length > 0
+      ? true
+      : false
+  );
+  const [roninAssociation, setRoninAssociation] = useState(() =>
+    mode === "edit" && editingEvent && editingEvent.type && (editingEvent.type === "Ronin" || editingEvent.type === "RoninFleet")
+      ? true
+      : false
+  );
   const [fleetSelection, setFleetSelection] = useState("");
   const [fleets, setFleets] = useState<UserFleet[]>([]);
   const [showFleetPicker, setShowFleetPicker] = useState(false);
@@ -105,6 +171,17 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   // Validation state
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Populate selectedFleets in edit mode after fleets are loaded
+  useEffect(() => {
+    if (mode === "edit" && editingEvent && fleets.length > 0 && editingEvent.fleet && editingEvent.fleet.length > 0) {
+      // editingEvent.fleet is array of fleet IDs
+      const selected = editingEvent.fleet
+        ? fleets.filter(f => (editingEvent.fleet ?? []).includes(Number(f.id)))
+        : [];
+      setSelectedFleets(selected);
+    }
+  }, [mode, editingEvent, fleets]);
 
   // Fetch fleets on open
   useEffect(() => {
@@ -123,6 +200,14 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
       })
       .catch(() => setFleets([]));
   }, [open]);
+
+  // Update endTime automatically when startTime changes
+  useEffect(() => {
+    if (!startTime) return;
+    const d = new Date(startTime);
+    d.setHours(d.getHours() + 1);
+    setEndTime(getLocalDateTimeString(d, d.getHours()));
+  }, [startTime]);
 
   const handleRsvpChange = (idx: number, field: "emoji" | "name", value: string) => {
     setRsvpOptions(options =>
@@ -149,7 +234,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
       setValidationError("Start time is required.");
       return;
     }
-    if (!description.trim()) {
+    if (!(description ?? "").trim()) {
       setValidationError("Description is required.");
       return;
     }
@@ -231,9 +316,22 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
         ? new Date(endTime).getTime() - new Date(startTime).getTime()
         : 0;
 
+    // --- EDIT MODE: handle repeat_series replacement and deletion ---
+    let originalRepeatSeries: string | null = null;
+    if (
+      mode === "edit" &&
+      editingEvent &&
+      editingEvent.repeat_series !== null &&
+      typeof editingEvent.repeat_series !== "undefined"
+    ) {
+      originalRepeatSeries = String(editingEvent.repeat_series);
+    }
+
+    let newRepeatSeries: number | undefined = undefined;
+
     if (repeat && repeatEndDate && repeatFrequency) {
       // Generate a random 8-digit repeat_series number
-      const repeatSeries = Math.floor(Math.random() * 90_000_000) + 10_000_000;
+      newRepeatSeries = Math.floor(Math.random() * 90_000_000) + 10_000_000;
 
       // Generate all repeat events
       let current = new Date(startTime);
@@ -242,7 +340,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
         const eventStart = new Date(current);
         const eventEnd =
           durationMs > 0 ? new Date(eventStart.getTime() + durationMs) : undefined;
-        const event = makeEvent(eventStart.toISOString(), repeatSeries);
+        const event = makeEvent(eventStart.toISOString(), newRepeatSeries);
         event.start_time = eventStart.toISOString();
         event.end_time = eventEnd ? eventEnd.toISOString() : undefined;
         events.push(event);
@@ -262,11 +360,21 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
     try {
       const saved = await saveSchedule(events);
+      // If we edited a series, and created a new series, delete the old series
+      if (mode === "edit" && originalRepeatSeries && newRepeatSeries) {
+        // Call deleteSeries from scheduleService (use direct import)
+        try {
+          await deleteSeries(originalRepeatSeries);
+        } catch (err) {
+          // Optionally handle error, but don't block event creation
+          console.error("Failed to delete original repeat series:", err);
+        }
+      }
       if (saved && saved.length > 0) {
         onCreate(saved[0]);
       }
       onClose();
-      window.location.reload(); // <-- Add this line to refresh the page
+      window.location.reload();
     } catch (error) {
       setValidationError("Failed to create event(s).");
     }
@@ -301,7 +409,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   return (
     <Modal onClose={onClose}>
-      <h2 style={{ textAlign: "center" }}>Create Event</h2>
+      <h2 style={{ textAlign: "center" }}>{mode === "edit" ? "Edit Event" : "Create Event"}</h2>
       <form onSubmit={handleSubmit}>
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
           <label style={{ flex: 3, display: "flex", flexDirection: "column" }}>
@@ -349,14 +457,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
               required
               value={startTime}
               onChange={e => setStartTime(e.target.value)}
-            />
-          </label>
-          <label style={{ flex: 1 }}>
-            End Time (optional)
-            <input
-              type="datetime-local"
-              value={endTime || ""}
-              onChange={e => setEndTime(e.target.value || undefined)}
             />
           </label>
         </div>
@@ -526,37 +626,63 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
           <div style={{ flex: 1, minWidth: 0, paddingLeft: 24 }}>
             <div style={{ marginBottom: 8, fontWeight: 500 }}>Repeat</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              <label
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: repeat ? 8 : 16,
+                opacity: isModerator ? 1 : 0.5,
+                cursor: isModerator ? "pointer" : "not-allowed",
+                position: "relative"
+              }}
+              title={isModerator ? undefined : "Only Blooded+ can create repeating events."}
+              onMouseOver={e => {
+                if (!isModerator) {
+                  const tooltip = document.createElement("div");
+                  tooltip.innerText = "Only Blooded+ can create repeating events.";
+                  tooltip.style.position = "absolute";
+                  tooltip.style.top = "-32px";
+                  tooltip.style.left = "0";
+                  tooltip.style.background = "#23272a";
+                  tooltip.style.color = "#fff";
+                  tooltip.style.padding = "6px 12px";
+                  tooltip.style.borderRadius = "6px";
+                  tooltip.style.fontSize = "14px";
+                  tooltip.style.zIndex = "9999";
+                  tooltip.className = "repeat-tooltip";
+                  e.currentTarget.appendChild(tooltip);
+                }
+              }}
+              onMouseOut={e => {
+                const tooltip = e.currentTarget.querySelector(".repeat-tooltip");
+                if (tooltip) e.currentTarget.removeChild(tooltip);
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={repeat}
+                onChange={e => isModerator && setRepeat(e.target.checked)}
                 style={{
+                  width: 24,
+                  height: 24,
+                  accentColor: "#5865F2",
+                  cursor: isModerator ? "pointer" : "not-allowed",
+                  verticalAlign: "middle",
+                }}
+                disabled={!isModerator}
+              />
+              <span
+                style={{
+                  fontSize: 17,
+                  fontWeight: 500,
                   display: "flex",
                   alignItems: "center",
-                  gap: 12,
-                  marginBottom: repeat ? 8 : 16,
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={repeat}
-                  onChange={e => setRepeat(e.target.checked)}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    accentColor: "#5865F2",
-                    cursor: "pointer",
-                    verticalAlign: "middle",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 17,
-                    fontWeight: 500,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  Repeat Event
-                </span>
-              </label>
+                Repeat Event
+              </span>
+            </label>
               {repeat && (
                 <>
                   <select
@@ -833,7 +959,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
         )}
         <div style={{ marginTop: 16 }}>
           <button type="submit">
-            Create Event
+            {mode === "edit" ? "Save Changes" : "Create Event"}
           </button>
           <button type="button" onClick={onClose} style={{ marginLeft: 8 }}>
             Cancel

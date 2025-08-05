@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from "react";
+// Import VITE IDs from environment
+const crewIds = (import.meta.env.VITE_CREW_ID || "").split(",").map((s: string) => s.trim());
+const marauderIds = (import.meta.env.VITE_MARAUDER_ID || "").split(",").map((s: string) => s.trim());
+const bloodedIds = (import.meta.env.VITE_BLOODED_ID || "").split(",").map((s: string) => s.trim());
 import CreateBadgeModal from "./adminComponents/CreateBadgeModal";
 import { UserFleet } from "../types/fleet";
 import { FleetLog } from "../types/fleet_log";
@@ -24,6 +28,10 @@ interface Props {
 const ActiveFleetCard: React.FC<Props> = ({
   fleet, fleetLogs, commander_username, members_usernames, original_commander_username, isNotInAnyFleet, userId, dbUser, onActionComplete, isModerator, emojis
 }) => {
+  // Crew+ role check
+  const isCrewPlus = Array.isArray(dbUser?.roles) && dbUser.roles.some((role: string) =>
+    crewIds.includes(role) || marauderIds.includes(role) || bloodedIds.includes(role)
+  );
   const [showMembers, setShowMembers] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [activityData, setActivityData] = useState<{ date: string; count: number }[]>([]);
@@ -35,6 +43,7 @@ const ActiveFleetCard: React.FC<Props> = ({
   const [hoveredExpandedAccolade, setHoveredExpandedAccolade] = useState<string|null>(null);
   // Accolades expanded view state
   const [showAccolades, setShowAccolades] = useState(false);
+
 
   useEffect(() => {
     async function fetchAccolades() {
@@ -240,7 +249,7 @@ const ActiveFleetCard: React.FC<Props> = ({
                 Join
               </button>
             )}
-          {!isActive && dbUser?.corsair_level > 0 && (
+          {!isActive && isCrewPlus && (
             <button
               onClick={async e => {
                 e.stopPropagation();
@@ -307,7 +316,6 @@ const ActiveFleetCard: React.FC<Props> = ({
             marginBottom: 10,
             fontSize: "1rem"
           }}>
-            <div><b>🏴‍☠️ Corsair Rank:</b> {fleet.commander_corsair_rank ?? "?"}</div>
             <div><b>👥 Member Count:</b> {fleet.members_ids?.length}</div>
             <div style={{ marginBottom: 12 }}>
               <button

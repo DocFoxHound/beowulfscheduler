@@ -15,6 +15,7 @@ import PlayerPrestigeProgress from "../components/adminComponents/PlayerPrestige
 import SpecializedTeams from "../components/dashboardComponents/SpecializedTeams";
 import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
 import { fetchAllActiveBadgeReusables, fetchBadgeReusablesById } from "../api/badgeReusableApi";
+import UpcomingEvents from "../components/dashboardComponents/UpcomingEvents";
 
 import { getAllGameVersions } from "../api/patchApi";
 
@@ -32,7 +33,9 @@ export default function Dashboard() {
   const [playerBadgesLoading, setPlayerBadgesLoading] = useState(false);
   // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
+  const RONIN_IDS = (import.meta.env.VITE_RONIN_ID || "").split(",");
   const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+  const isRonin = dbUser?.roles?.some((role: string) => RONIN_IDS.includes(role)) ?? false;
 
   // State for latest patch version string
   const [latestPatch, setLatestPatch] = useState<string>("");
@@ -140,7 +143,11 @@ export default function Dashboard() {
   return (
     <div className="dashboard-root">
       <Navbar dbUser={dbUser} />
-
+      {/* Upcoming Events bar - full width, sliver below Navbar */}
+      <UpcomingEvents 
+        dbUser={dbUser}
+        isRonin={isRonin}
+      />
       <main className="dashboard-content unified-dashboard-grid">
         {/* Top row: PlayerCard (1/3) and OrgGoals (2/3) */}
         <div className="dashboard-area playercard-area">

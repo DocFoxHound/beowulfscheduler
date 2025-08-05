@@ -17,8 +17,7 @@ export default function SpecializedTeams({ dbUser, orgSummaries, latestPatch }: 
   const userRoles = dbUser?.roles || [];
   const isRonin = userRoles.some((role: string) => RONIN_IDS.includes(role));
   const isFleetCommander = userRoles.some((role: string) => FLEET_COMMANDER_IDS.includes(role));
-  const isFleetMember = dbUser?.fleetId;
-  console.log("DB User:", dbUser);
+  const isFleetMember = dbUser?.fleetId !== null;
   let sections: React.ReactNode[] = [];
   if (isRonin) {
     sections.push(

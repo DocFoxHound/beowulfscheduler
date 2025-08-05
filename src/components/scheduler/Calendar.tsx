@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import CreateEventModal from "../CreateEventModal";
+import CreateEventModal from "./CreateEventModal";
 import { getAllUsers, getUserById } from '../../api/userService';
 import { fetchFleetActiveOrNot } from '../../api/fleetApi';
 import moment from "moment-timezone";
@@ -10,7 +10,14 @@ import { getWeeklySchedule } from '../../api/scheduleService';
 const RANKS: string[] = ["All Ranks", "Blooded", "Marauder", "Crew", "Prospect", "Friendly"];
 const PRESTIGES: string[] = ["All Prestiges", "CORSAIR", "RAPTOR", "RAIDER"];
 const DEFAULT_TEAMS: string[] = ["All Teams", "Ronin", "Alpha", "Bravo", "Charlie", "Delta"];
-const RONIN_IDS = ["1392135939119386735", "1401252750083358801"]; // from .env
+const RONIN_IDS = import.meta.env.VITE_RONIN_ID.split(",");
+const BLOODED_IDS = import.meta.env.VITE_BLOODED_ID.split(",");
+const MARAUDER_IDS = import.meta.env.VITE_MARAUDER_ID.split(",");
+const CREW_IDS = import.meta.env.VITE_CREW_ID.split(",");
+const PROSPECT_IDS = import.meta.env.VITE_PROSPECT_ID.split(",");
+const FRIENDLY_IDS = import.meta.env.VITE_FRIENDLY_ID.split(",");
+
+// ["1392135939119386735", "1401252750083358801"]; // from .env
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -41,18 +48,15 @@ const TIMEZONES = Array.from({ length: 27 }, (_, i) => {
   const label = `UTC${offset === 0 ? '' : sign + absOffset}`;
   return { name, label };
 });
-// Rank IDs from .env
-const BLOODED_IDS = ["1347267695707558050", "1034596054529736745"];
-const MARAUDER_IDS = ["1347265334448492655", "1191071030421229689"];
-const CREW_IDS = ["1347265375103881321", "1134352841985773628"];
-const PROSPECT_IDS = ["1347265415989952554", "1134351702431105084"];
-const FRIENDLY_IDS = ["1079428984258953237"];
 
 interface CalendarProps {
   dbUser?: any;
 }
 
 const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
+  // State for EditEventModal
+  const [showEditEvent, setShowEditEvent] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
   // State for CreateEventModal
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   // Filter bar is always visible now
@@ -65,6 +69,8 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
   // State for users with availabilities and selected user filter
   const [users, setUsers] = useState<any[]>([]);
   // Fetch active fleets and populate teams
+  const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
+
   useEffect(() => {
     fetchFleetActiveOrNot(true)
       .then((fleets) => {
@@ -634,7 +640,14 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
                             userSelect: "none",
                             position: "relative"
                           }}
-                          onMouseDown={e => { e.preventDefault(); handleMouseDown(i, hour); }}
+                          onMouseDown={e => {
+                            // If clicking the edit button, skip cell selection logic
+                            if (e.target instanceof HTMLElement && e.target.closest('button[title="Edit Event"]')) {
+                              return;
+                            }
+                            e.preventDefault();
+                            handleMouseDown(i, hour);
+                          }}
                           onMouseEnter={e => {
                             handleMouseEnter(i, hour);
                             if (cellEvents.length > 0) {
@@ -662,6 +675,32 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
                           >
                             {hour}:00
                           </span>
+                          {/* Edit button for moderators if there is at least one event */}
+                          {isModerator && cellEvents.length > 0 && (
+                            <button
+                              style={{
+                                position: "absolute",
+                                left: "calc(50% + 32px)",
+                                top: "0px",
+                                background: "none",
+                                border: "none",
+                                color: "#fff",
+                                fontSize: 16,
+                                cursor: "pointer",
+                                padding: 0,
+                                margin: 0,
+                                zIndex: 2,
+                                pointerEvents: "auto"
+                              }}
+                              title="Edit Event"
+                              onClick={e => {
+                                e.stopPropagation();
+                                // Open modal in edit mode with the first event in this cell
+                                setEditingEvent(cellEvents[0]);
+                                setShowEditEvent(true);
+                              }}
+                            >✏️</button>
+                          )}
                           {/* Show count if at least 1 availability */}
                           {count > 0 && (
                             <span
@@ -731,12 +770,43 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
             </button>
           </div>
 
-          {/* CreateEventModal integration */}
-          {showCreateEvent && (
+          {/* CreateEventModal integration for create */}
+          {showCreateEvent && (() => {
+            // Today's date in selected timezone
+            const now = moment.tz(timezone);
+            const todayDate = now.toDate();
+            // Next hour (if now is 13:15, next hour is 14)
+            const nextHour = (now.minute() === 0 && now.second() === 0) ? now.hour() : (now.hour() + 1) % 24;
+            return (
+              <CreateEventModal
+                open={showCreateEvent}
+                onClose={() => setShowCreateEvent(false)}
+                onCreate={() => setShowCreateEvent(false)}
+                defaultDate={todayDate}
+                defaultHour={nextHour}
+                currentUserId={dbUser?.id}
+                currentUsername={dbUser?.username}
+                userRoleIds={dbUser?.roles || []}
+                dbUser={dbUser}
+                RONIN_IDS={RONIN_IDS}
+                timezone={timezone}
+                isModerator={isModerator}
+                mode="create"
+              />
+            );
+          })()}
+          {/* CreateEventModal integration for edit */}
+          {showEditEvent && editingEvent && (
             <CreateEventModal
-              open={showCreateEvent}
-              onClose={() => setShowCreateEvent(false)}
-              onCreate={() => setShowCreateEvent(false)}
+              open={showEditEvent}
+              onClose={() => {
+                setShowEditEvent(false);
+                setEditingEvent(null);
+              }}
+              onCreate={() => {
+                setShowEditEvent(false);
+                setEditingEvent(null);
+              }}
               defaultDate={weekDates[0]}
               defaultHour={12}
               currentUserId={dbUser?.id}
@@ -745,6 +815,9 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
               dbUser={dbUser}
               RONIN_IDS={RONIN_IDS}
               timezone={timezone}
+              mode="edit"
+              editingEvent={editingEvent}
+              isModerator={isModerator}
             />
           )}
         </div>

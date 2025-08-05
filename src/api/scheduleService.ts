@@ -77,7 +77,7 @@ export const saveSchedule = async (availability: Availability): Promise<Availabi
  */
 export const saveScheduleRepeat = async (entry: ScheduleEntry): Promise<ScheduleEntry[]> => {
   try {
-    const response = await axios.post(`${API_URL}/schedule/repeat`, entry, {
+    const response = await axios.post(`${API_URL}/api/schedule/repeat`, entry, {
       withCredentials: true,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -122,7 +122,7 @@ export const updateSchedule = async (
  */
 export const getNextScheduleByRepeatSeries = async (repeatSeries: string) => {
   try {
-    const response = await axios.get(`${API_URL}/schedule/repeatseries/${repeatSeries}/next`, {
+    const response = await axios.get(`${API_URL}/api/schedule/repeatseries/${repeatSeries}/next`, {
       withCredentials: true,
     });
     return response.data;
@@ -131,6 +131,17 @@ export const getNextScheduleByRepeatSeries = async (repeatSeries: string) => {
       return null; // No upcoming schedule found
     }
     console.error('Error fetching next schedule by repeat_series:', error);
+    throw error;
+  }
+};
+
+export const deleteSeries = async (repeatSeries: string): Promise<void> => {
+  try {
+    await axios.delete(`${API_URL}/api/schedule/repeatseries/${repeatSeries}`, {
+      withCredentials: true,
+    });
+  } catch (error) {
+    console.error('Error deleting schedule series:', error);
     throw error;
   }
 };
