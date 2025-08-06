@@ -9,7 +9,7 @@ import { createBadge as createBadgeRecord } from "../../api/badgeRecordApi";
 import { getLatestPatch } from "../../api/patchApi";
 import { createBadgeAccolade } from "../../api/badgeAccoladeRecordApi";
 import { editFleet } from "../../api/fleetApi";
-import { createBadge } from "../../api/badgeRecordApi";
+import { createBadge, updateBadge } from "../../api/badgeRecordApi";
 import { fetchAllBadgeReusables } from "../../api/badgeReusableApi";
 
 
@@ -450,12 +450,18 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
           series_name, // exclude from save
           ...formToSave
         } = form;
-        // Only set series_id and series_position if series toggle is on and both are set
+        // Only set series_id and series_position if series toggle is on
         let series_id = undefined;
         let series_position = undefined;
-        if (form.series && form.series_id && form.series_position !== "") {
-          series_id = form.series_id;
-          series_position = form.series_position;
+        if (form.series) {
+          if (!form.series_id) {
+            // No series selected, generate new series_id and set position to 1
+            series_id = Date.now().toString();
+            series_position = "1";
+          } else if (form.series_id && form.series_position !== "") {
+            series_id = form.series_id;
+            series_position = form.series_position;
+          }
         }
         const badgeReusable = {
           ...formToSave,
@@ -1051,10 +1057,28 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
             isOpen={showSeriesModal}
             onClose={() => setShowSeriesModal(false)}
             badgeReusables={badgeReusables}
-            onSelect={(series: import("../../types/badgeReusable").BadgeReusable) => {
+            onSelect={async (series: import("../../types/badgeReusable").BadgeReusable) => {
+              // If the selected badge has no series_id, generate one and update it
+              let newSeriesId = series.series_id;
+              if (!series.series_id) {
+                newSeriesId = Date.now().toString();
+                try {
+                  // Ensure badge_weight is a number for updateBadge
+                  const updatePayload = {
+                    ...series,
+                    series_id: newSeriesId,
+                    series_position: "1",
+                    badge_weight: typeof series.badge_weight === "bigint" ? Number(series.badge_weight) : series.badge_weight
+                  };
+                  await updateBadge(String(series.id), updatePayload);
+                } catch (err) {
+                  // Optionally handle error
+                  console.error("Failed to update selected badge with new series_id", err);
+                }
+              }
               setForm(prev => ({
                 ...prev,
-                series_id: String(series.series_id ?? series.id ?? ""),
+                series_id: String(newSeriesId ?? series.id ?? ""),
                 series_name: series.badge_name || "",
                 series_position: series.series_position || "",
               }));
