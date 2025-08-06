@@ -67,6 +67,8 @@ const AwardBadgeModal: React.FC<AwardBadgeModalProps> = ({ open, badge, users, o
           patch: patch,
           badge_icon: badge.emoji_name,
           badge_url: badge.image_url,
+          series_id: badge.series_id ?? null,
+          series_position: badge.series_position ?? null,
         };
         await createBadge(badgeRecord);
         // Notify Discord bot about the award

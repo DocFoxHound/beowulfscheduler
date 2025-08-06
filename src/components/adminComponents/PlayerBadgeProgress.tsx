@@ -59,38 +59,70 @@ const BadgeProgress: React.FC<BadgeProgressProps> = ({ badgeReusables, loading, 
 
   // Calculate total points earned
   const totalPoints = React.useMemo(() => (playerBadges || []).reduce((sum, b) => sum + (Number(b.badge_weight) || 0), 0), [playerBadges]);
-// Table for earned player badges
+// Table for earned player badges, grouped by series_id and sorted by series_position
 const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> = ({ playerBadges, totalPoints }) => {
   if (!playerBadges || playerBadges.length === 0) return null;
+
+  // Group badges by series_id ("none" for those without)
+  const grouped: Record<string, any[]> = {};
+  playerBadges.forEach((badge) => {
+    const seriesId = badge.series_id || "none";
+    if (!grouped[seriesId]) grouped[seriesId] = [];
+    grouped[seriesId].push(badge);
+  });
+
+  // Sort each group by series_position (ascending), fallback to badge_name
+  Object.keys(grouped).forEach(seriesId => {
+    grouped[seriesId].sort((a, b) => {
+      const posA = Number(a.series_position ?? 0);
+      const posB = Number(b.series_position ?? 0);
+      if (posA !== posB) return posA - posB;
+      const nameA = (a.badge_name || '').toLowerCase();
+      const nameB = (b.badge_name || '').toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+  });
+
   return (
     <div style={{ marginTop: 40 }}>
       <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Earned Badges</div>
       <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 10 }}>
         Total Points Earned: {totalPoints}
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(80,90,120,0.06)' }}>
-        <thead>
-          <tr style={{ fontWeight: 600, fontSize: 15 }}>
-            <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1.5px solid #b0b6c3' }}>Name</th>
-            <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1.5px solid #b0b6c3' }}>Description</th>
-            <th style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1.5px solid #b0b6c3' }}>Weight</th>
-          </tr>
-        </thead>
-        <tbody>
-          {playerBadges.map((badge, idx) => (
-            <tr key={badge.id || idx} style={{ borderBottom: '1px solid #e0e0e0' }}>
-              <td style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                {badge.badge_url && (
-                  <img src={badge.badge_url} alt={badge.badge_name} style={{ width: 32, height: 32, borderRadius: 6, marginRight: 8 }} />
-                )}
-                <span>{badge.badge_name}</span>
-              </td>
-              <td style={{ padding: '10px 12px', fontSize: 14 }}>{badge.badge_description}</td>
-              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{badge.badge_weight}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {Object.entries(grouped).map(([seriesId, badges]) => (
+        <div key={seriesId} style={{ marginBottom: 24 }}>
+          {seriesId !== 'none' && (
+            <div style={{ fontWeight: 600, fontSize: 16, margin: '10px 0 6px 0' }}>
+              Series: {badges[0]?.badge_name || seriesId}
+            </div>
+          )}
+          <table style={{ width: '100%', borderCollapse: 'collapse', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 8px rgba(80,90,120,0.06)' }}>
+            <thead>
+              <tr style={{ fontWeight: 600, fontSize: 15 }}>
+                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1.5px solid #b0b6c3' }}>Name</th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1.5px solid #b0b6c3' }}>Description</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1.5px solid #b0b6c3' }}>Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {badges.map((badge, idx) => (
+                <tr key={badge.id || idx} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                  <td style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {badge.badge_url && (
+                      <img src={badge.badge_url} alt={badge.badge_name} style={{ width: 32, height: 32, borderRadius: 6, marginRight: 8 }} />
+                    )}
+                    <span>{badge.badge_name}</span>
+                  </td>
+                  <td style={{ padding: '10px 12px', fontSize: 14 }}>{badge.badge_description}</td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{badge.badge_weight}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
     </div>
   );
 };
