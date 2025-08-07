@@ -19,9 +19,12 @@ interface UserWithData {
 
 interface AdminActivityGraphProps {
   usersWithData: UserWithData[];
+  fleetLogsData?: any[];
+  hitTrackersData?: any[];
+  recentGatheringsData?: any[];
 }
 
-const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData }) => {
+const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData }) => {
   // Helper: format date to YYYY-MM-DD
   const formatDate = (dateStr: string | Date) => {
     const d = new Date(dateStr);
@@ -41,33 +44,31 @@ const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData }
 
   // Import AdminPieChart
   // ...existing code...
-  // 3. Stacked Bar chart: fleetLogs, recentGatherings, hitTrackers by date
+  // 3. Stacked Bar chart: fleetLogs, recentGatherings, hitTrackers by date using respective data props
   const stackByDate: Record<string, { fleetLogs: number; recentGatherings: number; hitTrackers: number }> = {};
-  usersWithData.forEach(u => {
-    // FleetLogs
-    (u.fleetLogs || []).forEach(fl => {
-      if (fl.created_at) {
-        const date = formatDate(fl.created_at);
-        stackByDate[date] = stackByDate[date] || { fleetLogs: 0, recentGatherings: 0, hitTrackers: 0 };
-        stackByDate[date].fleetLogs += 1;
-      }
-    });
-    // RecentGatherings
-    (u.recentGatherings || []).forEach(g => {
-      if (g.timestamp) {
-        const date = formatDate(g.timestamp);
-        stackByDate[date] = stackByDate[date] || { fleetLogs: 0, recentGatherings: 0, hitTrackers: 0 };
-        stackByDate[date].recentGatherings += 1;
-      }
-    });
-    // HitTrackers
-    (u.hitTrackers || []).forEach(ht => {
-      if (ht.timestamp) {
-        const date = formatDate(ht.timestamp);
-        stackByDate[date] = stackByDate[date] || { fleetLogs: 0, recentGatherings: 0, hitTrackers: 0 };
-        stackByDate[date].hitTrackers += 1;
-      }
-    });
+  // FleetLogs: use fleetLogsData prop
+  (fleetLogsData || []).forEach(fl => {
+    if (fl.created_at) {
+      const date = formatDate(fl.created_at);
+      stackByDate[date] = stackByDate[date] || { fleetLogs: 0, recentGatherings: 0, hitTrackers: 0 };
+      stackByDate[date].fleetLogs += 1;
+    }
+  });
+  // RecentGatherings: use recentGatheringsData prop
+  (recentGatheringsData || []).forEach(g => {
+    if (g.timestamp) {
+      const date = formatDate(g.timestamp);
+      stackByDate[date] = stackByDate[date] || { fleetLogs: 0, recentGatherings: 0, hitTrackers: 0 };
+      stackByDate[date].recentGatherings += 1;
+    }
+  });
+  // HitTrackers: use hitTrackersData prop
+  (hitTrackersData || []).forEach(ht => {
+    if (ht.timestamp) {
+      const date = formatDate(ht.timestamp);
+      stackByDate[date] = stackByDate[date] || { fleetLogs: 0, recentGatherings: 0, hitTrackers: 0 };
+      stackByDate[date].hitTrackers += 1;
+    }
   });
   const stackBarData = Object.entries(stackByDate).map(([date, vals]) => ({ date, ...vals }));
 
@@ -79,7 +80,13 @@ const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData }
       <div style={{ display: "flex", gap: "2rem" }}>
         {/* Pie chart on the left, now taking up about half the width */}
         <div style={{ flex: "1 1 0", minWidth: 350, maxWidth: "50%" }}>
-          <AdminPieChart data={blackboxPieData} usersWithData={usersWithData} />
+          <AdminPieChart 
+            data={blackboxPieData} 
+            usersWithData={usersWithData} 
+            fleetLogsData={fleetLogsData}
+            hitTrackersData={hitTrackersData}
+            recentGatheringsData={recentGatheringsData}
+          />
         </div>
         {/* Other charts stacked vertically on the right */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "2rem" }}>

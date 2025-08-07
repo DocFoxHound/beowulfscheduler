@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchAllFleets } from "../../api/fleetApi";
-import { fetchShipLogsByPatch } from "../../api/fleetLogApi";
+import { fetchShipLogsByPatch, fetchAllShipLogs } from "../../api/fleetLogApi";
 
 interface FleetCommandTeamProps {
   dbUser: any;
@@ -20,7 +20,7 @@ export default function FleetCommandTeam({ dbUser, latestPatch }: FleetCommandTe
 
         // Use latestPatch prop, fallback to empty string if not provided
         const patch = typeof latestPatch === "string" ? latestPatch : "";
-        const logs = await fetchShipLogsByPatch(patch);
+        const logs = await fetchAllShipLogs();
 
         // For each fleet, calculate stats from logs
         const stats = fleetsData.map(fleet => {
@@ -59,8 +59,22 @@ export default function FleetCommandTeam({ dbUser, latestPatch }: FleetCommandTe
       {/* Quick summary of the fleet owned by dbUser */}
       {(() => {
         const ownedFleetId = dbUser?.fleet;
-        const ownedFleetStat = fleetStats.find(f => f.fleet.id === ownedFleetId);
-        if (!ownedFleetStat) return null;
+        let ownedFleetStat = fleetStats.find(f => f.fleet.id === ownedFleetId);
+        let isNoLogs = false;
+        if (!ownedFleetStat) {
+          // Try to find the fleet object from fleets
+          const fleet = fleets.find(f => f.id === ownedFleetId);
+          if (!fleet) return null;
+          ownedFleetStat = {
+            fleet,
+            totalLogs: 0,
+            totalKills: 0,
+            valueStolen: 0,
+            damagesValue: 0,
+            totalPlayers: 0
+          };
+          isNoLogs = true;
+        }
         const { fleet, totalLogs, totalKills, valueStolen, damagesValue, totalPlayers } = ownedFleetStat;
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, background: "#181a1b", padding: 12, borderRadius: 8 }}>
@@ -74,7 +88,9 @@ export default function FleetCommandTeam({ dbUser, latestPatch }: FleetCommandTe
                 <span title="Kills" style={{ color: "#e74c3c" }}>Kills: {totalKills}</span>
                 <span title="Value Stolen" style={{ color: "#f1c40f" }}>Stolen: {valueStolen}</span>
                 <span title="Damages" style={{ color: "#3498db" }}>Damages: {damagesValue}</span>
-                <span title="Players Engaged" style={{ color: "#2ecc71" }}>Players: {totalPlayers}</span>
+                <span title="Players Engaged" style={{ color: "#2ecc71" }}>
+                  Players: {isNoLogs ? "No Fleet Log Yet" : totalPlayers}
+                </span>
               </div>
             </div>
           </div>

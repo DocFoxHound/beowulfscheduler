@@ -19,6 +19,56 @@ const AdminActivity: React.FC = () => {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [filteredUsersWithData, setFilteredUsersWithData] = useState<any[]>([]);
+  // Resource data states
+  const [blackBoxesData, setBlackBoxesData] = useState<any[]>([]);
+  const [fleetLogsData, setFleetLogsData] = useState<any[]>([]);
+  const [recentGatheringsData, setRecentGatheringsData] = useState<any[]>([]);
+  const [hitTrackersData, setHitTrackersData] = useState<any[]>([]);
+  const [sbPlayerSummariesData, setSBPlayerSummariesData] = useState<any[]>([]);
+  const [sbLeaderboardLogsData, setSBLeaderboardLogsData] = useState<any[]>([]);
+  const [resourceLoading, setResourceLoading] = useState(false);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  });
+  // Fetch resources by timeframe
+  useEffect(() => {
+    setResourceLoading(true);
+    const startDateTime = `${startDate}T00:00:00`;
+    const endDateTime = `${endDate}T23:59:59.999`;
+    const startMs = new Date(startDateTime).getTime();
+    const endMs = new Date(endDateTime).getTime();
+    Promise.all([
+      import("../api/blackboxApi").then(m => m.fetchBlackBoxesWithinTimeframe(startDateTime, endDateTime)).catch(() => []),
+      import("../api/fleetLogApi").then(m => m.fetchShipLogsByTimeframe(startDateTime, endDateTime)).catch(() => []),
+      import("../api/recentGatheringsApi").then(m => m.fetchRecentGatheringsWithinTimeframe(startDateTime, endDateTime)).catch(() => []),
+      import("../api/hittrackerApi").then(m => m.fetchHitsByTimeframe(startDateTime, endDateTime)).catch(() => []),
+      import("../api/leaderboardApi").then(m => m.fetchSBAllPlayerSummaries()).catch(() => []),
+      import("../api/leaderboardSBLogApi").then(m => m.fetchLeaderboardSBLogsByTimespan(startMs.toString(), endMs.toString())).catch(() => [])
+    ])
+      .then(([blackBoxes, fleetLogs, recentGatherings, hitTrackers, sbPlayerSummaries, sbLeaderboardLogs]) => {
+        setBlackBoxesData(Array.isArray(blackBoxes) ? blackBoxes : []);
+        setFleetLogsData(Array.isArray(fleetLogs) ? fleetLogs : []);
+        setRecentGatheringsData(Array.isArray(recentGatherings) ? recentGatherings : []);
+        setHitTrackersData(Array.isArray(hitTrackers) ? hitTrackers : []);
+        setSBPlayerSummariesData(Array.isArray(sbPlayerSummaries) ? sbPlayerSummaries : []);
+        setSBLeaderboardLogsData(Array.isArray(sbLeaderboardLogs) ? sbLeaderboardLogs : []);
+      })
+      .catch(() => {
+        setBlackBoxesData([]);
+        setFleetLogsData([]);
+        setRecentGatheringsData([]);
+        setHitTrackersData([]);
+        setSBPlayerSummariesData([]);
+        setSBLeaderboardLogsData([]);
+      })
+      .finally(() => setResourceLoading(false));
+  }, [startDate, endDate]);
   const [emojis, setEmojis] = useState<any[]>([]);
   const [activeBadgeReusables, setActiveBadgeReusables] = useState<any[]>([]);
   // Fetch active badge reusables on mount
@@ -97,7 +147,12 @@ const AdminActivity: React.FC = () => {
         {/* Top area for reactive graph */}
             <div style={{ marginBottom: "2rem" }}>
               <React.Suspense fallback={<div>Loading graph...</div>}>
-                <AdminActivityGraph usersWithData={filteredUsersWithData.length ? filteredUsersWithData : allUsers} />
+                <AdminActivityGraph 
+                  usersWithData={filteredUsersWithData.length ? filteredUsersWithData : allUsers} 
+                  fleetLogsData={fleetLogsData}
+                  hitTrackersData={hitTrackersData}
+                  recentGatheringsData={recentGatheringsData}
+                />
               </React.Suspense>
             </div>
         {/* Split page into two sides */}
@@ -109,8 +164,18 @@ const AdminActivity: React.FC = () => {
             <React.Suspense fallback={<div>Loading users...</div>}>
               <AdminUserList
                 users={allUsers}
-                loading={usersLoading}
+                loading={usersLoading || resourceLoading}
                 onFilteredUsersChange={setFilteredUsersWithData}
+                blackBoxesData={blackBoxesData}
+                fleetLogsData={fleetLogsData}
+                recentGatheringsData={recentGatheringsData}
+                hitTrackersData={hitTrackersData}
+                sbPlayerSummariesData={sbPlayerSummariesData}
+                sbLeaderboardLogsData={sbLeaderboardLogsData}
+                startDate={startDate}
+                endDate={endDate}
+                setStartDate={setStartDate}
+                setEndDate={setEndDate}
               />
             </React.Suspense>
           </div>

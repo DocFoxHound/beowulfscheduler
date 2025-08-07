@@ -22,16 +22,20 @@ interface UserWithData {
 interface AdminPieChartProps {
   data: PieData[];
   usersWithData: UserWithData[];
+  fleetLogsData?: any[];
+  hitTrackersData?: any[];
+  recentGatheringsData?: any[];
 }
 
 const COLORS = ["#e02323", "#8884d8", "#4fd339", "#82ca9d", "#ffc658", "#ff7300", "#00c49a", "#0088fe"];
 
 
-const AdminPieChart: React.FC<AdminPieChartProps> = ({ usersWithData }) => {
-  // Aggregate counts from usersWithData
-  const fleetLogsCount = usersWithData.reduce((sum, u) => sum + (Array.isArray(u.fleetLogs) ? u.fleetLogs.length : 0), 0);
-  const recentGatheringsCount = usersWithData.reduce((sum, u) => sum + (Array.isArray(u.recentGatherings) ? u.recentGatherings.length : 0), 0);
-  const hitTrackersCount = usersWithData.reduce((sum, u) => sum + (Array.isArray(u.hitTrackers) ? u.hitTrackers.length : 0), 0);
+const AdminPieChart: React.FC<AdminPieChartProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData }) => {
+  console.log("Fleet Data:", fleetLogsData);
+  // Use provided data arrays for counts
+  const fleetLogsCount = Array.isArray(fleetLogsData) ? fleetLogsData.length : 0;
+  const recentGatheringsCount = Array.isArray(recentGatheringsData) ? recentGatheringsData.length : 0;
+  const hitTrackersCount = Array.isArray(hitTrackersData) ? hitTrackersData.length : 0;
 
   const donutData = [
     { name: "Fleet Logs", value: fleetLogsCount },

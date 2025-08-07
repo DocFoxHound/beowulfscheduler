@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { shouldShowPromoteTag } from "../../utils/promotionUtils";
-import AdminActivityGraph from "./AdminActivityGraphs";
 import AdminFlightHoursGraph from "./AdminFlightHoursGraph";
 import { fetchBlackBoxesWithinTimeframe } from "../../api/blackboxApi";
 import { fetchShipLogsByTimeframe } from "../../api/fleetLogApi";
@@ -15,9 +14,17 @@ import { type User } from "../../types/user";
 interface AdminUserListProps {
   users: User[];
   loading: boolean;
-  onDateChange?: (startDate: string, endDate: string) => void;
   onFilteredUsersChange?: (filtered: any[]) => void;
-  // No change needed here, users already present
+  blackBoxesData: any[];
+  fleetLogsData: any[];
+  recentGatheringsData: any[];
+  hitTrackersData: any[];
+  sbPlayerSummariesData: any[];
+  sbLeaderboardLogsData: any[];
+  startDate: string;
+  endDate: string;
+  setStartDate: (date: string) => void;
+  setEndDate: (date: string) => void;
 }
 
 // Player ranks from .env
@@ -29,36 +36,32 @@ const playerRanks = [
   { name: "Friendly", color: "#3bbca9", ids: (import.meta.env.VITE_FRIENDLY_ID || "").split(",") },
 ];
 
-const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateChange, onFilteredUsersChange }) => {
+
+const AdminUserList: React.FC<AdminUserListProps> = ({
+  users,
+  loading,
+  onFilteredUsersChange,
+  blackBoxesData,
+  fleetLogsData,
+  recentGatheringsData,
+  hitTrackersData,
+  sbPlayerSummariesData,
+  sbLeaderboardLogsData,
+  startDate,
+  endDate,
+  setStartDate,
+  setEndDate
+}) => {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString().slice(0, 10);
-  });
-  const [endDate, setEndDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().slice(0, 10);
-  });
   const [sessions, setSessions] = useState<VoiceChannelSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
-  // State for fetched resources
-  const [blackBoxes, setBlackBoxes] = useState<any[]>([]);
-  const [fleetLogs, setFleetLogs] = useState<any[]>([]);
-  const [recentGatherings, setRecentGatherings] = useState<any[]>([]);
-  const [hitTrackers, setHitTrackers] = useState<any[]>([]);
-  const [resourceLoading, setResourceLoading] = useState(false);
-  const [sbPlayerSummaries, setSBPlayerSummaries] = useState<any[]>([]);
-  const [sbLogEntries, setSBLogEntries] = useState<any[]>([]);
-
+  // Fetch voice channel sessions only
   useEffect(() => {
     setSessionsLoading(true);
-    // Format startDate and endDate to include time for full day coverage
     const startDateTime = `${startDate}T00:00:00`;
-    // Set endDateTime to the end of the day with milliseconds
     const endDateTime = `${endDate}T23:59:59.999`;
     fetchVoiceChannelSessionsByTimeframe(startDateTime, endDateTime)
       .then((data) => {
@@ -68,35 +71,6 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
         console.error('Error fetching voice channel sessions:', err);
       })
       .finally(() => setSessionsLoading(false));
-    // Fetch all resources by timeframe
-    setResourceLoading(true);
-    // Convert to milliseconds since epoch for SB logs
-    const startMs = new Date(startDateTime).getTime();
-    const endMs = new Date(endDateTime).getTime();
-    Promise.all([
-      fetchBlackBoxesWithinTimeframe(startDateTime, endDateTime).catch(() => []),
-      fetchShipLogsByTimeframe(startDateTime, endDateTime).catch(() => []),
-      fetchRecentGatheringsWithinTimeframe(startDateTime, endDateTime).catch(() => []),
-      fetchHitsByTimeframe(startDateTime, endDateTime).catch(() => []),
-      fetchSBAllPlayerSummaries().catch(() => []),
-      fetchLeaderboardSBLogsByTimespan(startMs.toString(), endMs.toString()).catch(() => [])
-    ])
-      .then(([blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData]) => {
-        setBlackBoxes(Array.isArray(blackBoxesData) ? blackBoxesData : []);
-        setFleetLogs(Array.isArray(fleetLogsData) ? fleetLogsData : []);
-        setRecentGatherings(Array.isArray(recentGatheringsData) ? recentGatheringsData : []);
-        setHitTrackers(Array.isArray(hitTrackersData) ? hitTrackersData : []);
-        setSBPlayerSummaries(Array.isArray(sbPlayerSummariesData) ? sbPlayerSummariesData : []);
-        setSBLogEntries(Array.isArray(sbLeaderboardLogsData) ? sbLeaderboardLogsData : []);
-      })
-      .catch((err) => {
-        console.error('Error fetching resources by timeframe:', err);
-      })
-      .finally(() => setResourceLoading(false));
-    // Notify parent to refresh users if callback provided
-    if (typeof onDateChange === 'function') {
-      onDateChange(startDate, endDate);
-    }
   }, [startDate, endDate]);
 
 
@@ -108,21 +82,21 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
       const userSessions = sessions.filter((session) => String(session.user_id) === userIdStr);
       const totalMinutes = userSessions.reduce((sum, session) => sum + (session.minutes || 0), 0);
       // BlackBoxes
-      const userBlackBoxes = blackBoxes.filter((bb) => String(bb.user_id) === userIdStr);
+      const userBlackBoxes = blackBoxesData.filter((bb) => String(bb.user_id) === userIdStr);
       // FleetLogs: commander or crew
-      const userFleetLogs = fleetLogs.filter((fl) =>
+      const userFleetLogs = fleetLogsData.filter((fl) =>
         String(fl.commander_id) === userIdStr || (Array.isArray(fl.crew_ids) && fl.crew_ids.map(String).includes(userIdStr))
       );
       // RecentGatherings: user in user_ids array
-      const userRecentGatherings = recentGatherings.filter((g) =>
+      const userRecentGatherings = recentGatheringsData.filter((g) =>
         Array.isArray(g.user_ids) && g.user_ids.map(String).includes(userIdStr)
       );
       // HitTrackers: user in assists array
-      const userHitTrackers = hitTrackers.filter((ht) =>
+      const userHitTrackers = hitTrackersData.filter((ht) =>
         Array.isArray(ht.assists) && ht.assists.map(String).includes(userIdStr)
       );
       // SBLeaderboardLogs: user in log array
-      const userSBLogEntries = sbLogEntries.filter(
+      const userSBLogEntries = sbLeaderboardLogsData.filter(
         (log) => String(log.user_id) === userIdStr
       );
 
@@ -131,7 +105,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
       formattedNickname = formattedNickname.replace(/\s+/g, ""); // Remove all spaces
 
       // Find matching SB leaderboard summary
-      const sbPlayerSummary = sbPlayerSummaries.find(
+      const sbPlayerSummary = sbPlayerSummariesData.find(
         (p) => typeof p.displayname === "string" && p.displayname.toLowerCase() === formattedNickname.toLowerCase()
       );
 
@@ -147,12 +121,12 @@ const AdminUserList: React.FC<AdminUserListProps> = ({ users, loading, onDateCha
         sbLogEntries: userSBLogEntries,
       };
     })
-  , [users, sessions, blackBoxes, fleetLogs, recentGatherings, hitTrackers, sbPlayerSummaries, sbLogEntries]);
+  , [users, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData]);
 
   // Filtered list: updates based on timeframe and selected user
   const [filteredUsersWithData, setFilteredUsersWithData] = useState(baselineUsersWithData);
 
-  // Update filtered list when baseline, timeframe, or selection changes
+  // Update filtered list when baseline or selection changes
   useEffect(() => {
     let filtered = baselineUsersWithData;
     // If a user is selected, filter to that user only

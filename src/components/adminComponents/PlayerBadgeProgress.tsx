@@ -186,27 +186,6 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
   });
 
 
-  // State for open/closed categories and subcategories
-  const [openCategories, setOpenCategories] = React.useState(() => {
-    const initial: Record<string, boolean> = {};
-    Object.keys(grouped).forEach(subject => {
-      if (subject === "Prestige") {
-        Object.keys(grouped["Prestige"]).forEach(prestigeName => {
-          initial[`Prestige-${prestigeName}`] = false;
-        });
-      } else {
-        initial[subject] = false;
-        Object.keys(grouped[subject]).forEach(seriesId => {
-          initial[`${subject}-${seriesId}`] = false;
-        });
-      }
-    });
-    return initial;
-  });
-
-  const toggleCategory = (key: string) => {
-    setOpenCategories(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   // State for Award confirmation modal
   const [showAwardModal, setShowAwardModal] = React.useState(false);
@@ -264,271 +243,231 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
     }
   };
 
+  // Tooltip component
+  const InfoTooltip: React.FC<{ description: string }> = ({ description }) => {
+    const [show, setShow] = React.useState(false);
+    return (
+      <span style={{ position: 'relative', display: 'inline-block', marginLeft: 6 }}>
+        <span
+          style={{ cursor: 'pointer', color: '#2196f3', fontSize: 16 }}
+          onMouseEnter={() => setShow(true)}
+          onMouseLeave={() => setShow(false)}
+        >
+          ℹ️
+        </span>
+        {show && (
+          <div style={{
+            position: 'absolute',
+            left: '110%',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: '#23272f',
+            color: '#fff',
+            padding: '8px 14px',
+            borderRadius: 8,
+            boxShadow: '0 2px 8px rgba(80,90,120,0.18)',
+            fontSize: 13,
+            zIndex: 10,
+            minWidth: 180,
+            maxWidth: 320,
+            whiteSpace: 'normal',
+          }}>
+            {description}
+          </div>
+        )}
+      </span>
+    );
+  };
+
   return (
     <div style={{ marginTop: "2rem", position: "relative" }}>
       <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>Badge Progress</div>
       {badgeReusables.length === 0 && <div>No active badges.</div>}
-      {Object.entries(grouped).map(([subject, badgesOrGroups]) => {
-        if (subject === "Prestige") {
-          // Render Prestige subcategories
-          return Object.entries(badgesOrGroups).map(([prestigeName, badges]) => (
-            <div key={"Prestige-" + prestigeName} style={{ marginBottom: 18, border: '1px solid #b0b6c3', borderRadius: 8 }}>
-              <div
-                style={{ cursor: 'pointer', padding: '10px 18px', fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', userSelect: 'none' }}
-                onClick={() => toggleCategory(`Prestige-${prestigeName}`)}
-              >
-                <span style={{ marginRight: 8, fontSize: 18, transition: 'transform 0.2s', transform: openCategories[`Prestige-${prestigeName}`] ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                  ▶
-                </span>
-                Prestige: {prestigeName}
-              </div>
-              {openCategories[`Prestige-${prestigeName}`] && (
-                <div style={{ padding: '10px 18px 0 18px' }}>
-                  {(badges as any[]).map((badge: any, idx: number) => {
-                    // ...existing code for rendering badge...
-                    let triggers: any[] = [];
-                    try {
-                      triggers = Array.isArray(badge.trigger)
-                        ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
-                        : [];
-                    } catch (e) {
-                      triggers = [];
-                    }
-                    const isCompleted = playerBadgeNames.has(badge.badge_name);
-                    const triggerProgress = triggers.map((trigger) => {
-                      const metric = trigger.metric;
-                      const operator = trigger.operator || trigger.conditional;
-                      const value = Number(trigger.value);
-                      let playerValue = Number(playerStats?.[metric] ?? 0);
-                      if (isNaN(playerValue)) playerValue = 0;
-                      return getProgress(playerValue, operator, value);
-                    });
-                    let overallProgress = triggerProgress.length > 0
-                      ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
-                      : 0;
-                    if (isCompleted) overallProgress = 100;
-                    return (
-                      <div key={badge.id || idx} style={{ marginBottom: '1.5rem', border: '1.5px solid #b0b6c3', borderRadius: 8, padding: 16, position: 'relative', boxShadow: '0 2px 8px rgba(80,90,120,0.08)' }}>
-                        {/* ...existing code for rendering badge... */}
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            {isModerator && dbUser?.id !== playerStats?.user_id && (
-                              <button
-                                style={{
-                                  background: '#ff9800',
-                                  color: '#fff',
-                                  border: 'none',
-                                  borderRadius: 5,
-                                  padding: '6px 16px',
-                                  fontWeight: 700,
-                                  fontSize: 14,
-                                  cursor: 'pointer',
-                                  boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
-                                }}
-                                onClick={() => handleAwardClick(badge)}
-                              >
-                                Award
-                              </button>
-                            )}
-                            {badge.image_url && (
-                              <img src={badge.image_url} alt={badge.badge_name} style={{ width: 40, height: 40, borderRadius: 6 }} />
-                            )}
-                            <div>
-                              <strong>{badge.badge_name}</strong>
-                              <div style={{ fontSize: 13, color: '#ffffffff' }}>{badge.badge_description}</div>
-                            </div>
-                          </div>
-                          <div style={{ minWidth: 0, textAlign: 'right', marginLeft: 12 }}>
-                            {triggers.length > 0 && (
-                              <ul style={{ listStyle: 'none', margin: 0, padding: 0, fontSize: 12, color: '#888', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {triggers.map((trigger, i) => {
-                                  const metric = trigger.metric;
-                                  const operator = trigger.operator || trigger.conditional;
-                                  const value = trigger.value;
-                                  let playerValue = playerStats?.[metric] ?? 0;
-                                  return (
-                                    <li key={i} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                      {metric}: {Math.round(playerValue)} {operator} {Math.round(Number(value))}
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 18, width: '100%', overflow: 'hidden', marginBottom: 6 }}>
-                          <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0 }} />
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: 0,
-                              top: 0,
-                              width: '100%',
-                              height: '100%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: overallProgress > 50 ? '#fff' : '#222',
-                              textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
-                              pointerEvents: 'none',
-                              userSelect: 'none',
-                              zIndex: 2,
-                            }}
-                          >
-                            {overallProgress}%
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ));
-        } else {
-          // Render normal subject categories, grouped by series_id
-          return (
-            <div key={subject} style={{ marginBottom: 18, border: '1px solid #b0b6c3', borderRadius: 8 }}>
-              <div
-                style={{ cursor: 'pointer', padding: '10px 18px', fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', userSelect: 'none' }}
-                onClick={() => toggleCategory(subject)}
-              >
-                <span style={{ marginRight: 8, fontSize: 18, transition: 'transform 0.2s', transform: openCategories[subject] ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                  ▶
-                </span>
-                {subject}
-              </div>
-              {openCategories[subject] && (
-                <div style={{ padding: '10px 18px 0 18px' }}>
-                  {Object.entries(badgesOrGroups).map(([seriesId, badges]) => {
-                    const seriesKey = `${subject}-${seriesId}`;
-                    return (
-                      <div key={seriesId} style={{ marginBottom: '1.2rem', border: '1px solid #d0d6e3', borderRadius: 6 }}>
-                        <div
-                          style={{ cursor: 'pointer', padding: '10px 12px', fontWeight: 600, fontSize: 15, color: '#ffffffff', display: 'flex', alignItems: 'center', userSelect: 'none' }}
-                          onClick={() => toggleCategory(seriesKey)}
-                        >
-                          <span style={{ marginRight: 8, fontSize: 16, transition: 'transform 0.2s', transform: openCategories[seriesKey] ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                            ▶
-                          </span>
-                          {seriesId !== 'none'
-                            ? `Series: ${(Array.isArray(badges) && badges.length > 0 && badges[0].badge_name) ? badges[0].badge_name : seriesId}`
-                            : 'Other Badges'}
-                        </div>
-                        {openCategories[seriesKey] && (
-                          <div style={{ padding: '0 0 0 0' }}>
-                            {(badges as any[]).map((badge: any, idx: number) => {
-                              // ...existing code for rendering badge...
-                              let triggers: any[] = [];
-                              try {
-                                triggers = Array.isArray(badge.trigger)
-                                  ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
-                                  : [];
-                              } catch (e) {
-                                triggers = [];
-                              }
-                              const isCompleted = playerBadgeNames.has(badge.badge_name);
-                              const triggerProgress = triggers.map((trigger) => {
-                                const metric = trigger.metric;
-                                const operator = trigger.operator || trigger.conditional;
-                                const value = Number(trigger.value);
-                                let playerValue = Number(playerStats?.[metric] ?? 0);
-                                if (isNaN(playerValue)) playerValue = 0;
-                                return getProgress(playerValue, operator, value);
-                              });
-                              let overallProgress = triggerProgress.length > 0
-                                ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
-                                : 0;
-                              if (isCompleted) overallProgress = 100;
-                              return (
-                                <div key={badge.id || idx} style={{ marginBottom: '1.1rem', border: '1.5px solid #b0b6c3', borderRadius: 8, padding: 16, position: 'relative', boxShadow: '0 2px 8px rgba(80,90,120,0.08)' }}>
-                                  {/* ...existing code for rendering badge... */}
-                                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                      {isModerator && dbUser?.id !== playerStats?.user_id && (
-                                        <button
-                                          style={{
-                                            background: '#ff9800',
-                                            color: '#ffffff',
-                                            border: 'none',
-                                            borderRadius: 5,
-                                            padding: '6px 16px',
-                                            fontWeight: 700,
-                                            fontSize: 14,
-                                            cursor: 'pointer',
-                                            boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
-                                          }}
-                                          onClick={() => handleAwardClick(badge)}
-                                        >
-                                          Award
-                                        </button>
-                                      )}
-                                      {badge.image_url && (
-                                        <img src={badge.image_url} alt={badge.badge_name} style={{ width: 40, height: 40, borderRadius: 6 }} />
-                                      )}
-                                      <div>
-                                        <strong>{badge.badge_name}</strong>
-                                        <div style={{ fontSize: 13, color: '#ffffffff' }}>{badge.badge_description}</div>
-                                      </div>
-                                    </div>
-                                    <div style={{ minWidth: 0, textAlign: 'right', marginLeft: 12 }}>
-                                      {triggers.length > 0 && (
-                                        <ul style={{ listStyle: 'none', margin: 0, padding: 0, fontSize: 12, color: '#888', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                          {triggers.map((trigger, i) => {
-                                            const metric = trigger.metric;
-                                            const operator = trigger.operator || trigger.conditional;
-                                            const value = trigger.value;
-                                            let playerValue = playerStats?.[metric] ?? 0;
-                                            return (
-                                              <li key={i} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                                {metric}: {Math.round(playerValue)} {operator} {Math.round(Number(value))}
-                                              </li>
-                                            );
-                                          })}
-                                        </ul>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 18, width: '100%', overflow: 'hidden', marginBottom: 6 }}>
-                                    <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0 }} />
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        left: 0,
-                                        top: 0,
-                                        width: '100%',
-                                        height: '100%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        color: overallProgress > 50 ? '#fff' : '#222',
-                                        textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
-                                        pointerEvents: 'none',
-                                        userSelect: 'none',
-                                        zIndex: 2,
-                                      }}
-                                    >
-                                      {overallProgress}%
-                                    </div>
+      {/* Categorized badge list */}
+      <div style={{ marginBottom: 32 }}>
+        {Object.entries(grouped)
+          .filter(([subject]) => subject !== "Prestige" || isModerator)
+          .map(([subject, badgesOrGroups]) => (
+            <div key={subject} style={{ marginBottom: 24 }}>
+              <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 8 }}>{subject}</div>
+              {subject === "Prestige"
+                ? Object.entries(badgesOrGroups).map(([prestigeName, badges]) => (
+                    <div key={prestigeName} style={{ marginBottom: 12 }}>
+                      <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 6 }}>Prestige: {prestigeName}</div>
+                      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                        {(badges as any[]).map((badge: any, idx: number) => {
+                          // ...existing code for rendering badge...
+                          let triggers: any[] = [];
+                          try {
+                            triggers = Array.isArray(badge.trigger)
+                              ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
+                              : [];
+                          } catch (e) {
+                            triggers = [];
+                          }
+                          const isCompleted = playerBadgeNames.has(badge.badge_name);
+                          const triggerProgress = triggers.map((trigger) => {
+                            const metric = trigger.metric;
+                            const operator = trigger.operator || trigger.conditional;
+                            const value = Number(trigger.value);
+                            let playerValue = Number(playerStats?.[metric] ?? 0);
+                            if (isNaN(playerValue)) playerValue = 0;
+                            return getProgress(playerValue, operator, value);
+                          });
+                          let overallProgress = triggerProgress.length > 0
+                            ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
+                            : 0;
+                          if (isCompleted) overallProgress = 100;
+                          return (
+                            <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
+                              {badge.image_url && (
+                                <img src={badge.image_url} alt={badge.badge_name} style={{ width: 36, height: 36, borderRadius: 6 }} />
+                              )}
+                              <span style={{ fontWeight: 600 }}>{badge.badge_name}</span>
+                              <InfoTooltip description={badge.badge_description || ''} />
+                              <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
+                                <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      left: 0,
+                                      top: 0,
+                                      width: '100%',
+                                      height: '100%',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color: overallProgress > 50 ? '#fff' : '#222',
+                                      textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
+                                      pointerEvents: 'none',
+                                      userSelect: 'none',
+                                      zIndex: 2,
+                                    }}
+                                  >
+                                    {overallProgress}%
                                   </div>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                              </div>
+                              {isModerator && dbUser?.id !== playerStats?.user_id && (
+                                <button
+                                  style={{
+                                    background: '#ff9800',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 5,
+                                    padding: '6px 16px',
+                                    fontWeight: 700,
+                                    fontSize: 14,
+                                    cursor: 'pointer',
+                                    marginLeft: 'auto',
+                                    boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
+                                  }}
+                                  onClick={() => handleAwardClick(badge)}
+                                >
+                                  Award
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))
+                : Object.entries(badgesOrGroups).map(([seriesId, badges]) => (
+                    <div key={seriesId} style={{ marginBottom: 10 }}>
+                      <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 6 }}>
+                        {seriesId !== 'none'
+                          ? `Series: ${(Array.isArray(badges) && badges.length > 0 && badges[0].badge_name) ? badges[0].badge_name : seriesId}`
+                          : 'Other Badges'}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                        {(badges as any[]).map((badge: any, idx: number) => {
+                          // ...existing code for rendering badge...
+                          let triggers: any[] = [];
+                          try {
+                            triggers = Array.isArray(badge.trigger)
+                              ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
+                              : [];
+                          } catch (e) {
+                            triggers = [];
+                          }
+                          const isCompleted = playerBadgeNames.has(badge.badge_name);
+                          const triggerProgress = triggers.map((trigger) => {
+                            const metric = trigger.metric;
+                            const operator = trigger.operator || trigger.conditional;
+                            const value = Number(trigger.value);
+                            let playerValue = Number(playerStats?.[metric] ?? 0);
+                            if (isNaN(playerValue)) playerValue = 0;
+                            return getProgress(playerValue, operator, value);
+                          });
+                          let overallProgress = triggerProgress.length > 0
+                            ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
+                            : 0;
+                          if (isCompleted) overallProgress = 100;
+                          return (
+                            <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
+                              {badge.image_url && (
+                                <img src={badge.image_url} alt={badge.badge_name} style={{ width: 36, height: 36, borderRadius: 6 }} />
+                              )}
+                              <span style={{ fontWeight: 600 }}>{badge.badge_name}</span>
+                              <InfoTooltip description={badge.badge_description || ''} />
+                              <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
+                                <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      left: 0,
+                                      top: 0,
+                                      width: '100%',
+                                      height: '100%',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color: overallProgress > 50 ? '#fff' : '#222',
+                                      textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
+                                      pointerEvents: 'none',
+                                      userSelect: 'none',
+                                      zIndex: 2,
+                                    }}
+                                  >
+                                    {overallProgress}%
+                                  </div>
+                                </div>
+                              </div>
+                              {isModerator && dbUser?.id !== playerStats?.user_id && (
+                                <button
+                                  style={{
+                                    background: '#ff9800',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 5,
+                                    padding: '6px 16px',
+                                    fontWeight: 700,
+                                    fontSize: 14,
+                                    cursor: 'pointer',
+                                    marginLeft: 'auto',
+                                    boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
+                                  }}
+                                  onClick={() => handleAwardClick(badge)}
+                                >
+                                  Award
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
             </div>
-          );
-        }
-      })}
+          ))}
+      </div>
       {/* Player earned badges table */}
       <PlayerBadgesTable playerBadges={playerBadges} totalPoints={totalPoints} />
 
