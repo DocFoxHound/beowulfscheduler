@@ -184,6 +184,7 @@ export default function Dashboard() {
             activeBadgeReusables={activeBadgeReusables}
             playerStats={playerStats}
             playerStatsLoading={playerStatsLoading}
+            player={dbUser}
             dbUser={dbUser}
           />
         </div>
