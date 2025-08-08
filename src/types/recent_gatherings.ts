@@ -7,4 +7,5 @@ export interface RecentGathering {
   user_ids: string[];
   usernames: string[];
   timestamp: string;
+  created_at: string;
 }
