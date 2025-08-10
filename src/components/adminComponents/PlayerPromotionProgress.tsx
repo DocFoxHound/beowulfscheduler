@@ -97,12 +97,19 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
     const voiceHours = Number(playerStats.voicehours) || 0;
     const reqProgress = [
       shipsBLeaderboardRank <= 200 ? 1 : 0,
-      Math.min(piracyHits / 200, 1),
+      piracyHits >= 200 ? 1 : Math.min(piracyHits / 200, 1),
       fleetParticipated > 20 ? 1 : Math.max(fleetParticipated / 20, 0),
-      Math.min(recentGatherings / 50, 1),
-      Math.min(voiceHours / 200, 1),
+      recentGatherings >= 50 ? 1 : Math.min(recentGatherings / 50, 1),
+      voiceHours >= 200 ? 1 : Math.min(voiceHours / 200, 1),
     ];
-    progressPercent = Math.round(Math.max(...reqProgress) * 100);
+    const metCount = reqProgress.filter(v => v === 1).length;
+    if (metCount >= 2) {
+      progressPercent = 100;
+    } else if (metCount === 1) {
+      progressPercent = 50;
+    } else {
+      progressPercent = Math.round(Math.max(...reqProgress) * 50);
+    }
   } else if (detectedRank === "Marauder") {
     progressPercent = 0;
   } else if (detectedRank === "Blooded") {
@@ -150,13 +157,13 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
       const voiceHours = Number(playerStats.voicehours) || 0;
       requirementsSection = (
         <div style={{ marginTop: "1rem" }}>
-          <strong>Requirements for Marauder (any one):</strong>
+          <strong>Requirements for Marauder (any two):</strong>
           <ul style={{ marginTop: 4 }}>
-            <li>Ships B leaderboard rank: <strong>{shipsBLeaderboardRank}</strong> (≤ 200) {shipsBLeaderboardRank <= 200 ? '✅' : ''}</li>
-            <li>Piracy hits: <strong>{piracyHits} / 200</strong> {piracyHits >= 200 ? '✅' : ''}</li>
-            <li>Fleet participated: <strong>{fleetParticipated} &gt; 20</strong> {fleetParticipated > 20 ? '✅' : ''}</li>
+            <li>SquadronBattle leaderboard rank: <strong>{shipsBLeaderboardRank}</strong> (≤ 200) {shipsBLeaderboardRank <= 200 ? '✅' : ''}</li>
+            <li>Piracy hits: <strong>{piracyHits} / 100</strong> {piracyHits >= 100 ? '✅' : ''}</li>
+            <li>Fleet participated: <strong>{fleetParticipated} &gt; 50</strong> {fleetParticipated > 50 ? '✅' : ''}</li>
             <li>Recent gatherings: <strong>{recentGatherings} / 50</strong> {recentGatherings >= 50 ? '✅' : ''}</li>
-            <li>Voice hours: <strong>{voiceHours} / 200</strong> {voiceHours >= 200 ? '✅' : ''}</li>
+            <li>Voice hours: <strong>{voiceHours} / 500</strong> {voiceHours >= 500 ? '✅' : ''}</li>
           </ul>
         </div>
       );
