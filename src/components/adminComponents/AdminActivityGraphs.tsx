@@ -22,9 +22,10 @@ interface AdminActivityGraphProps {
   fleetLogsData?: any[];
   hitTrackersData?: any[];
   recentGatheringsData?: any[];
+  selectedUser?: UserWithData;
 }
 
-const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData }) => {
+const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData, selectedUser }) => {
   // Helper: format date to YYYY-MM-DD
   const formatDate = (dateStr: string | Date) => {
     const d = new Date(dateStr);
@@ -86,6 +87,7 @@ const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, 
             fleetLogsData={fleetLogsData}
             hitTrackersData={hitTrackersData}
             recentGatheringsData={recentGatheringsData}
+            selectedUser={selectedUser}
           />
         </div>
         {/* Other charts stacked vertically on the right */}

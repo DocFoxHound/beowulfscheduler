@@ -152,6 +152,7 @@ const AdminActivity: React.FC = () => {
                   fleetLogsData={fleetLogsData}
                   hitTrackersData={hitTrackersData}
                   recentGatheringsData={recentGatheringsData}
+                  selectedUser={selectedPlayer}
                 />
               </React.Suspense>
             </div>

@@ -25,17 +25,26 @@ interface AdminPieChartProps {
   fleetLogsData?: any[];
   hitTrackersData?: any[];
   recentGatheringsData?: any[];
+  selectedUser?: UserWithData;
 }
 
 const COLORS = ["#e02323", "#8884d8", "#4fd339", "#82ca9d", "#ffc658", "#ff7300", "#00c49a", "#0088fe"];
 
 
-const AdminPieChart: React.FC<AdminPieChartProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData }) => {
-  console.log("Fleet Data:", fleetLogsData);
-  // Use provided data arrays for counts
-  const fleetLogsCount = Array.isArray(fleetLogsData) ? fleetLogsData.length : 0;
-  const recentGatheringsCount = Array.isArray(recentGatheringsData) ? recentGatheringsData.length : 0;
-  const hitTrackersCount = Array.isArray(hitTrackersData) ? hitTrackersData.length : 0;
+const AdminPieChart: React.FC<AdminPieChartProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData, selectedUser }) => {
+  // If a user is selected, use their data for counts
+  let fleetLogsCount = 0;
+  let recentGatheringsCount = 0;
+  let hitTrackersCount = 0;
+  if (selectedUser) {
+    fleetLogsCount = Array.isArray(selectedUser.fleetLogs) ? selectedUser.fleetLogs.length : 0;
+    recentGatheringsCount = Array.isArray(selectedUser.recentGatherings) ? selectedUser.recentGatherings.length : 0;
+    hitTrackersCount = Array.isArray(selectedUser.hitTrackers) ? selectedUser.hitTrackers.length : 0;
+  } else {
+    fleetLogsCount = Array.isArray(fleetLogsData) ? fleetLogsData.length : 0;
+    recentGatheringsCount = Array.isArray(recentGatheringsData) ? recentGatheringsData.length : 0;
+    hitTrackersCount = Array.isArray(hitTrackersData) ? hitTrackersData.length : 0;
+  }
 
   const donutData = [
     { name: "Fleet Logs", value: fleetLogsCount },

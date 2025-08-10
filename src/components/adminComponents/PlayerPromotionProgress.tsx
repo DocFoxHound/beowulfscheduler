@@ -114,7 +114,7 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
 
   // Prepare requirements breakdown
   let requirementsSection = null;
-  if (nextRank && progressPercent < 100) {
+  if (nextRank) {
     if (detectedRank === "Prospect") {
       const piracyHits = Number(playerStats.piracyhits) || 0;
       const fleetParticipated = Number(playerStats.fleetparticipated) || 0;

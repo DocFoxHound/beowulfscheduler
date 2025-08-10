@@ -12,6 +12,7 @@ export interface User {
   roles: string[];
   verification_code?: string;
   fleet: string;
+  rsi_handle: string;
 }
 
 /**

@@ -104,10 +104,23 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       let formattedNickname = (user.nickname || "").replace(/"[^"]*"/g, ""); // Remove quotes and content between
       formattedNickname = formattedNickname.replace(/\s+/g, ""); // Remove all spaces
 
+      console.log("Player Summaries:", sbPlayerSummariesData)
       // Find matching SB leaderboard summary
-      const sbPlayerSummary = sbPlayerSummariesData.find(
-        (p) => typeof p.displayname === "string" && p.displayname.toLowerCase() === formattedNickname.toLowerCase()
+      let sbPlayerSummary = sbPlayerSummariesData.find(
+        (p) => (
+          (typeof p.displayname === "string" && p.displayname.toLowerCase() === formattedNickname.toLowerCase()) ||
+          (typeof p.nickname === "string" && p.nickname.toLowerCase() === formattedNickname.toLowerCase())
+        )
       );
+      // If not found, try matching rsi_handle
+      if (!sbPlayerSummary && user.rsi_handle) {
+        sbPlayerSummary = sbPlayerSummariesData.find(
+          (p) => (
+            (typeof p.displayname === "string" && p.displayname.toLowerCase() === user.rsi_handle.toLowerCase()) ||
+            (typeof p.nickname === "string" && p.nickname.toLowerCase() === user.rsi_handle.toLowerCase())
+          )
+        );
+      }
 
       return {
         ...user,
@@ -201,6 +214,10 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
           aValue = typeof a.sbPlayerSummary?.total_flight_time === 'number' ? a.sbPlayerSummary.total_flight_time : 0;
           bValue = typeof b.sbPlayerSummary?.total_flight_time === 'number' ? b.sbPlayerSummary.total_flight_time : 0;
           break;
+        case 'avgRank':
+          aValue = typeof a.sbPlayerSummary?.avg_rank === 'number' ? a.sbPlayerSummary.avg_rank : 0;
+          bValue = typeof b.sbPlayerSummary?.avg_rank === 'number' ? b.sbPlayerSummary.avg_rank : 0;
+          break;
         default:
           return 0;
       }
@@ -213,7 +230,6 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
   // Calculate averages for each column using only filteredUsers (the displayed users)
   const avgVoiceHours = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (u.voiceHours || 0), 0) / filteredUsers.length : 0;
   const avgFleetLogs = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.fleetLogs) ? u.fleetLogs.length : 0), 0) / filteredUsers.length : 0;
-  const avgRecentGatherings = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.recentGatherings) ? u.recentGatherings.length : 0), 0) / filteredUsers.length : 0;
   const avgHitTrackers = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.hitTrackers) ? u.hitTrackers.length : 0), 0) / filteredUsers.length : 0;
   const avgBlackBoxes = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (Array.isArray(u.blackBoxes) ? u.blackBoxes.length : 0), 0) / filteredUsers.length : 0;
   const avgFlightTime = filteredUsers.length > 0 ? filteredUsers.reduce((sum, u) => sum + (typeof u.sbPlayerSummary?.total_flight_time === 'number' ? u.sbPlayerSummary.total_flight_time : 0), 0) / filteredUsers.length : 0;
@@ -275,9 +291,6 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'fleetLogs' ? { key: 'fleetLogs', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'fleetLogs', direction: 'desc' })}>
                 Fleet Activities {sortConfig?.key === 'fleetLogs' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
-              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'recentGatherings' ? { key: 'recentGatherings', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'recentGatherings', direction: 'desc' })}>
-                Gatherings {sortConfig?.key === 'recentGatherings' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'hitTrackers' ? { key: 'hitTrackers', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'hitTrackers', direction: 'desc' })}>
                 Pirate Actions {sortConfig?.key === 'hitTrackers' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
@@ -286,6 +299,9 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
               </th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'flightTime' ? { key: 'flightTime', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'flightTime', direction: 'desc' })}>
                 Flight Time {sortConfig?.key === 'flightTime' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+              </th>
+              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'avgRank' ? { key: 'avgRank', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'avgRank', direction: 'desc' })}>
+                Avg Rank {sortConfig?.key === 'avgRank' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
             </tr>
           </thead>
@@ -333,12 +349,6 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
                     )}
                   </td>
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
-                    {Array.isArray(user.recentGatherings) ? user.recentGatherings.length : 0}
-                    {Array.isArray(user.recentGatherings) && user.recentGatherings.length > avgRecentGatherings && (
-                      <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
-                    )}
-                  </td>
-                  <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {Array.isArray(user.hitTrackers) ? user.hitTrackers.length : 0}
                     {Array.isArray(user.hitTrackers) && user.hitTrackers.length > avgHitTrackers && (
                       <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
@@ -352,9 +362,13 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
                   </td>
                   <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                     {user.sbPlayerSummary?.total_flight_time || "-"}
+                    {console.log(user)}
                     {typeof user.sbPlayerSummary?.total_flight_time === 'number' && user.sbPlayerSummary.total_flight_time > avgFlightTime && (
                       <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
                     )}
+                  </td>
+                  <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
+                    {typeof user.sbPlayerSummary?.avg_rank === 'number' ? user.sbPlayerSummary.avg_rank.toFixed(0) : (user.sbPlayerSummary?.avg_rank || "-")}
                   </td>
                 </tr>
               ))

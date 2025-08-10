@@ -1,5 +1,5 @@
 import React from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 
 interface UserWithData {
   id: string | number;
@@ -67,6 +67,11 @@ const AdminVoiceActivityGraph: React.FC<AdminVoiceActivityGraphProps> = ({ users
   const totalVoiceMinutes = voiceSessions.reduce((sum, session) => sum + (session.minutes || 0), 0);
   const totalVoiceHours = +(totalVoiceMinutes / 60).toFixed(2);
 
+  // Calculate average voice hours per day
+  const avgVoiceHours = voiceLineData.length > 0
+    ? +(voiceLineData.reduce((sum, d) => sum + d.hours, 0) / voiceLineData.length).toFixed(2)
+    : 0;
+
   return (
     <div>
       <h3>Voice Activity Over Time</h3>
@@ -74,6 +79,10 @@ const AdminVoiceActivityGraph: React.FC<AdminVoiceActivityGraphProps> = ({ users
         <div style={{ background: '#333', color: '#fff', borderRadius: 8, padding: '1rem', minWidth: 120 }}>
           <div style={{ fontSize: 12 }}>Total Voice Activity</div>
           <div style={{ fontWeight: 'bold', fontSize: 20 }}>{totalVoiceHours} hrs</div>
+        </div>
+        <div style={{ background: '#333', color: '#fff', borderRadius: 8, padding: '1rem', minWidth: 120 }}>
+          <div style={{ fontSize: 12 }}>Average Voice Hours</div>
+          <div style={{ fontWeight: 'bold', fontSize: 20 }}>{avgVoiceHours} hrs</div>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={250}>
@@ -83,6 +92,7 @@ const AdminVoiceActivityGraph: React.FC<AdminVoiceActivityGraphProps> = ({ users
           <YAxis stroke="#fff" />
           <Tooltip wrapperStyle={{ backgroundColor: '#333', color: '#fff' }} />
           <Bar dataKey="hours" fill="#82ca9d" />
+          <ReferenceLine y={avgVoiceHours} stroke="red" label={{ value: `Avg (${avgVoiceHours} hrs)`, position: 'right', fill: 'red', fontSize: 12 }} />
         </BarChart>
       </ResponsiveContainer>
     </div>
