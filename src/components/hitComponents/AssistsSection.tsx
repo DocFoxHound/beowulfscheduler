@@ -59,90 +59,61 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
 
   return (
     <div>
-      {assistsUsers.length > 0 && (
-        <div style={{ overflowX: "auto", margin: "12px 0" }}>
-          <table style={{ width: "100%", background: "#23272e", borderRadius: 6, borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ color: "#ccc", padding: 6, textAlign: "left" }}>Pirate</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Dogfighter</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Marine</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Snare</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Cargo</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Multicrew</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Salvage</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Air Leadership</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Ground Leadership</th>
-                <th style={{ color: "#ccc", padding: 6 }}>Commander</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {assistsUsers.map((user, idx) => (
-                <tr key={user.id} style={{ background: idx % 2 ? "#202226" : "#23272e" }}>
-                  <td style={{ color: "#fff", padding: 6 }}>{user.nickname || user.username}</td>
-                  {user.guest
-                    ? Array(9).fill(null).map((_, i) => (
-                        <td key={i} style={{ padding: 6 }}></td>
-                      ))
-                    : ([
-                        "dogfighter",
-                        "marine",
-                        "snare",
-                        "cargo",
-                        "multicrew",
-                        "salvage",
-                        "air_leadership",
-                        "ground_leadership",
-                        "commander"
-                      ] as Array<keyof typeof user>).map(field => (
-                        <td key={String(field)} style={{ textAlign: "center", padding: 6 }}>
-                          <input
-                            type="checkbox"
-                            className="large-checkbox"
-                            checked={Boolean(user[field])}
-                            onChange={e => {
-                              setAssistsUsers(list =>
-                                list.map(u =>
-                                  u.id === user.id
-                                    ? { ...u, [field]: e.target.checked }
-                                    : u
-                                )
-                              );
-                            }}
-                          />
-                        </td>
-                      ))}
-                  <td style={{ textAlign: "center", padding: 6 }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAssistsUsers(list => list.filter(u => u.id !== user.id));
-                        if (user.guest && user.nickname) {
-                          setGuestNames(prev => prev.filter(name => name !== user.nickname));
-                        }
-                      }}
-                      style={{
-                        color: "#ff6b6b",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: 16,
-                        lineHeight: 1,
-                      }}
-                      aria-label={`Remove ${user.nickname || user.username}`}
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* User cards */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, margin: '12px 0' }}>
+        {assistsUsers.map((user) => (
+          <div
+            key={user.id}
+            style={{
+              background: '#23272e',
+              borderRadius: 8,
+              padding: '14px 20px',
+              color: '#fff',
+              minWidth: 220,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              position: 'relative',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
+              <span style={{ fontWeight: 600, fontSize: 17 }}>
+                {user.nickname || user.username}
+              </span>
+              {user.guest && <span style={{ color: '#bbb', fontSize: 13, marginLeft: 6 }}>(guest)</span>}
+              <button
+                type="button"
+                onClick={() => {
+                  setAssistsUsers(list => list.filter(u => u.id !== user.id));
+                  if (user.guest && user.nickname) {
+                    setGuestNames(prev => prev.filter(name => name !== user.nickname));
+                  }
+                }}
+                style={{
+                  color: '#ff6b6b',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  marginLeft: 12
+                }}
+                aria-label={`Remove ${user.nickname || user.username}`}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ fontSize: 14, color: '#b3b3b3' }}>
+              Total time in gang: <span style={{ color: '#fff' }}>--:--:--</span>
+            </div>
+            <div style={{ fontSize: 14, color: '#b3b3b3' }}>
+              Contribution: <span style={{ color: '#fff' }}>--%</span>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      {/* Add Assist Button and Input with Autocomplete */}
+      {/* Add Pirate Button and Input with Autocomplete */}
       <div style={{ marginTop: 12 }}>
         {/* Show Add button if input is not visible */}
         {!form._showAssistInput && (
@@ -157,7 +128,7 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
               fontSize: 16,
               cursor: "pointer"
             }}
-            aria-label="Add Assist"
+            aria-label="Add Pirate"
             onClick={() => setForm((f: any) => ({ ...f, _showAssistInput: true }))}
           >
             + Add Pirate
@@ -182,84 +153,7 @@ const AssistsSection: React.FC<AssistsSectionProps> = ({
                 }
               }}
             />
-            {/* Recent Gatherings dropdown, styled like Fleet Involved */}
-            {showGatheringsMenu && recentGatherings.length > 0 && assistsUsers.length === 0 && (
-              <div
-                ref={gatheringsMenuRef}
-                style={{
-                  background: "#23272e",
-                  border: "1px solid #353a40",
-                  borderRadius: 4,
-                  marginTop: 2,
-                  position: "absolute",
-                  zIndex: 10,
-                  width: 320,
-                  maxHeight: 220,
-                  overflowY: "auto"
-                }}
-              >
-                {recentGatherings.map((g: any) => (
-                  <div
-                    key={g.id}
-                    style={{
-                      padding: "6px 8px",
-                      cursor: "pointer",
-                      color: "#fff",
-                      borderBottom: "1px solid #353a40",
-                      position: "relative"
-                    }}
-                    title={g.usernames.join(", ")}
-                    onMouseDown={async () => {
-                      (g.user_ids as string[])
-                        .map((id: string, i: number) => allUsersState.find((u: User) => String(u.id) === String(id)))
-                        .filter((u: User | undefined): u is User => !!u)
-                        .forEach(addAssistUser);
-                      setShowGatheringsMenu(false);
-
-                      // --- New: Fetch BlackBox kills and extract victims ---
-                      const gatheringTime = new Date(g.timestamp).getTime();
-                      const oneHourMs = 60 * 60 * 1000;
-                      let allVictims: string[] = [];
-
-                      for (const userId of g.user_ids as string[]) {
-                        try {
-                          // Fetch all kills for this user
-                          const kills = await fetchBlackBoxsByUserId(String(userId));
-                          // Filter kills within ±1 hour of gathering
-                          const relevantKills = kills.filter((kill: any) => {
-                            const killTime = new Date(kill.timestamp).getTime();
-                            return Math.abs(killTime - gatheringTime) <= oneHourMs;
-                          });
-                          // Collect all victim names from these kills
-                          relevantKills.forEach((kill: any) => {
-                            if (Array.isArray(kill.victims)) {
-                              allVictims.push(...kill.victims.filter(Boolean));
-                            }
-                          });
-                        } catch (err) {
-                          // Handle error if needed
-                        }
-                      }
-                      // Remove duplicates and add to victimsArray
-                      setVictimsArray((prev: string[]) =>
-                        Array.from(new Set([...prev, ...allVictims]))
-                      );
-                      // Hide input after selection
-                      setForm((f: any) => ({ ...f, _showAssistInput: false, assists: "" }));
-                    }}
-                  >
-                    <div style={{ fontWeight: 500 }}>
-                      {g.channel_name} &mdash; {new Date(g.timestamp).toLocaleString()}
-                    </div>
-                    <div style={{ fontSize: 13, color: "#bbb" }}>
-                      {g.usernames.slice(0, 5).join(", ")}
-                      {g.usernames.length > 5 && " ..."}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* Assist suggestions dropdown (unchanged) */}
+            {/* Assist suggestions dropdown */}
             {assistSuggestions.length > 0 && (
               <div style={{
                 background: "#23272e",

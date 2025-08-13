@@ -39,9 +39,9 @@ const FleetInvolvedInput: React.FC<FleetInvolvedInputProps> = ({
     <>
 
       <label>
-        Fleet Involved:
+        Gang Involved:
         <span style={{ display: "block", fontSize: 12, color: "#bbb", marginBottom: 4 }}>
-          To associate a fleet with a hit, at least 8 people total need to be on the hit, and 3 people from that specific fleet.
+          Gangs of 3+ people are automatically tracked! Select here to see if your most recent gang was listed.
         </span>
         <input
           type="text"

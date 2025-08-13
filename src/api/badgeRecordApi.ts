@@ -17,6 +17,14 @@ export const fetchBadgesByUserId = async (userId: string): Promise<BadgeRecord[]
   return response.data;
 };
 
+// Get all badges by user ID (query param: user_id)
+export const fetchBadgesByUserIdAndAccolade = async (userId: string): Promise<BadgeRecord[]> => {
+  const response = await axios.get<BadgeRecord[]>(`${API_BASE_URL}/api/badges/userandaccolade`, {
+    params: { user_id: userId }
+  });
+  return response.data;
+};
+
 // Get all badges by patch (query param: patch)
 export const fetchBadgesByPatch = async (patch: string): Promise<BadgeRecord[]> => {
   const response = await axios.get<BadgeRecord[]>(`${API_BASE_URL}/api/badges/patch`, {

@@ -9,4 +9,5 @@ export interface BadgeRecord {
   badge_url: string;
   series_id?: string | null;
   series_position?: string | null;
+  accolade?: boolean;
 }

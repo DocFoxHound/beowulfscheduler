@@ -9,6 +9,7 @@ import { createBadge as createBadgeRecord } from "../../api/badgeRecordApi";
 import { getLatestPatch } from "../../api/patchApi";
 import { createBadgeAccolade } from "../../api/badgeAccoladeRecordApi";
 import { editFleet } from "../../api/fleetApi";
+import { editRecentFleet } from "../../api/recentGangsApi";
 import { createBadge, updateBadge } from "../../api/badgeRecordApi";
 import { fetchAllBadgeReusables } from "../../api/badgeReusableApi";
 
@@ -301,21 +302,41 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
               badge_icon: selectedEmoji ? selectedEmoji.name : "",
               badge_url: form.image_url,
               fleet_id: fleet.id,
+              accolade: true
             };
             const newAccolade = await createBadgeAccolade(accoladePayload);
             // 2. Update fleet's accolades array
             if (newAccolade && newAccolade.id) {
-              const updatedAccolades = Array.isArray(fleet.accolades)
-                ? [...fleet.accolades.map(String), String(newAccolade.id)]
-                : [String(newAccolade.id)];
-              await editFleet(fleet.id, {
-                accolades: updatedAccolades,
-                updated_at: fleet.updated_at,
+              // const updatedAccolades = Array.isArray(fleet.accolades)
+              //   ? [...fleet.accolades.map(String), String(newAccolade.id)]
+              //   : [String(newAccolade.id)];
+              // await editFleet(fleet.id, {
+              //   accolades: updatedAccolades,
+              //   updated_at: fleet.updated_at,
+              // });
+              await editRecentFleet(fleet.id, {
+                accolade: newAccolade.id,
+                icon_url: fleet.icon_url || "",
+                id: fleet.id,
+                channel_id: fleet.channel_id,
+                channel_name: fleet.channel_name,
+                timestamp: fleet.timestamp,
+                created_at: fleet.created_at,
+                users: fleet.users,
+                pu_shipkills: fleet.pu_shipkills,
+                pu_fpskills: fleet.pu_fpskills,
+                ac_shipkills: fleet.ac_shipkills,
+                ac_fpskills: fleet.ac_fpskills,
+                stolen_cargo: fleet.stolen_cargo,
+                stolen_value: fleet.stolen_value,
+                damages: fleet.damages,
+                patch: fleet.patch,
               });
             }
             // 3. Award badgeRecord to every user in the users array
             if (Array.isArray(users) && users.length > 0) {
               for (const user of users) {
+                console.log("User: ", user)
                 if (!user.id || isNaN(Number(user.id))) continue;
                 const badgeRecordPayload = {
                   id: (String(BigInt(Date.now()) * BigInt(1000)) + BigInt(Math.floor(Math.random() * 1000))).toString(),
@@ -326,6 +347,7 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
                   patch: patchVersion,
                   badge_icon: selectedEmoji ? selectedEmoji.name : "",
                   badge_url: form.image_url,
+                  accolade: true
                 };
                 await createBadge(badgeRecordPayload);
               }
@@ -521,7 +543,7 @@ const CreateBadgeModal: React.FC<CreateBadgeModalProps> = ({ isOpen, onClose, on
 
   return (
     <div
-      style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+  style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000 }}
       onClick={() => {
         if (showEmojiMenu) {
           setShowEmojiMenu(false);

@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Scheduler from './pages/Scheduler';
 import Fleet from './pages/Fleets';
+import Gangs from './pages/Gangr';
 import Hittracker from './pages/Piracy';
 import Warehouse from "./pages/Warehouse";
 import Info from './pages/Info';
@@ -23,6 +24,7 @@ function App() {
         <Route path="/info" element={<Info />} />
         <Route path="/piracy" element={<Hittracker />} />
         <Route path="/fleets" element={<Fleet />} />
+        <Route path="/gangs" element={<Gangs />} />
         <Route path="/leaderboards" element={<Leaderboards />} />
         <Route path="/scheduler" element={<Scheduler />} />
         <Route path="/warehouse" element={<Warehouse />} />

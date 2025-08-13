@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { fetchNewest100FPSKillsByPatch, fetchNewest100ShipKillsByPatch } from "../api/blackboxApi";
-import { BlackBox } from "../types/blackbox";
-import { User } from "../types/user";
+import { fetchNewest100FPSKillsByPatch, fetchNewest100ShipKillsByPatch } from "../../api/blackboxApi";
+import { BlackBox } from "../../types/blackbox";
+import { User } from "../../types/user";
 
 interface KillOverviewBoardProps {
   patch: string;
-  allUsers: User[];
+  dbUser: any;
 }
 
 const PAGE_SIZE = 20;
 
-const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ patch, allUsers }) => {
+const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ patch, dbUser }) => {
   const [kills, setKills] = useState<BlackBox[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -37,34 +37,20 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ patch, allUsers }
     if (patch) fetchKills();
   }, [patch]);
 
-  // Helper to get display name from userId
+  // Helper to get display name from dbUser
   const getDisplayName = (userId: string) => {
-    const user = allUsers.find(u => u.id === userId);
-    if (!user) return userId;
-    return user.nickname || user.username || user.id;
+    if (!dbUser || dbUser.id !== userId) return userId;
+    return dbUser.nickname || dbUser.username || dbUser.id;
   };
-
-  const totalKills = kills.length;
-  const fpsKills = kills.filter(k => k.ship_killed === "FPS").length;
-  const shipKills = kills.filter(k => k.ship_killed !== "FPS").length;
-  const totalDamage = kills.reduce((sum, k) => sum + (Number(k.value) || 0), 0);
-
   const totalPages = Math.ceil(kills.length / PAGE_SIZE);
   const paginatedKills = kills.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div style={{ padding: 16 }}>
-      <h2>Kill Overview</h2>
       {loading ? (
         <div>Loading...</div>
       ) : (
         <>
-          <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-            <div className="kill-metric-card">Total Kills: <b>{totalKills}</b></div>
-            <div className="kill-metric-card">FPS Kills: <b>{fpsKills}</b></div>
-            <div className="kill-metric-card">Ship Kills: <b>{shipKills}</b></div>
-            <div className="kill-metric-card">Total Damages Done: <b>{totalDamage}</b></div>
-          </div>
           <div>
             <h3>Recent Kills</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

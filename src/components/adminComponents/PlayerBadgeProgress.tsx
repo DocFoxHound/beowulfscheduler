@@ -279,194 +279,297 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
     );
   };
 
+  // Collapsible state for badge progress categories (excluding Earned Badges)
+  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+  // For nested collapsible (Prestige, series), use a composite key
+  const getKey = (...parts: string[]) => parts.join('||');
+
+  // On mount or when grouped changes, set all categories/subcategories to collapsed by default
+  React.useEffect(() => {
+    const newCollapsed: Record<string, boolean> = {};
+    Object.entries(grouped)
+      .filter(([subject]) => subject !== "Prestige" || isModerator)
+      .forEach(([subject, badgesOrGroups]) => {
+        const subjectKey = getKey(subject);
+        newCollapsed[subjectKey] = true;
+        if (subject === "Prestige") {
+          Object.keys(badgesOrGroups).forEach(prestigeName => {
+            const prestigeKey = getKey(subject, prestigeName);
+            newCollapsed[prestigeKey] = true;
+          });
+        } else {
+          Object.keys(badgesOrGroups).forEach(seriesId => {
+            const seriesKey = getKey(subject, seriesId);
+            newCollapsed[seriesKey] = true;
+          });
+        }
+      });
+    setCollapsed(newCollapsed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(grouped), isModerator]);
+
+  const handleToggle = (key: string) => {
+    setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
     <div style={{ marginTop: "2rem", position: "relative" }}>
       <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>Badge Progress</div>
       {badgeReusables.length === 0 && <div>No active badges.</div>}
-      {/* Categorized badge list */}
+      {/* Categorized badge list (collapsible) */}
       <div style={{ marginBottom: 32 }}>
         {Object.entries(grouped)
           .filter(([subject]) => subject !== "Prestige" || isModerator)
-          .map(([subject, badgesOrGroups]) => (
-            <div key={subject} style={{ marginBottom: 24 }}>
-              <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 8 }}>{subject}</div>
-              {subject === "Prestige"
-                ? Object.entries(badgesOrGroups).map(([prestigeName, badges]) => (
-                    <div key={prestigeName} style={{ marginBottom: 12 }}>
-                      <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 6 }}>Prestige: {prestigeName}</div>
-                      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                        {(badges as any[]).map((badge: any, idx: number) => {
-                          // ...existing code for rendering badge...
-                          let triggers: any[] = [];
-                          try {
-                            triggers = Array.isArray(badge.trigger)
-                              ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
-                              : [];
-                          } catch (e) {
-                            triggers = [];
-                          }
-                          const isCompleted = playerBadgeNames.has(badge.badge_name);
-                          const triggerProgress = triggers.map((trigger) => {
-                            const metric = trigger.metric;
-                            const operator = trigger.operator || trigger.conditional;
-                            const value = Number(trigger.value);
-                            let playerValue = Number(playerStats?.[metric] ?? 0);
-                            if (isNaN(playerValue)) playerValue = 0;
-                            return getProgress(playerValue, operator, value);
-                          });
-                          let overallProgress = triggerProgress.length > 0
-                            ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
-                            : 0;
-                          if (isCompleted) overallProgress = 100;
-                          return (
-                            <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
-                              {badge.image_url && (
-                                <img src={badge.image_url} alt={badge.badge_name} style={{ width: 36, height: 36, borderRadius: 6 }} />
-                              )}
-                              <span style={{ fontWeight: 600 }}>{badge.badge_name}</span>
-                              <InfoTooltip description={badge.badge_description || ''} />
-                              <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
-                                <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      left: 0,
-                                      top: 0,
-                                      width: '100%',
-                                      height: '100%',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      color: overallProgress > 50 ? '#fff' : '#222',
-                                      textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
-                                      pointerEvents: 'none',
-                                      userSelect: 'none',
-                                      zIndex: 2,
-                                    }}
-                                  >
-                                    {overallProgress}%
-                                  </div>
-                                </div>
-                              </div>
-                              {isModerator && dbUser?.id !== playerStats?.user_id && (
-                                <button
-                                  style={{
-                                    background: '#ff9800',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: 5,
-                                    padding: '6px 16px',
-                                    fontWeight: 700,
-                                    fontSize: 14,
-                                    cursor: 'pointer',
-                                    marginLeft: 'auto',
-                                    boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
-                                  }}
-                                  onClick={() => handleAwardClick(badge)}
-                                >
-                                  Award
-                                </button>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))
-                : Object.entries(badgesOrGroups).map(([seriesId, badges]) => (
-                    <div key={seriesId} style={{ marginBottom: 10 }}>
-                      <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 6 }}>
-                        {seriesId !== 'none'
-                          ? `Series: ${(Array.isArray(badges) && badges.length > 0 && badges[0].badge_name) ? badges[0].badge_name : seriesId}`
-                          : 'Other Badges'}
-                      </div>
-                      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                        {(badges as any[]).map((badge: any, idx: number) => {
-                          // ...existing code for rendering badge...
-                          let triggers: any[] = [];
-                          try {
-                            triggers = Array.isArray(badge.trigger)
-                              ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
-                              : [];
-                          } catch (e) {
-                            triggers = [];
-                          }
-                          const isCompleted = playerBadgeNames.has(badge.badge_name);
-                          const triggerProgress = triggers.map((trigger) => {
-                            const metric = trigger.metric;
-                            const operator = trigger.operator || trigger.conditional;
-                            const value = Number(trigger.value);
-                            let playerValue = Number(playerStats?.[metric] ?? 0);
-                            if (isNaN(playerValue)) playerValue = 0;
-                            return getProgress(playerValue, operator, value);
-                          });
-                          let overallProgress = triggerProgress.length > 0
-                            ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
-                            : 0;
-                          if (isCompleted) overallProgress = 100;
-                          return (
-                            <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
-                              {badge.image_url && (
-                                <img src={badge.image_url} alt={badge.badge_name} style={{ width: 36, height: 36, borderRadius: 6 }} />
-                              )}
-                              <span style={{ fontWeight: 600 }}>{badge.badge_name}</span>
-                              <InfoTooltip description={badge.badge_description || ''} />
-                              <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
-                                <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      left: 0,
-                                      top: 0,
-                                      width: '100%',
-                                      height: '100%',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      color: overallProgress > 50 ? '#fff' : '#222',
-                                      textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
-                                      pointerEvents: 'none',
-                                      userSelect: 'none',
-                                      zIndex: 2,
-                                    }}
-                                  >
-                                    {overallProgress}%
-                                  </div>
-                                </div>
-                              </div>
-                              {isModerator && dbUser?.id !== playerStats?.user_id && (
-                                <button
-                                  style={{
-                                    background: '#ff9800',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: 5,
-                                    padding: '6px 16px',
-                                    fontWeight: 700,
-                                    fontSize: 14,
-                                    cursor: 'pointer',
-                                    marginLeft: 'auto',
-                                    boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
-                                  }}
-                                  onClick={() => handleAwardClick(badge)}
-                                >
-                                  Award
-                                </button>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-            </div>
-          ))}
+          .map(([subject, badgesOrGroups]) => {
+            const subjectKey = getKey(subject);
+            return (
+              <div key={subject} style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 17, marginBottom: 8 }}>
+                  <button
+                    onClick={() => handleToggle(subjectKey)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 18,
+                      padding: 0,
+                      marginRight: 4,
+                      color: '#2196f3',
+                      lineHeight: 1,
+                      userSelect: 'none',
+                    }}
+                    aria-label={collapsed[subjectKey] ? `Expand ${subject}` : `Collapse ${subject}`}
+                  >
+                    {collapsed[subjectKey] ? '▶' : '▼'}
+                  </button>
+                  {subject}
+                </div>
+                {!collapsed[subjectKey] && (
+                  subject === "Prestige"
+                    ? Object.entries(badgesOrGroups).map(([prestigeName, badges]) => {
+                        const prestigeKey = getKey(subject, prestigeName);
+                        return (
+                          <div key={prestigeName} style={{ marginBottom: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, fontSize: 15, marginBottom: 6 }}>
+                              <button
+                                onClick={() => handleToggle(prestigeKey)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: 16,
+                                  padding: 0,
+                                  marginRight: 4,
+                                  color: '#2196f3',
+                                  lineHeight: 1,
+                                  userSelect: 'none',
+                                }}
+                                aria-label={collapsed[prestigeKey] ? `Expand Prestige: ${prestigeName}` : `Collapse Prestige: ${prestigeName}`}
+                              >
+                                {collapsed[prestigeKey] ? '▶' : '▼'}
+                              </button>
+                              Prestige: {prestigeName}
+                            </div>
+                            {!collapsed[prestigeKey] && (
+                              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                                {(badges as any[]).map((badge: any, idx: number) => {
+                                  // ...existing code for rendering badge...
+                                  let triggers: any[] = [];
+                                  try {
+                                    triggers = Array.isArray(badge.trigger)
+                                      ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
+                                      : [];
+                                  } catch (e) {
+                                    triggers = [];
+                                  }
+                                  const isCompleted = playerBadgeNames.has(badge.badge_name);
+                                  const triggerProgress = triggers.map((trigger) => {
+                                    const metric = trigger.metric;
+                                    const operator = trigger.operator || trigger.conditional;
+                                    const value = Number(trigger.value);
+                                    let playerValue = Number(playerStats?.[metric] ?? 0);
+                                    if (isNaN(playerValue)) playerValue = 0;
+                                    return getProgress(playerValue, operator, value);
+                                  });
+                                  let overallProgress = triggerProgress.length > 0
+                                    ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
+                                    : 0;
+                                  if (isCompleted) overallProgress = 100;
+                                  return (
+                                    <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
+                                      {badge.image_url && (
+                                        <img src={badge.image_url} alt={badge.badge_name} style={{ width: 36, height: 36, borderRadius: 6 }} />
+                                      )}
+                                      <span style={{ fontWeight: 600 }}>{badge.badge_name}</span>
+                                      <InfoTooltip description={badge.badge_description || ''} />
+                                      <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
+                                        <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
+                                          <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
+                                          <div
+                                            style={{
+                                              position: 'absolute',
+                                              left: 0,
+                                              top: 0,
+                                              width: '100%',
+                                              height: '100%',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              fontSize: 10,
+                                              fontWeight: 600,
+                                              color: overallProgress > 50 ? '#fff' : '#222',
+                                              textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
+                                              pointerEvents: 'none',
+                                              userSelect: 'none',
+                                              zIndex: 2,
+                                            }}
+                                          >
+                                            {overallProgress}%
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {isModerator && dbUser?.id !== playerStats?.user_id && (
+                                        <button
+                                          style={{
+                                            background: '#ff9800',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: 5,
+                                            padding: '6px 16px',
+                                            fontWeight: 700,
+                                            fontSize: 14,
+                                            cursor: 'pointer',
+                                            marginLeft: 'auto',
+                                            boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
+                                          }}
+                                          onClick={() => handleAwardClick(badge)}
+                                        >
+                                          Award
+                                        </button>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })
+                    : Object.entries(badgesOrGroups).map(([seriesId, badges]) => {
+                        const seriesKey = getKey(subject, seriesId);
+                        return (
+                          <div key={seriesId} style={{ marginBottom: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, fontSize: 15, marginBottom: 6 }}>
+                              <button
+                                onClick={() => handleToggle(seriesKey)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: 15,
+                                  padding: 0,
+                                  marginRight: 4,
+                                  color: '#2196f3',
+                                  lineHeight: 1,
+                                  userSelect: 'none',
+                                }}
+                                aria-label={collapsed[seriesKey] ? `Expand Series: ${seriesId}` : `Collapse Series: ${seriesId}`}
+                              >
+                                {collapsed[seriesKey] ? '▶' : '▼'}
+                              </button>
+                              {seriesId !== 'none'
+                                ? `Series: ${(Array.isArray(badges) && badges.length > 0 && badges[0].badge_name) ? badges[0].badge_name : seriesId}`
+                                : 'Other Badges'}
+                            </div>
+                            {!collapsed[seriesKey] && (
+                              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                                {(badges as any[]).map((badge: any, idx: number) => {
+                                  // ...existing code for rendering badge...
+                                  let triggers: any[] = [];
+                                  try {
+                                    triggers = Array.isArray(badge.trigger)
+                                      ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
+                                      : [];
+                                  } catch (e) {
+                                    triggers = [];
+                                  }
+                                  const isCompleted = playerBadgeNames.has(badge.badge_name);
+                                  const triggerProgress = triggers.map((trigger) => {
+                                    const metric = trigger.metric;
+                                    const operator = trigger.operator || trigger.conditional;
+                                    const value = Number(trigger.value);
+                                    let playerValue = Number(playerStats?.[metric] ?? 0);
+                                    if (isNaN(playerValue)) playerValue = 0;
+                                    return getProgress(playerValue, operator, value);
+                                  });
+                                  let overallProgress = triggerProgress.length > 0
+                                    ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
+                                    : 0;
+                                  if (isCompleted) overallProgress = 100;
+                                  return (
+                                    <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
+                                      {badge.image_url && (
+                                        <img src={badge.image_url} alt={badge.badge_name} style={{ width: 36, height: 36, borderRadius: 6 }} />
+                                      )}
+                                      <span style={{ fontWeight: 600 }}>{badge.badge_name}</span>
+                                      <InfoTooltip description={badge.badge_description || ''} />
+                                      <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
+                                        <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
+                                          <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
+                                          <div
+                                            style={{
+                                              position: 'absolute',
+                                              left: 0,
+                                              top: 0,
+                                              width: '100%',
+                                              height: '100%',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              fontSize: 10,
+                                              fontWeight: 600,
+                                              color: overallProgress > 50 ? '#fff' : '#222',
+                                              textShadow: overallProgress > 50 ? '0 1px 2px rgba(0,0,0,0.25)' : '0 1px 2px #fff',
+                                              pointerEvents: 'none',
+                                              userSelect: 'none',
+                                              zIndex: 2,
+                                            }}
+                                          >
+                                            {overallProgress}%
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {isModerator && dbUser?.id !== playerStats?.user_id && (
+                                        <button
+                                          style={{
+                                            background: '#ff9800',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: 5,
+                                            padding: '6px 16px',
+                                            fontWeight: 700,
+                                            fontSize: 14,
+                                            cursor: 'pointer',
+                                            marginLeft: 'auto',
+                                            boxShadow: '0 1px 4px rgba(80,90,120,0.10)'
+                                          }}
+                                          onClick={() => handleAwardClick(badge)}
+                                        >
+                                          Award
+                                        </button>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })
+                )}
+              </div>
+            );
+          })}
       </div>
       {/* Player earned badges table */}
       <PlayerBadgesTable playerBadges={playerBadges} totalPoints={totalPoints} />

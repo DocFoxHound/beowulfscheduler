@@ -36,30 +36,26 @@ export default function SpecializedTeams({ dbUser, orgSummaries, latestPatch }: 
       </section>
     );
   }
-  if (isFleetMember) {
-    sections.push(
-      <section
-        key="fleet-commander-section"
-        style={{
-          background: 'linear-gradient(90deg, #232526 0%, #414345 100%)',
-          borderRadius: '12px',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.13)',
-          margin: '2em 0',
-          padding: '2em 1em',
-          border: '2px solid #00ff4cff',
-        }}
-      >
-        <FleetCommandTeam dbUser={dbUser} latestPatch={latestPatch} isFleetMember={isFleetMember} />
-      </section>
-    );
-  }
+  // if (isFleetMember) {
+  //   sections.push(
+  //     <section
+  //       key="fleet-commander-section"
+  //       style={{
+  //         background: 'linear-gradient(90deg, #232526 0%, #414345 100%)',
+  //         borderRadius: '12px',
+  //         boxShadow: '0 2px 12px rgba(0,0,0,0.13)',
+  //         margin: '2em 0',
+  //         padding: '2em 1em',
+  //         border: '2px solid #00ff4cff',
+  //       }}
+  //     >
+  //       {/* <FleetCommandTeam dbUser={dbUser} latestPatch={latestPatch} isFleetMember={isFleetMember} /> */}
+  //     </section>
+  //   );
+  // }
   if (!isRonin && !isFleetCommander) {
     sections.push(
       <div key="none">
-        <h2>Specialized Teams</h2>
-        <p>
-          Interested in joining a specialized team? The RONIN team is for promising dogfighters and is joined by selection. Fleet Command is available to those who reach Crew rank and wish to lead their own fleet. Keep striving and you may be invited to join!
-        </p>
       </div>
     );
   }

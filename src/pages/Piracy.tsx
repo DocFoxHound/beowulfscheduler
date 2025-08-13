@@ -9,11 +9,13 @@ import { useUserContext } from "../context/UserContext";
 import axios from "axios";
 import { fetchPlayerRecentPirateHits, fetchAllPlayerPirateHits, fetchAllPlayerAssistHits, fetchAllHitsByPatch, fetchAllHitsByUserIdAndPatch } from '../api/hittrackerApi';
 import { Hit } from '../types/hittracker';
-import KillOverviewBoard from '../components/KillOverviewBoard';
+import KillOverviewBoard from '../components/dashboardComponents/KillOverviewBoard';
 import './Piracy.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
 import AddHitModal from '../components/CreateHitModal';
 import Navbar from '../components/Navbar';
+import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
+import PlayerGangStats from '../components/gangComponents/PlayerGangStats';
 
 const Hittracker: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -30,15 +32,24 @@ const Hittracker: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userList, setUserList] = useState<any[]>([]);
-  // REMOVE selectedUserId state
-  // const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [gameVersions, setGameVersions] = useState<{ value: string, label: string }[]>([]);
+  const [playerStats, setPlayerStats] = useState<any>(null);
+  const [playerStatsLoading, setPlayerStatsLoading] = useState(false);
   const PROSPECT_IDS = (import.meta.env.VITE_PROSPECT_ID || "").split(",");
   const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
   const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
   const isMember = dbUser?.roles?.some((role: string) => PROSPECT_IDS.includes(role) || CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
+  // Fetch playerStats for PlayerGangStats
+  useEffect(() => {
+    if (dbUser && dbUser.id) {
+      setPlayerStatsLoading(true);
+      fetchPlayerStatsByUserId(dbUser.id)
+        .then((stats) => setPlayerStats(stats))
+        .finally(() => setPlayerStatsLoading(false));
+    }
+  }, [dbUser]);
 
   // Fetch Discord user if dbUser is not set
   useEffect(() => {
@@ -311,7 +322,14 @@ const Hittracker: React.FC = () => {
             </div>
           </div>
           <div className="column recent-pirate-hits">
-            <KillOverviewBoard patch={gameVersion ?? ""} allUsers={userList} />
+            <PlayerGangStats
+              dbUser={dbUser}
+              gameVersion={gameVersion}
+              displayType="Piracy"
+              playerStats={playerStats}
+              playerStatsLoading={playerStatsLoading}
+            />
+            {/* <KillOverviewBoard patch={gameVersion ?? ""} allUsers={userList} /> */}
           </div>
         </div>
       </main>

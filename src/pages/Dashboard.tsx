@@ -13,9 +13,13 @@ import PlayerBadgeProgress from "../components/adminComponents/PlayerBadgeProgre
 import PlayerPromotionProgress from "../components/adminComponents/PlayerPromotionProgress";
 import PlayerPrestigeProgress from "../components/adminComponents/PlayerPrestigeProgress";
 import SpecializedTeams from "../components/dashboardComponents/SpecializedTeams";
+import PlayerGangStats from "../components/gangComponents/PlayerGangStats";
+import KillOverviewBoard from "../components/dashboardComponents/KillOverviewBoard";
+import { fetchRecentFleetsSummary } from "../api/recentGangsApi";
 import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
 import { fetchAllActiveBadgeReusables, fetchBadgeReusablesById } from "../api/badgeReusableApi";
 import UpcomingEvents from "../components/dashboardComponents/UpcomingEvents";
+import { fetchBadgesByUserId } from "../api/badgeRecordApi";
 
 import { getAllGameVersions } from "../api/patchApi";
 
@@ -23,6 +27,9 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const { dbUser, setDbUser, userRank, setUserRank } = useUserContext(); 
   const [fleet, setFleet] = useState<any>(null); // Add fleet state
+
+  // State for summaryData (for PlayerGangStats)
+  const [summaryData, setSummaryData] = useState<any[]>([]);
 
   // New state for badge/progress components
   const [playerStats, setPlayerStats] = useState<any>(null);
@@ -125,12 +132,36 @@ export default function Dashboard() {
       .catch(() => setLatestPatch(""));
   }, []);
 
+  // Fetch summaryData for PlayerGangStats when latestPatch or dbUser changes
+  useEffect(() => {
+    if (latestPatch && dbUser && dbUser.id) {
+      fetchRecentFleetsSummary(latestPatch, 500, 0)
+        .then((data) => {
+          // Filter for this user only, as in Gangr.tsx
+          const filtered = Array.isArray(data) ? data.filter((row: any) => row.user_id === dbUser.id) : [];
+          setSummaryData(filtered);
+        })
+        .catch(() => setSummaryData([]));
+    } else {
+      setSummaryData([]);
+    }
+  }, [latestPatch, dbUser]);
+
   // Fetch org summaries
   useEffect(() => {
     fetchSBAllOrgSummaries()
       .then(setOrgSummaries)
       .catch(() => setOrgSummaries([]));
   }, []);
+
+  // Fetch player badge records (badgeRecordApi)
+  useEffect(() => {
+    if (dbUser && dbUser.id) {
+      fetchBadgesByUserId(dbUser.id)
+        .then((badges) => setPlayerBadges(badges))
+        .catch(() => setPlayerBadges([]));
+    }
+  }, [dbUser]);
 
   if (!user) {
     return (
@@ -187,12 +218,24 @@ export default function Dashboard() {
             player={dbUser}
             dbUser={dbUser}
           />
-        </div>
-        <div className="dashboard-area">
           <SpecializedTeams 
             dbUser={dbUser} 
             orgSummaries={orgSummaries}
             latestPatch={latestPatch}
+          />
+        </div>
+        <div className="dashboard-area">
+          <PlayerGangStats
+            dbUser={dbUser}
+            gameVersion={latestPatch}
+            summaryData={summaryData}
+            displayType="Dashboard"
+            playerStats={playerStats}
+            playerStatsLoading={playerStatsLoading}
+          />
+          <KillOverviewBoard
+            patch={latestPatch}
+            dbUser={dbUser ? [dbUser] : []}
           />
         </div>
       </main>

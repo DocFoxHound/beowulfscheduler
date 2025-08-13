@@ -161,8 +161,7 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           <ul style={{ marginTop: 4 }}>
             <li>SquadronBattle leaderboard rank: <strong>{shipsBLeaderboardRank}</strong> (≤ 200) {shipsBLeaderboardRank <= 200 ? '✅' : ''}</li>
             <li>Piracy hits: <strong>{piracyHits} / 100</strong> {piracyHits >= 100 ? '✅' : ''}</li>
-            <li>Fleet participated: <strong>{fleetParticipated} &gt; 50</strong> {fleetParticipated > 50 ? '✅' : ''}</li>
-            <li>Recent gatherings: <strong>{recentGatherings} / 50</strong> {recentGatherings >= 50 ? '✅' : ''}</li>
+            <li>Fleet participated: <strong>{fleetParticipated} &gt; 100</strong> {fleetParticipated > 50 ? '✅' : ''}</li>
             <li>Voice hours: <strong>{voiceHours} / 500</strong> {voiceHours >= 500 ? '✅' : ''}</li>
           </ul>
         </div>

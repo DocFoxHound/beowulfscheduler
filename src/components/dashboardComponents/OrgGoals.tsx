@@ -86,7 +86,7 @@ const OrgGoals: React.FC<OrgGoalsProps> = ({ dbUser, user, isModerator, latestPa
               </div>
               <div style={{ flex: 1, padding: '0 1em' }}>
                 <div style={{ color: '#b0b0b0', fontSize: '0.95em', marginBottom: '0.3em', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                  Next Org to Catch:<br />
+                  <h2>Squadron Battle Leaderboard</h2>
                   <span style={{ fontSize: '0.9em', color: '#ffd700' }}>IRONPOINT Position: {ironIndex}</span>
                   <span style={{ fontSize: '0.9em', color: '#e0e0e0', marginLeft: 12 }}>Next Org Position: {ironIndex - 1}</span>
                 </div>
