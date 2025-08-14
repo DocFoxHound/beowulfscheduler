@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Hit } from '../types/hittracker';
+import { Hit } from '../../types/hittracker';
 import PiracyHitCard from "./PiracyHitCard";
-import { User } from '../types/user';
+import { User } from '../../types/user';
 
 interface Props {
   gameVersion: string | null;

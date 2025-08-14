@@ -15,7 +15,7 @@ import PlayerPrestigeProgress from "../components/adminComponents/PlayerPrestige
 import SpecializedTeams from "../components/dashboardComponents/SpecializedTeams";
 import PlayerGangStats from "../components/gangComponents/PlayerGangStats";
 import KillOverviewBoard from "../components/dashboardComponents/KillOverviewBoard";
-import { fetchRecentFleetsSummary } from "../api/recentGangsApi";
+import { fetchRecentGangsSummary } from "../api/recentGangsApi";
 import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
 import { fetchAllActiveBadgeReusables, fetchBadgeReusablesById } from "../api/badgeReusableApi";
 import UpcomingEvents from "../components/dashboardComponents/UpcomingEvents";
@@ -135,7 +135,7 @@ export default function Dashboard() {
   // Fetch summaryData for PlayerGangStats when latestPatch or dbUser changes
   useEffect(() => {
     if (latestPatch && dbUser && dbUser.id) {
-      fetchRecentFleetsSummary(latestPatch, 500, 0)
+      fetchRecentGangsSummary(latestPatch, 500, 0)
         .then((data) => {
           // Filter for this user only, as in Gangr.tsx
           const filtered = Array.isArray(data) ? data.filter((row: any) => row.user_id === dbUser.id) : [];

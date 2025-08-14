@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import OverviewPanel from '../components/PiracyOverviewPanel';
+import OverviewPanel from '../components/hitComponents/PiracyOverviewPanel';
 import WarehouseItems from '../components/WarehousePersonalItems';
 import WarehouseOrgItems from '../components/WarehouseOrgItems';
 import { fetchWarehouseItems, fetchPublicOrgWarehouseItems, fetchPrivateOrgWarehouseItems, addWarehouseItem, editWarehouseItem, deleteWarehouseItem } from '../api/warehouseApi';
@@ -11,7 +11,7 @@ import axios from "axios";
 import { Hit } from '../types/hittracker';
 import './Warehouse.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
-import AddHitModal from '../components/CreateHitModal';
+import AddHitModal from '../components/hitComponents/CreateHitModal';
 import { getSummarizedItems } from '../api/summarizedItemApi';
 import { SummarizedItem } from '../types/items_summary';
 import Navbar from '../components/Navbar';

@@ -1,6 +1,7 @@
 import React from 'react';
 import { fetchBadgesByUserIdAndAccolade } from '../../api/badgeRecordApi';
 import { PlayerStats } from '../../types/player_stats';
+import { hitSummary } from '../../types/hittracker';
 
 interface PlayerGangStatsProps {
   dbUser: any;
@@ -9,9 +10,13 @@ interface PlayerGangStatsProps {
   displayType: string;
   playerStats?: any;
   playerStatsLoading?: boolean;
+  piratePatchStats?: hitSummary;
+  pirateTotalStats?: hitSummary;
+  pirateOrgPatchStats?: hitSummary;
+  pirateOrgTotalStats?: hitSummary;
 }
 
-const PlayerGangStats: React.FC<PlayerGangStatsProps> = ({ dbUser, gameVersion, summaryData, displayType, playerStats }) => {
+const PlayerGangStats: React.FC<PlayerGangStatsProps> = ({ dbUser, gameVersion, summaryData, displayType, playerStats, piratePatchStats, pirateOrgTotalStats }) => {
   // Individual stats from summaryData (assume summaryData is an array with one object for the player)
   const stats = summaryData && summaryData.length > 0 ? summaryData[0] : {};
 
@@ -309,7 +314,7 @@ const PlayerGangStats: React.FC<PlayerGangStatsProps> = ({ dbUser, gameVersion, 
       {/* Piracy Stats */}
       {displayType === 'Piracy' && (
         <>
-          {/* Copy of Individual Stats Box - Minimalist Industrial Design */}
+          {/* Individual Piracy Stats This Patch */}
           <div style={{
             border: '1px solid #444',
             borderRadius: '8px',
@@ -331,7 +336,69 @@ const PlayerGangStats: React.FC<PlayerGangStatsProps> = ({ dbUser, gameVersion, 
               marginBottom: '0.8rem',
               paddingBottom: '0.5rem'
             }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#b0b0b0', letterSpacing: '0.05em' }}>Individual Total Stats</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#b0b0b0', letterSpacing: '0.05em' }}>Individual Stats ({gameVersion})</span>
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '0.7rem',
+              fontSize: '1rem'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Pirate Hits</span>
+                <span style={{ fontWeight: 700, color: '#00e1ff' }}>{piratePatchStats?.total_hits || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Stolen Cargo</span>
+                <span style={{ fontWeight: 700, color: '#ef476f' }}>{piratePatchStats?.total_cut_scu ? Math.round(piratePatchStats.total_cut_scu) : 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Stolen Value</span>
+                <span style={{ fontWeight: 700, color: '#a259f7' }}>{piratePatchStats?.total_cut_value ? Math.round(piratePatchStats.total_cut_value).toLocaleString('en-US') : 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>PU FPS Kills</span>
+                <span style={{ fontWeight: 700, color: '#ffd166' }}>{piratePatchStats?.fps_kills_pu || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>PU Ship Kills</span>
+                <span style={{ fontWeight: 700, color: '#ff6b6b' }}>{piratePatchStats?.ship_kills_pu || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Damages</span>
+                <span style={{ fontWeight: 700, color: '#f7b801' }}>
+                  {(() => {
+                    const total = (piratePatchStats?.value_pu || 0);
+                    return `$${total.toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Individual Piracy Stats All Time */}
+          <div style={{
+            border: '1px solid #444',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            background: '#181a1b',
+            color: '#e0e0e0',
+            maxWidth: 600,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            fontFamily: 'Roboto Mono, monospace',
+            boxShadow: '0 2px 8px #0006',
+            letterSpacing: '0.01em'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              borderBottom: '1px solid #333',
+              marginBottom: '0.8rem',
+              paddingBottom: '0.5rem'
+            }}>
+              <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#b0b0b0', letterSpacing: '0.05em' }}>Individual Stats (Total)</span>
             </div>
             <div style={{
               display: 'grid',
@@ -364,6 +431,134 @@ const PlayerGangStats: React.FC<PlayerGangStatsProps> = ({ dbUser, gameVersion, 
                 <span style={{ fontWeight: 700, color: '#f7b801' }}>
                   {(() => {
                     const total = (playerStats?.shippudamages || 0);
+                    return `$${total.toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {/* Piracy Org Stats */}
+      {displayType === 'PiracyOrgStats' && (
+        <>
+          {/* Org Stats This Patch */}
+          <div style={{
+            border: '1px solid #444',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            background: '#181a1b',
+            color: '#e0e0e0',
+            maxWidth: 600,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            fontFamily: 'Roboto Mono, monospace',
+            boxShadow: '0 2px 8px #0006',
+            letterSpacing: '0.01em'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              borderBottom: '1px solid #333',
+              marginBottom: '0.8rem',
+              paddingBottom: '0.5rem'
+            }}>
+              <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#b0b0b0', letterSpacing: '0.05em' }}>Org Stats ({gameVersion})</span>
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '0.7rem',
+              fontSize: '1rem'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Pirate Hits</span>
+                <span style={{ fontWeight: 700, color: '#00e1ff' }}>{piratePatchStats?.total_hits || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Stolen Cargo</span>
+                <span style={{ fontWeight: 700, color: '#ef476f' }}>{piratePatchStats?.total_cut_scu ? Math.round(piratePatchStats.total_cut_scu) : 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Stolen Value</span>
+                <span style={{ fontWeight: 700, color: '#a259f7' }}>{piratePatchStats?.total_cut_value ? Math.round(piratePatchStats.total_cut_value).toLocaleString('en-US') : 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>PU FPS Kills</span>
+                <span style={{ fontWeight: 700, color: '#ffd166' }}>{piratePatchStats?.fps_kills_pu || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>PU Ship Kills</span>
+                <span style={{ fontWeight: 700, color: '#ff6b6b' }}>{piratePatchStats?.ship_kills_pu || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Damages</span>
+                <span style={{ fontWeight: 700, color: '#f7b801' }}>
+                  {(() => {
+                    const total = (piratePatchStats?.value_pu || 0);
+                    return `$${total.toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Org Piracy Stats All Time */}
+          <div style={{
+            border: '1px solid #444',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            background: '#181a1b',
+            color: '#e0e0e0',
+            maxWidth: 600,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            fontFamily: 'Roboto Mono, monospace',
+            boxShadow: '0 2px 8px #0006',
+            letterSpacing: '0.01em'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              borderBottom: '1px solid #333',
+              marginBottom: '0.8rem',
+              paddingBottom: '0.5rem'
+            }}>
+              <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#b0b0b0', letterSpacing: '0.05em' }}>Org Stats (Total)</span>
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '0.7rem',
+              fontSize: '1rem'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Pirate Hits</span>
+                <span style={{ fontWeight: 700, color: '#00e1ff' }}>{pirateOrgTotalStats?.total_hits || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Stolen Cargo</span>
+                <span style={{ fontWeight: 700, color: '#ef476f' }}>{pirateOrgTotalStats?.total_cut_scu ? Math.round(pirateOrgTotalStats.total_cut_scu) : 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Stolen Value</span>
+                <span style={{ fontWeight: 700, color: '#a259f7' }}>{pirateOrgTotalStats?.total_cut_value ? Math.round(pirateOrgTotalStats.total_cut_value).toLocaleString('en-US') : 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>PU FPS Kills</span>
+                <span style={{ fontWeight: 700, color: '#ffd166' }}>{pirateOrgTotalStats?.fps_kills_pu || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>PU Ship Kills</span>
+                <span style={{ fontWeight: 700, color: '#ff6b6b' }}>{pirateOrgTotalStats?.ship_kills_pu || 0}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#888', fontSize: '0.95em' }}>Damages</span>
+                <span style={{ fontWeight: 700, color: '#f7b801' }}>
+                  {(() => {
+                    const total = (pirateOrgTotalStats?.value_pu || 0);
                     return `$${total.toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
                   })()}
                 </span>

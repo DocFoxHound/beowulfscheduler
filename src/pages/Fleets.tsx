@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select'; // <-- Add this import
-import OverviewPanel from '../components/PiracyOverviewPanel';
-import RecentPirateHits from '../components/RecentPirateHits';
+import OverviewPanel from '../components/hitComponents/PiracyOverviewPanel';
+import RecentPirateHits from '../components/hitComponents/RecentPirateHits';
 import WarehouseItems from '../components/WarehousePersonalItems';
 import { getLatestPatch } from '../api/patchApi';
 import { getUserById, getAllUsers } from "../api/userService";

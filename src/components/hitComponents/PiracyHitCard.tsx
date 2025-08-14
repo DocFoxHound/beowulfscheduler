@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Hit } from "../types/hittracker";
-import { fetchPlayerFleet, fetchFleetById } from "../api/fleetApi";
-import AddHitModal from "./CreateHitModal"; // Import your modal
-import { User } from "../types/user";
+import { Hit } from "../../types/hittracker";
+import { fetchRecentGangById } from "../../api/recentGangsApi";
+import { RecentGang } from "../../types/recent_gangs";
+import AddHitModal2 from "./CreateHitModal"; // Streamlined modal
+import { User } from "../../types/user";
 
 interface PiracyHitCardProps {
   hit: Hit;
@@ -17,86 +18,106 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
   const authorUser = allUsers.find(u => u.id === hit.user_id);
   const authorName = authorUser?.nickname || authorUser?.username || "Unknown";
   const [showCargoTooltip, setShowCargoTooltip] = useState(false);
-  const [isFleetCommander, setIsFleetCommander] = useState(false);
+  // With gangs replacing fleets, commander concept is removed for now
   const [showEditModal, setShowEditModal] = useState(false);
-  const [fleetAvatars, setFleetAvatars] = useState<string[]>([]);
+  const [gangIcons, setGangIcons] = useState<string[]>([]);
+  const [gangNames, setGangNames] = useState<string[]>([]);
   // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some(role => BLOODED_IDS.includes(role)) ?? false;
 
   useEffect(() => {
     let ignore = false;
-    const checkFleetCommander = async () => {
-      if (hit.fleet_activity && hit.fleet_ids && hit.fleet_ids.length > 0) {
-        try {
-          const fleets = await fetchPlayerFleet(userId);
-          // Check if any of the user's commanded fleets are in hit.fleet_ids
-          const commandsFleet = fleets.some(fleet => hit.fleet_ids.includes(String(fleet.id)));
-          if (!ignore) setIsFleetCommander(commandsFleet);
-        } catch (e) {
-          if (!ignore) setIsFleetCommander(false);
-        }
-      } else {
-        setIsFleetCommander(false);
-      }
-    };
-    checkFleetCommander();
-
-    // Fetch fleet avatars for each fleet_id
-    const fetchAvatars = async () => {
+    // Fetch gang data (names and icons) for each id in hit.fleet_ids
+    const fetchGangs = async () => {
       if (hit.fleet_activity && Array.isArray(hit.fleet_ids) && hit.fleet_ids.length > 0) {
         try {
-          const avatarPromises = hit.fleet_ids.map(async (fleetId) => {
-            const fleets = await fetchFleetById(fleetId);
-            // fetchFleetById returns an array, take the first fleet
-            if (fleets && fleets.length > 0 && fleets[0].avatar) {
-              return fleets[0].avatar;
+          const gangPromises = hit.fleet_ids.map(async (gangId) => {
+            try {
+              const gang: RecentGang = await fetchRecentGangById(String(gangId));
+              return gang;
+            } catch (e) {
+              return null;
             }
-            return null;
           });
-          const avatars = (await Promise.all(avatarPromises)).filter(Boolean) as string[];
-          if (!ignore) setFleetAvatars(avatars);
-        } catch (e) {
-          if (!ignore) setFleetAvatars([]);
+          const gangs = (await Promise.all(gangPromises)).filter(Boolean) as RecentGang[];
+          if (!ignore) {
+            setGangIcons(gangs.map(g => g.icon_url).filter(Boolean));
+            setGangNames(gangs.map(g => g.channel_name).filter(Boolean));
+          }
+        } catch {
+          if (!ignore) {
+            setGangIcons([]);
+            setGangNames([]);
+          }
         }
       } else {
-        setFleetAvatars([]);
+        setGangIcons([]);
+        setGangNames([]);
       }
     };
-    fetchAvatars();
+    fetchGangs();
 
     return () => { ignore = true; };
-  }, [hit.fleet_activity, hit.fleet_ids, userId]);
+  }, [hit.fleet_activity, hit.fleet_ids]);
 
   const cargoTooltip = Array.isArray(hit.cargo)
     ? hit.cargo.map((c: any) => `${c.scuAmount}x ${c.commodity_name}`).join("\n")
     : "";
 
   // Helper to convert video links to embed links (YouTube, Twitch, Vimeo)
-  function getEmbedUrl(url: string) {
-    // YouTube
-    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-    if (ytMatch) {
-      return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  function getEmbedUrl(rawUrl: string): string | null {
+    if (!rawUrl) return null;
+    let u: URL | null = null;
+    try {
+      u = new URL(rawUrl);
+    } catch {
+      // Not a valid URL
+      return null;
     }
+
+    const host = u.hostname.replace(/^www\./, "");
+
+    // YouTube: handle watch, youtu.be, shorts, live
+    if (host.endsWith("youtube.com") || host === "youtu.be") {
+      let videoId: string | null = null;
+      if (host === "youtu.be") {
+        videoId = u.pathname.split("/").filter(Boolean)[0] || null;
+      } else if (u.pathname.startsWith("/watch")) {
+        videoId = u.searchParams.get("v");
+      } else if (u.pathname.startsWith("/shorts/")) {
+        videoId = u.pathname.split("/")[2] || null;
+      } else if (u.pathname.startsWith("/live/")) {
+        videoId = u.pathname.split("/")[2] || null;
+      } else if (u.pathname.startsWith("/embed/")) {
+        // Already an embed URL
+        return u.toString();
+      }
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+    }
+
     // Twitch (videos)
-    const twitchVideoMatch = url.match(/twitch\.tv\/videos\/(\d+)/);
-    if (twitchVideoMatch) {
-      // Replace 'localhost' with your actual domain in production
-      return `https://player.twitch.tv/?video=${twitchVideoMatch[1]}&parent=localhost`;
+    if (host.endsWith("twitch.tv")) {
+      const parent = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      const videoMatch = u.pathname.match(/\/videos\/(\d+)/);
+      if (videoMatch) {
+        return `https://player.twitch.tv/?video=${videoMatch[1]}&parent=${parent}`;
+      }
+      const clipMatch = u.pathname.match(/\/clip\/(\w+)/);
+      if (clipMatch) {
+        return `https://clips.twitch.tv/embed?clip=${clipMatch[1]}&parent=${parent}`;
+      }
+      return null;
     }
-    // Twitch (clips)
-    const twitchClipMatch = url.match(/twitch\.tv\/(?:\w+)?\/clip\/(\w+)/);
-    if (twitchClipMatch) {
-      return `https://clips.twitch.tv/embed?clip=${twitchClipMatch[1]}&parent=localhost`;
-    }
+
     // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) {
-      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    if (host.endsWith("vimeo.com")) {
+      const id = u.pathname.split("/").filter(Boolean)[0];
+      return id ? `https://player.vimeo.com/video/${id}` : null;
     }
-    // Add more providers as needed
-    return url;
+
+    // Unsupported provider or non-embeddable URL
+    return null;
   }
 
   return (
@@ -111,8 +132,8 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
         overflow: 'visible'
       }}
     >
-      {/* Edit button, only if user owns this hit or is fleet commander */}
-      {(hit.user_id === dbUser?.id || isFleetCommander || isModerator) && (
+  {/* Edit button, only if user owns this hit or is moderator */}
+  {(hit.user_id === dbUser?.id || isModerator) && (
         <button
           style={{
             position: "absolute",
@@ -146,19 +167,18 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
             color: '#2d7aee',
             letterSpacing: 1,
             // Add more padding if Edit button is visible
-            paddingRight: (hit.user_id === dbUser?.id || isFleetCommander || isModerator) ? 70 : 0
+            paddingRight: (hit.user_id === dbUser?.id || isModerator) ? 70 : 0
           }}
         >
-          {hit.type_of_piracy?.toUpperCase()}
         </span>
       </div>
 
-      {/* "FLEET" and fleet names on opposite sides if fleet_activity */}
+      {/* "GANGS" and gang names on opposite sides if fleet_activity */}
       {hit.fleet_activity && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontWeight: 'bold', color: '#ffb347' }}>FLEET</span>
+          <span style={{ fontWeight: 'bold', color: '#ffb347' }}>GANG</span>
           <span style={{ color: '#fff' }}>
-            {hit.fleet_names && hit.fleet_names.length > 0 ? hit.fleet_names.join(", ") : null}
+            {gangNames && gangNames.length > 0 ? gangNames.join(", ") : null}
           </span>
         </div>
       )}
@@ -275,16 +295,31 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
       </div>
 
       {/* Embedded video */}
-      {hit.video_link && (
-        <div style={{ marginTop: 10 }}>
-          <iframe
-            src={getEmbedUrl(hit.video_link)}
-            title="Hit Video"
-            style={{ width: "100%", minHeight: 220, border: "none", borderRadius: 6 }}
-            allowFullScreen
-          />
-        </div>
-      )}
+      {(() => {
+        const embedUrl = getEmbedUrl(hit.video_link);
+        if (!hit.video_link) return null;
+        if (!embedUrl) {
+          // Fallback: just show a link if we can't embed
+          return (
+            <div style={{ marginTop: 10 }}>
+              <a href={hit.video_link} target="_blank" rel="noopener noreferrer" style={{ color: "#2d7aee", textDecoration: "underline" }}>
+                View Video
+              </a>
+            </div>
+          );
+        }
+        return (
+          <div style={{ marginTop: 10 }}>
+            <iframe
+              src={embedUrl}
+              title="Hit Video"
+              style={{ width: "100%", minHeight: 220, border: "none", borderRadius: 6 }}
+              allowFullScreen
+            />
+          </div>
+        );
+      })()}
+
 
       {/* Additional media links */}
       {hit.additional_media_links && hit.additional_media_links.length > 0 && (
@@ -310,32 +345,35 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
 
       {/* Edit Modal */}
       {showEditModal && (
-        <AddHitModal
+        <AddHitModal2
           show={showEditModal}
-          onClose={() => setShowEditModal(false)}
+          onClose={() => { setShowEditModal(false); window.location.reload(); }}
           gameVersion={hit.patch}
           userId={userId}
           username={hit.username}
           isEditMode={true}
           hit={hit}
           allUsers={allUsers}
-          onUpdate={async (updatedHit) => {
+          onUpdate={async () => {
             setShowEditModal(false);
+            window.location.reload();
           }}
           onDelete={async () => {
             setShowEditModal(false);
+            window.location.reload();
           }}
           onSubmit={async () => {
-            // Dummy submit handler for edit mode
+            // no-op
           }}
           isSubmitting={false}
           formError={null}
           setFormError={() => {}}
+          dbUser={dbUser}
         />
       )}
 
-      {/* Fleet Avatars in bottom-right corner */}
-      {hit.fleet_activity && fleetAvatars.length > 0 && (
+      {/* Gang Icons in bottom-right corner */}
+      {hit.fleet_activity && gangIcons.length > 0 && (
         <div
           style={{
             position: 'absolute',
@@ -351,14 +389,14 @@ const PiracyHitCard: React.FC<PiracyHitCardProps> = ({ hit, userId, allUsers, db
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
           }}
         >
-          {fleetAvatars.map((avatar, idx) => (
+          {gangIcons.map((avatar, idx) => (
             <img
               key={avatar + idx}
               src={avatar}
-              alt={`Fleet Avatar ${idx + 1}`}
+              alt={`Gang Icon ${idx + 1}`}
               style={{
-                width: fleetAvatars.length > 1 ? 32 : 48,
-                height: fleetAvatars.length > 1 ? 32 : 48,
+                width: gangIcons.length > 1 ? 32 : 48,
+                height: gangIcons.length > 1 ? 32 : 48,
                 objectFit: 'cover',
                 borderRadius: 6,
                 border: '1px solid #444',

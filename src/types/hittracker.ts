@@ -12,6 +12,7 @@ export interface Hit {
   total_value: number;
   patch: string;
   total_cut_value: number;
+  total_cut_scu: number;
   assists: string[];
   total_scu: number;
   air_or_ground: string;
@@ -28,4 +29,14 @@ export interface Hit {
   fleet_ids: string[];
   victims: string[];
   guests: string[];
+}
+
+export interface hitSummary {
+  user_id: string;
+  total_hits: string;
+  total_cut_scu: number;
+  total_cut_value: number;
+  fps_kills_pu: string;
+  ship_kills_pu: string;
+  value_pu: number;
 }

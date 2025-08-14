@@ -115,3 +115,32 @@ export const fetchOrgOverviewSummaryByPatch = async (): Promise<any[]> => {
   return response.data;
 };
 
+export const fetchRecentHitsSummary = async (
+  patch?: string,
+  limit: number = 500,
+  offset: number = 0
+): Promise<any[]> => {
+  const params: any = { limit, offset };
+  if (patch) params.patch = patch;
+
+  const response = await axios.get<any[]>(
+    `${API_BASE_URL}/api/hittracker/usersummary`,
+    { params }
+  );
+  return response.data;
+};
+
+export const fetchTotalHitsSummary = async (
+  patch?: string,
+  limit: number = 500,
+  offset: number = 0
+): Promise<any[]> => {
+  const params: any = { limit, offset };
+  if (patch) params.patch = patch;
+
+  const response = await axios.get<any[]>(
+    `${API_BASE_URL}/api/hittracker/totalusersummary`,
+    { params }
+  );
+  return response.data;
+};

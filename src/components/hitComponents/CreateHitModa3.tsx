@@ -1,25 +1,27 @@
 import React, { useEffect, useRef, useState } from "react";
-import VictimsInput from "./hitComponents/VictimsInput";
-import FleetInvolvedInput from "./hitComponents/FleetInvolvedInput";
-import CargoSection from "./hitComponents/CargoSection";
-import AssistsSection from "./hitComponents/AssistsSection";
-import Modal from "./Modal";
-import { Hit } from "../types/hittracker";
-import { SummarizedItem } from "../types/items_summary";
-import { getAllUsers } from "../api/userService";
-import { User } from "../types/user";
-import { fetchAllFleets } from "../api/fleetApi";
-import { UserFleet } from "../types/fleet";
-import { createHit, updateHit, deleteHit } from "../api/hittrackerApi";
-import { addWarehouseItem } from "../api/warehouseApi";
+import VictimsInput from "./VictimsInput";
+import FleetInvolvedInput from "./FleetInvolvedInput";
+import CargoSection from "./CargoSection";
+import AssistsSection from "./AssistsSection";
+import Modal from "../Modal";
+import { Hit } from "../../types/hittracker";
+import { SummarizedItem } from "../../types/items_summary";
+import { getAllUsers } from "../../api/userService";
+import { User } from "../../types/user";
+import { fetchAllFleets } from "../../api/fleetApi";
+import { UserFleet } from "../../types/fleet";
+import { createHit, updateHit, deleteHit } from "../../api/hittrackerApi";
+import { addWarehouseItem } from "../../api/warehouseApi";
 import { v4 as uuidv4 } from "uuid";
-import { fetchAllRecentGatherings } from "../api/recentGatheringsApi";
-import { RecentGathering } from "../types/recent_gatherings";
-import { createPlayerExperience, editPlayerExperience, deletePlayerExperience, fetchPlayerExperiencesByOperationId } from "../api/playerExperiencesApi";
-import { fetchBlackBoxsByUserId } from "../api/blackboxApi";
-import { getSummarizedItems } from "../api/summarizedItemApi";
+import { fetchAllRecentGatherings } from "../../api/recentGatheringsApi";
+import { RecentGathering } from "../../types/recent_gatherings";
+import { createPlayerExperience, editPlayerExperience, deletePlayerExperience, fetchPlayerExperiencesByOperationId } from "../../api/playerExperiencesApi";
+import { fetchBlackBoxsByUserId } from "../../api/blackboxApi";
+import { getSummarizedItems } from "../../api/summarizedItemApi";
+import { fetchRecentGangsWithinTimeframe } from "../../api/recentGangsApi"
+import { RecentGang } from "../../types/recent_gangs";
 
-interface AddHitModalProps {
+interface AddHitModal3Props {
   show: boolean;
   onClose: () => void;
   gameVersion: string | null;
@@ -68,7 +70,7 @@ type AssistUserWithExperience = User & {
   commander: boolean; // <-- Add this line
 };
 
-const AddHitModal: React.FC<AddHitModalProps> = (props) => {
+const AddHitModal3: React.FC<AddHitModal3Props> = (props) => {
   const {
     show,
     onClose,
@@ -924,4 +926,4 @@ const AddHitModal: React.FC<AddHitModalProps> = (props) => {
   );
 };
 
-export default AddHitModal;
+export default AddHitModal3;

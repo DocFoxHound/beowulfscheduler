@@ -63,3 +63,9 @@ export const fetchRecentGangsSummary = async (
   );
   return response.data;
 };
+
+// Fetch a single RecentGang by ID
+export const fetchRecentGangById = async (id: string): Promise<RecentGang> => {
+  const response = await axios.get<RecentGang>(`${API_BASE_URL}/api/recentfleets/${id}`);
+  return response.data;
+};

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { fetchOrgOverviewSummaryByPatch } from '../api/hittrackerApi';
+import { fetchOrgOverviewSummaryByPatch } from '../../api/hittrackerApi';
 
 interface OverviewPanelProps {
   gameVersion: string | null;

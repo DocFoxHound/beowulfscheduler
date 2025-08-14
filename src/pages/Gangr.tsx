@@ -9,7 +9,7 @@ import { getLatestPatch, getAllGameVersions } from '../api/patchApi';
 import OrgFleetStats from '../components/gangComponents/OrgGangStats';
 import FleetLogFeed from '../components/gangComponents/gangLogFeed';
 import PlayerGangStats from '../components/gangComponents/PlayerGangStats';
-import { fetchRecentFleetsSummary } from '../api/recentGangsApi';
+import { fetchRecentGangsSummary, fetchRecentGangsByPatch } from '../api/recentGangsApi';
 
 const Fleets2: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -52,7 +52,7 @@ const Fleets2: React.FC = () => {
     const loadSummaryData = async () => {
       if (gameVersion) {
         const patch = String(gameVersion);
-        const data = await fetchRecentFleetsSummary(patch, 500, 0);
+        const data = await fetchRecentGangsSummary(patch, 500, 0);
         setSummaryData(data);
       } else {
         setSummaryData([]);
@@ -63,7 +63,7 @@ const Fleets2: React.FC = () => {
     const loadRecentFleets = async () => {
       if (gameVersion) {
         try {
-          const fleets = await import('../api/recentGangsApi').then(mod => mod.fetchRecentFleetsByPatch(gameVersion));
+          const fleets = await import('../api/recentGangsApi').then(mod => mod.fetchRecentGangsByPatch(gameVersion));
           setRecentFleets(fleets);
         } catch {
           setRecentFleets([]);

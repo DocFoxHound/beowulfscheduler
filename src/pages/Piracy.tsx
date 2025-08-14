@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select'; // <-- Add this import
-import OverviewPanel from '../components/PiracyOverviewPanel';
-import RecentPirateHits from '../components/RecentPirateHits';
+import OverviewPanel from '../components/hitComponents/PiracyOverviewPanel';
+import RecentPirateHits from '../components/hitComponents/RecentPirateHits';
 import WarehouseItems from '../components/WarehousePersonalItems';
 import { getLatestPatch, getAllGameVersions } from '../api/patchApi';
 import { getUserById, getAllUsers } from "../api/userService";
@@ -12,10 +12,12 @@ import { Hit } from '../types/hittracker';
 import KillOverviewBoard from '../components/dashboardComponents/KillOverviewBoard';
 import './Piracy.css';
 import Modal from '../components/Modal'; // You may need to create this if it doesn't exist
-import AddHitModal from '../components/CreateHitModal';
 import Navbar from '../components/Navbar';
-import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
+import { fetchPlayerStatsByUserId, refreshPlayerStatsView, fetchAllPlayerStats } from "../api/playerStatsApi";
 import PlayerGangStats from '../components/gangComponents/PlayerGangStats';
+import AddHitModal3 from '../components/hitComponents/CreateHitModa3';
+import AddHitModal from '../components/hitComponents/CreateHitModal';
+import { fetchRecentHitsSummary, fetchTotalHitsSummary } from '../api/hittrackerApi';
 
 const Hittracker: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -25,6 +27,7 @@ const Hittracker: React.FC = () => {
   const [allPirateHits, setAllPirateHits] = useState<Hit[]>([]);
   const [allAssistHits, setAllAssistHits] = useState<Hit[]>([]);
   const [showAddHitModal, setShowAddHitModal] = useState(false);
+  const [showAddHitModal2, setShowAddHitModal2] = useState(false);
   const [addHitForm, setAddHitForm] = useState({
     hitType: "",
     details: ""
@@ -35,12 +38,130 @@ const Hittracker: React.FC = () => {
   const [gameVersions, setGameVersions] = useState<{ value: string, label: string }[]>([]);
   const [playerStats, setPlayerStats] = useState<any>(null);
   const [playerStatsLoading, setPlayerStatsLoading] = useState(false);
+  // Add state for hits summary
+  const [hitsSummary, setHitsSummary] = useState<any[]>([]);
+  // Add state for total hits summary (mirrors recent summary)
+  const [_totalHitsSummary, setTotalHitsSummary] = useState<any[]>([]);
   const PROSPECT_IDS = (import.meta.env.VITE_PROSPECT_ID || "").split(",");
   const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
   const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
   const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
   const isMember = dbUser?.roles?.some((role: string) => PROSPECT_IDS.includes(role) || CREW_IDS.includes(role) || MARAUDER_IDS.includes(role) || BLOODED_IDS.includes(role)) ?? false;
+  
+  const piratePlayerPatchStats = Array.isArray(hitsSummary)
+    ? hitsSummary.find((entry) => entry.user_id === dbUser.id) || null
+    : null
+
+  // Combine all values in hitsSummary into a single hitSummary object
+  const pirateOrgPatchStats = Array.isArray(hitsSummary) && hitsSummary.length > 0
+    ? hitsSummary.reduce((acc, curr) => {
+        return {
+          user_id: 'ORG',
+          total_hits: (parseInt(acc.total_hits) + parseInt(curr.total_hits || '0')).toString(),
+          total_cut_scu: acc.total_cut_scu + (curr.total_cut_scu || 0),
+          total_cut_value: acc.total_cut_value + (curr.total_cut_value || 0),
+          fps_kills_pu: (parseInt(acc.fps_kills_pu) + parseInt(curr.fps_kills_pu || '0')).toString(),
+          ship_kills_pu: (parseInt(acc.ship_kills_pu) + parseInt(curr.ship_kills_pu || '0')).toString(),
+          value_pu: acc.value_pu + (curr.value_pu || 0),
+        };
+      }, {
+        user_id: 'ORG',
+        total_hits: '0',
+        total_cut_scu: 0,
+        total_cut_value: 0,
+        fps_kills_pu: '0',
+        ship_kills_pu: '0',
+        value_pu: 0,
+      })
+    : {
+        user_id: 'ORG',
+        total_hits: '0',
+        total_cut_scu: 0,
+        total_cut_value: 0,
+        fps_kills_pu: '0',
+        ship_kills_pu: '0',
+        value_pu: 0,
+      };
+
+  // Aggregate all users' total summaries into a single org-wide total summary
+  const pirateOrgTotalStats = Array.isArray(_totalHitsSummary) && _totalHitsSummary.length > 0
+    ? _totalHitsSummary.reduce((acc, curr) => {
+        return {
+          user_id: 'ORG',
+          total_hits: (parseInt(acc.total_hits) + parseInt(curr.total_hits || '0')).toString(),
+          total_cut_scu: acc.total_cut_scu + (curr.total_cut_scu || 0),
+          total_cut_value: acc.total_cut_value + (curr.total_cut_value || 0),
+          fps_kills_pu: (parseInt(acc.fps_kills_pu) + parseInt(curr.fps_kills_pu || '0')).toString(),
+          ship_kills_pu: (parseInt(acc.ship_kills_pu) + parseInt(curr.ship_kills_pu || '0')).toString(),
+          value_pu: acc.value_pu + (curr.value_pu || 0),
+        };
+      }, {
+        user_id: 'ORG',
+        total_hits: '0',
+        total_cut_scu: 0,
+        total_cut_value: 0,
+        fps_kills_pu: '0',
+        ship_kills_pu: '0',
+        value_pu: 0,
+      })
+    : {
+        user_id: 'ORG',
+        total_hits: '0',
+        total_cut_scu: 0,
+        total_cut_value: 0,
+        fps_kills_pu: '0',
+        ship_kills_pu: '0',
+        value_pu: 0,
+      };
+  // Fetch recent hits summary (like fetchRecentGangsSummary in Dashboard)
+  useEffect(() => {
+    if (gameVersion && dbUser && dbUser.id) {
+      fetchRecentHitsSummary(gameVersion, 500, 0)
+        .then((data) => {
+          const formatted = Array.isArray(data)
+            ? data.map(obj => ({
+                user_id: String(obj.user_id),
+                total_hits: String(obj.total_hits),
+                total_cut_scu: Number(obj.total_cut_scu) || 0,
+                total_cut_value: Number(obj.total_cut_value) || 0,
+                fps_kills_pu: String(obj.fps_kills_pu),
+                ship_kills_pu: String(obj.ship_kills_pu),
+                value_pu: Number(obj.value_pu) || 0,
+              }))
+            : [];
+          setHitsSummary(formatted);
+        })
+        .catch(() => setHitsSummary([]));
+    } else {
+      setHitsSummary([]);
+    }
+  }, [gameVersion, dbUser]);
+
+  // Fetch total hits summary across all patches (no patch filter)
+  useEffect(() => {
+    if (dbUser && dbUser.id) {
+      fetchTotalHitsSummary(undefined, 10000, 0)
+        .then((data) => {
+          const formatted = Array.isArray(data)
+            ? data.map(obj => ({
+                user_id: String(obj.user_id),
+                total_hits: String(obj.total_hits),
+                total_cut_scu: Number(obj.total_cut_scu) || 0,
+                total_cut_value: Number(obj.total_cut_value) || 0,
+                fps_kills_pu: String(obj.fps_kills_pu),
+                ship_kills_pu: String(obj.ship_kills_pu),
+                value_pu: Number(obj.value_pu) || 0,
+              }))
+            : [];
+          setTotalHitsSummary(formatted);
+        })
+        .catch(() => setTotalHitsSummary([]));
+    } else {
+      setTotalHitsSummary([]);
+    }
+  }, [dbUser]);
+
   // Fetch playerStats for PlayerGangStats
   useEffect(() => {
     if (dbUser && dbUser.id) {
@@ -264,8 +385,18 @@ const Hittracker: React.FC = () => {
       <main className="dashboard-content">
         <div className="hittracker-layout">
           <div className="column overview-panel-column">
-            <OverviewPanel
+            {/* <OverviewPanel
               gameVersion={gameVersion}
+            /> */}
+            {/* pirate org stats */}
+            <PlayerGangStats
+              dbUser={dbUser}
+              gameVersion={gameVersion}
+              displayType="PiracyOrgStats"
+              playerStats={playerStats}
+              playerStatsLoading={playerStatsLoading}
+              piratePatchStats={pirateOrgPatchStats}
+              pirateOrgTotalStats={pirateOrgTotalStats}
             />
           </div>
           <div className="column warehouse-items">
@@ -301,10 +432,7 @@ const Hittracker: React.FC = () => {
                     allUsers={userList}
                     onUpdate={async () => {}}
                     onDelete={async () => {}}
-                    onSubmit={async () => {}}
-                    isSubmitting={isSubmitting}
-                    formError={formError}
-                    setFormError={setFormError}
+                    onSubmit={async () => { window.location.reload(); }}
                   />
                 )}
               </>
@@ -328,6 +456,7 @@ const Hittracker: React.FC = () => {
               displayType="Piracy"
               playerStats={playerStats}
               playerStatsLoading={playerStatsLoading}
+              piratePatchStats={piratePlayerPatchStats}
             />
             {/* <KillOverviewBoard patch={gameVersion ?? ""} allUsers={userList} /> */}
           </div>
