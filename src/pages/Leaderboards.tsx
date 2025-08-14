@@ -3,7 +3,6 @@ import axios from "axios";
 import { fetchSBAllPlayerSummaries } from "../api/leaderboardApi";
 import { fetchPiracyLeaderboardByPatchEnriched } from "../api/leaderboardPiracyApi";
 import { fetchBlackboxLeaderboardByPatchEnriched } from "../api/leaderboardBlackboxApi";
-import { fetchFleetlogLeaderboardByPatchEnriched } from "../api/leaderboardFleetlogApi";
 import { getAllGameVersions } from "../api/patchApi";
 import { SBLeaderboardPlayerSummary } from "../types/sb_leaderboard_summary";
 import Navbar from "../components/Navbar";
@@ -14,11 +13,11 @@ import { BlockMath } from 'react-katex';
 import sbColumns from "../columns/dogfightingColumns";
 import piracyColumns from "../columns/piracyColumns";
 import killTrackerColumns from "../columns/killTrackerColumns";
-import fleetColumns from "../columns/fleetColumns"; // Assuming you have a fleetColumns file
+// fleets mode removed
 
 const PAGE_SIZE = 100;
 
-type LeaderboardMode = "dogfighting" | "piracy" | "killtracker" | "fleets";
+type LeaderboardMode = "dogfighting" | "piracy" | "killtracker";
 
 const Leaderboards: React.FC = () => {
   const [mode, setMode] = useState<LeaderboardMode>("dogfighting");
@@ -101,14 +100,7 @@ const Leaderboards: React.FC = () => {
           setPlayers(sorted);
         })
         .finally(() => setLoading(false));
-    } else if (mode === "fleets") {
-      fetchFleetlogLeaderboardByPatchEnriched(selectedPatch)
-        .then((data) => {
-          const sorted = [...data].sort((a, b) => b.total_activity - a.total_activity);
-          setPlayers(sorted);
-        })
-        .finally(() => setLoading(false));
-    }
+  }
   }, [mode, selectedPatch]);
 
   // Pagination logic
@@ -127,8 +119,6 @@ const Leaderboards: React.FC = () => {
       ? piracyColumns
       : mode === "killtracker"
       ? killTrackerColumns
-      : mode === "fleets"
-      ? fleetColumns
       : [];
 
   // Patch selector UI
@@ -177,9 +167,7 @@ const Leaderboards: React.FC = () => {
             {mode === "killtracker" && (
               <>Players sorted by <b>FPS Kills (Total)</b> (highest first)</>
             )}
-            {mode === "fleets" && (
-              <>Players sorted by <b>Total Fleet Activity</b> (highest first)</>
-            )}
+            {/* Fleets mode removed */}
           </p>
         </section>
         {/* Button Row */}
@@ -204,26 +192,7 @@ const Leaderboards: React.FC = () => {
             <img src="https://i.imgur.com/9wMuyX1.png" alt="Dogfighting" style={{ width: 48, height: 48, marginBottom: 8 }} />
             <span style={{ fontSize: 20, fontWeight: 700 }}>Squadron Battle</span>
           </button>
-          <button
-            onClick={() => setMode("fleets")}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              background: mode === "fleets" ? "#2d7aee" : "#23272a",
-              color: "#fff",
-              border: "none",
-              borderRadius: 12,
-              padding: "1rem 2rem",
-              cursor: "pointer",
-              boxShadow: mode === "fleets" ? "0 2px 8px #2d7aee88" : "0 2px 8px #0008",
-              minWidth: 160,
-              transition: "background 0.2s",
-            }}
-          >
-            <img src="https://i.imgur.com/O6TpgjD.png" alt="Fleets" style={{ width: 48, height: 48, marginBottom: 8 }} />
-            <span style={{ fontSize: 20, fontWeight: 700 }}>Fleets</span>
-          </button>
+          {/* Fleets mode button removed */}
           <button
             onClick={() => setMode("piracy")}
             style={{
