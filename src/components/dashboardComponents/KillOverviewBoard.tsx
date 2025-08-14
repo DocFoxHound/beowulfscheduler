@@ -73,7 +73,7 @@ const KillOverviewBoard: React.FC<KillOverviewBoardProps> = ({ patch, dbUser }) 
                       {kill.ship_killed}
                     </span>
                   </div>
-                  <div>{getDisplayName(kill.user_id)}</div>
+                  <div>${kill.value}</div>
                 </div>
               ))}
               {kills.length === 0 && <div>No kills found.</div>}
