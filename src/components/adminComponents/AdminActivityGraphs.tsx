@@ -1,10 +1,11 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList } from "recharts";
-import AdminPieChart from "./AdminPieChart";
 import AdminVoiceActivityGraph from "./AdminVoiceActivityGraph";
 import AdminFlightHoursGraph from "./AdminFlightHoursGraph";
 import React from "react";
+import AdminUpdate from "./AdminUpdate";
+import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
 
-interface UserWithData {
+interface UserWithData extends Record<string, unknown> {
   id: string | number;
   username?: string;
   voiceHours: number;
@@ -23,9 +24,11 @@ interface AdminActivityGraphProps {
   hitTrackersData?: any[];
   recentGatheringsData?: any[];
   selectedUser?: UserWithData;
+  allPlayerStats?: any[];
+  activeBadgeReusables?: any[];
 }
 
-const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData, selectedUser }) => {
+const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData, activeBadgeReusables, allPlayerStats }) => {
   // Helper: format date to YYYY-MM-DD
   const formatDate = (dateStr: string | Date) => {
     const d = new Date(dateStr);
@@ -33,6 +36,45 @@ const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, 
   };
 
   // ...existing code...
+
+  // Build a map of userId -> earned badges to prevent duplicate award prompts
+  const [playerBadgesByUser, setPlayerBadgesByUser] = React.useState<Record<string, any[]>>({});
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const ids = (usersWithData || [])
+        .map((u) => (u && u.id != null ? String(u.id) : null))
+        .filter((v): v is string => Boolean(v));
+      if (ids.length === 0) {
+        setPlayerBadgesByUser({});
+        return;
+      }
+      try {
+        const results: Array<[string, any[]]> = await Promise.all(
+          ids.map(async (id): Promise<[string, any[]]> => {
+            try {
+              const badges = await fetchBadgesByUserId(id);
+              return [id, Array.isArray(badges) ? [...badges] : []];
+            } catch {
+              return [id, []];
+            }
+          })
+        );
+        if (!cancelled) {
+          const map: Record<string, any[]> = {};
+          for (const [id, arr] of results) map[id] = arr;
+          setPlayerBadgesByUser(map);
+        }
+      } catch {
+        if (!cancelled) setPlayerBadgesByUser({});
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [usersWithData]);
 
   // 2. Pie chart: Blackbox data (moved to AdminPieChart)
   const allBlackBoxes = usersWithData.flatMap(u => Array.isArray(u.blackBoxes) ? u.blackBoxes : []);
@@ -77,17 +119,14 @@ const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, 
 
   return (
     <div style={{ background: "#222", borderRadius: "8px", padding: "1rem", color: "#fff" }}>
-      <h2>User Activity Graphs</h2>
       <div style={{ display: "flex", gap: "2rem" }}>
         {/* Pie chart on the left, now taking up about half the width */}
         <div style={{ flex: "1 1 0", minWidth: 350, maxWidth: "50%" }}>
-          <AdminPieChart 
-            data={blackboxPieData} 
+          <AdminUpdate allPlayerStats={
+            allPlayerStats ?? []} 
             usersWithData={usersWithData} 
-            fleetLogsData={fleetLogsData}
-            hitTrackersData={hitTrackersData}
-            recentGatheringsData={recentGatheringsData}
-            selectedUser={selectedUser}
+            activeBadgeReusables={activeBadgeReusables}
+            playerBadgesByUser={playerBadgesByUser}
           />
         </div>
         {/* Other charts stacked vertically on the right */}

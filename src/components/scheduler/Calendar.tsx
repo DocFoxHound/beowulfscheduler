@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import CreateEventModal from "./CreateEventModal";
 import { getAllUsers, getUserById } from '../../api/userService';
-import { fetchFleetActiveOrNot } from '../../api/fleetApi';
 import moment from "moment-timezone";
 import { createAvailability, getWeekAvailabilities } from '../../api/calendarAvailabilityApi';
 import { getWeeklySchedule } from '../../api/scheduleService';
@@ -80,21 +79,6 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
   const [users, setUsers] = useState<any[]>([]);
   // Fetch active fleets and populate teams
   const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
-
-  useEffect(() => {
-    fetchFleetActiveOrNot(true)
-      .then((fleets) => {
-        const fleetNames = fleets
-          .map(f => f.name)
-          .filter((name): name is string => typeof name === 'string')
-          .sort((a, b) => a.localeCompare(b));
-        // Always put All Teams first, then Ronin, then fleets
-        setTeams(["All Teams", "Ronin", ...fleetNames]);
-      })
-      .catch(() => {
-        setTeams(DEFAULT_TEAMS);
-      });
-  }, []);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   // Track if it's the first load for the current week
   const firstLoadRef = React.useRef(true);
@@ -185,17 +169,7 @@ const Calendar: React.FC<CalendarProps> = ({ dbUser }) => {
             u && Array.isArray(u.roles) && u.roles.some((roleId: string) => RONIN_IDS.includes(roleId))
           );
         } else if (selectedTeam !== "All Teams") {
-          // Fetch active fleets and find the selected fleet
-          let fleets: any[] = [];
-          try {
-            fleets = await fetchFleetActiveOrNot(true);
-          } catch {}
-          const selectedFleet = fleets.find(f => f.name === selectedTeam);
           let teamUserIds: string[] = [];
-          if (selectedFleet) {
-            if (selectedFleet.commander_id) teamUserIds.push(selectedFleet.commander_id);
-            if (Array.isArray(selectedFleet.members_ids)) teamUserIds.push(...selectedFleet.members_ids);
-          }
           filteredUsers = filteredUsers.filter(u => u && teamUserIds.includes(u.id));
         }
 

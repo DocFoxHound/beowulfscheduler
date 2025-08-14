@@ -8,7 +8,6 @@ import { type User } from "../../types/user";
 import { createBadge as createBadgeRecord } from "../../api/badgeRecordApi";
 import { getLatestPatch } from "../../api/patchApi";
 import { createBadgeAccolade } from "../../api/badgeAccoladeRecordApi";
-import { editFleet } from "../../api/fleetApi";
 import { editRecentFleet } from "../../api/recentGangsApi";
 import { createBadge, updateBadge } from "../../api/badgeRecordApi";
 import { fetchAllBadgeReusables } from "../../api/badgeReusableApi";

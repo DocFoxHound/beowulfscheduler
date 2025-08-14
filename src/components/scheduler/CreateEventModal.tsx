@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import Modal from "../Modal";
-import { saveSchedule, updateSchedule, getNextScheduleByRepeatSeries, deleteSeries } from "../../api/scheduleService";
+import { saveSchedule, deleteSeries } from "../../api/scheduleService";
 import { ScheduleEntry } from "../../types/schedule";
-import { fetchAllFleets } from "../../api/fleetApi"; // <-- Import this
 import "emoji-picker-element";
-import { UserFleet } from "../../types/fleet"; // <-- Add this import
 import { getLatestPatch } from "../../api/patchApi"; // Add this import
 
 // Allow usage of <emoji-picker> as a JSX element
@@ -50,13 +48,7 @@ editingEvent
 }) => {
 
   const isLive = import.meta.env.VITE_IS_LIVE === "true";
-  // Determine if Fleet Association should be shown
-  const showFleetAssociation = dbUser && dbUser.fleet && Array.isArray(dbUser.fleet)
-    ? dbUser.fleet.length > 0
-    : !!dbUser?.fleet;
-
-  // Determine if user is Ronin
-  const isRonin = Array.isArray(dbUser?.roles) && dbUser.roles.some((role: string) => RONIN_IDS.includes(role));
+  // Fleet logic removed
 
   const PUBLIC_EVENTS_CHANNEL = isLive
     ? import.meta.env.VITE_PUBLIC_EVENTS_CHANNEL
@@ -153,53 +145,12 @@ editingEvent
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState<DOMRect | null>(null);
   const emojiPickerRef = useRef<any>(null);
 
-  // Fleet/Ronin association state for edit mode
-  const [fleetAssociation, setFleetAssociation] = useState(() =>
-    mode === "edit" && editingEvent && editingEvent.fleet && editingEvent.fleet.length > 0
-      ? true
-      : false
-  );
-  const [roninAssociation, setRoninAssociation] = useState(() =>
-    mode === "edit" && editingEvent && editingEvent.type && (editingEvent.type === "Ronin" || editingEvent.type === "RoninFleet")
-      ? true
-      : false
-  );
-  const [fleetSelection, setFleetSelection] = useState("");
-  const [fleets, setFleets] = useState<UserFleet[]>([]);
-  const [showFleetPicker, setShowFleetPicker] = useState(false);
-  const [selectedFleets, setSelectedFleets] = useState<UserFleet[]>([]);
+  // Fleet/Ronin association removed
 
   // Validation state
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Populate selectedFleets in edit mode after fleets are loaded
-  useEffect(() => {
-    if (mode === "edit" && editingEvent && fleets.length > 0 && editingEvent.fleet && editingEvent.fleet.length > 0) {
-      // editingEvent.fleet is array of fleet IDs
-      const selected = editingEvent.fleet
-        ? fleets.filter(f => (editingEvent.fleet ?? []).includes(Number(f.id)))
-        : [];
-      setSelectedFleets(selected);
-    }
-  }, [mode, editingEvent, fleets]);
-
-  // Fetch fleets on open
-  useEffect(() => {
-    if (!open) return;
-    fetchAllFleets()
-      .then(fleets => {
-        // Sort by last_active descending (most recent first)
-        const sorted = [...fleets].sort((a, b) => {
-          if (!a.last_active && !b.last_active) return 0;
-          if (!a.last_active) return 1;
-          if (!b.last_active) return -1;
-          return new Date(b.last_active).getTime() - new Date(a.last_active).getTime();
-        });
-        setFleets(sorted);
-        // Debug: log fleets to verify
-      })
-      .catch(() => setFleets([]));
-  }, [open]);
+  // Fleet effects removed
 
   // Update endTime automatically when startTime changes
   useEffect(() => {
@@ -244,12 +195,6 @@ editingEvent
       return;
     }
 
-    // Require at least one fleet if Fleet Association is checked
-    if (fleetAssociation && selectedFleets.length === 0) {
-      setValidationError("At least one fleet must be selected when Fleet Association is checked.");
-      return;
-    }
-
     setValidationError(null); // Clear error if all validations pass
 
     // Fetch latest patch version
@@ -270,14 +215,8 @@ editingEvent
 
     // Helper to generate a single event object
     const makeEvent = (start: string, repeatSeries: number = 0) => {
-      let type = "Event";
-      if (isRonin && roninAssociation && fleetAssociation && selectedFleets.length > 0) {
-        type = "RoninFleet";
-      } else if (isRonin && roninAssociation && (!fleetAssociation || selectedFleets.length === 0)) {
-        type = "Ronin";
-      } else if (fleetAssociation && selectedFleets.length > 0) {
-        type = "Fleet";
-      } // If neither Ronin nor Fleet Association is checked, type remains "Event"
+      // Fleet logic removed; always save as a generic Event and fleet as null
+      const type = "Event";
       return {
         id: Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000,
         author_id: currentUserId,
@@ -296,9 +235,7 @@ editingEvent
         repeat_end_date: repeat ? repeatEndDate : undefined,
         repeat_frequency: repeat ? repeatFrequency : undefined,
         rsvp_options: JSON.stringify(rsvpOptions),
-        fleet: fleetAssociation && selectedFleets.length > 0
-          ? selectedFleets.map(f => f.id)
-          : [],
+        fleet: null,
         patch: patchVersion,
         active: false,
         repeat_series: repeatSeries,
@@ -706,249 +643,7 @@ editingEvent
                   </label>
                 </>
               )}
-              {/* Only show Fleet Association if dbUser.fleet is not null or empty */}
-              {showFleetAssociation && (
-                <>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      marginBottom: fleetAssociation ? 8 : 0,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={fleetAssociation}
-                      onChange={e => setFleetAssociation(e.target.checked)}
-                      style={{
-                        width: 24,
-                        height: 24,
-                        accentColor: "#5865F2",
-                        cursor: "pointer",
-                        verticalAlign: "middle",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: 17,
-                        fontWeight: 500,
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      Fleet Association
-                    </span>
-                  </label>
-                  {/* Ronin Checkbox, only if user is Ronin */}
-                  {isRonin && (
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        marginBottom: roninAssociation ? 8 : 0,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={roninAssociation}
-                        onChange={e => setRoninAssociation(e.target.checked)}
-                        style={{
-                          width: 24,
-                          height: 24,
-                          accentColor: "#5865F2",
-                          cursor: "pointer",
-                          verticalAlign: "middle",
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: 17,
-                          fontWeight: 500,
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                      >
-                        Ronin Team
-                      </span>
-                    </label>
-                  )}
-                  {fleetAssociation && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setShowFleetPicker(true)}
-                        style={{ marginBottom: 8 }}
-                      >
-                        Select Fleets
-                      </button>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                        {selectedFleets.map(fleet => (
-                          <div
-                            key={fleet.id}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              padding: "4px 12px 4px 4px",
-                              borderRadius: 20,
-                              border: "2px solid #5865F2",
-                              background: "#5865F222",
-                              minWidth: 0,
-                              marginRight: 8,
-                            }}
-                          >
-                            <img
-                              src={fleet.avatar}
-                              alt={fleet.name || `Fleet #${fleet.id}`}
-                              style={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: "50%",
-                                objectFit: "cover",
-                                marginRight: 8,
-                                border: "1px solid #ccc",
-                                background: "#fff"
-                              }}
-                              onError={e => (e.currentTarget.style.display = "none")}
-                            />
-                            <span style={{
-                              fontWeight: 500,
-                              fontSize: 15,
-                              color: "#fff",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              maxWidth: 100
-                            }}>
-                              {fleet.name || `Fleet #${fleet.id}`}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedFleets(selectedFleets.filter(f => f.id !== fleet.id))}
-                              style={{
-                                marginLeft: 8,
-                                color: "#c00",
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                fontWeight: 700,
-                                fontSize: 16,
-                              }}
-                              aria-label="Remove fleet"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Fleet Picker Modal/Area */}
-                      {showFleetPicker && (
-                        <div
-                          style={{
-                            position: "fixed",
-                            top: 0,
-                            left: 0,
-                            width: "100vw",
-                            height: "100vh",
-                            background: "rgba(0,0,0,0.6)",
-                            zIndex: 2000,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center"
-                          }}
-                          onClick={() => setShowFleetPicker(false)}
-                        >
-                          <div
-                            style={{
-                              background: "#23272a",
-                              borderRadius: 12,
-                              padding: 24,
-                              minWidth: 340,
-                              maxWidth: 600,
-                              maxHeight: "70vh",
-                              overflowY: "auto",
-                              boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
-                            }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <h3 style={{ color: "#fff", marginBottom: 16 }}>Select Fleets</h3>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                              {fleets.map(fleet => (
-                                <div
-                                  key={fleet.id}
-                                  onClick={() => {
-                                    if (!selectedFleets.some(f => f.id === fleet.id)) {
-                                      setSelectedFleets([...selectedFleets, fleet]);
-                                    }
-                                  }}
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    padding: "4px 12px 4px 4px",
-                                    borderRadius: 20,
-                                    border: selectedFleets.some(f => f.id === fleet.id)
-                                      ? "2px solid #5865F2"
-                                      : "1px solid #444",
-                                    background: selectedFleets.some(f => f.id === fleet.id)
-                                      ? "#5865F222"
-                                      : "#23272a",
-                                    cursor: selectedFleets.some(f => f.id === fleet.id)
-                                      ? "not-allowed"
-                                      : "pointer",
-                                    opacity: selectedFleets.some(f => f.id === fleet.id)
-                                      ? 0.5
-                                      : 1,
-                                    minWidth: 0,
-                                    marginBottom: 8,
-                                    transition: "border 0.2s, background 0.2s",
-                                  }}
-                                >
-                                  <img
-                                    src={fleet.avatar}
-                                    alt={fleet.name || `Fleet #${fleet.id}`}
-                                    style={{
-                                      width: 32,
-                                      height: 32,
-                                      borderRadius: "50%",
-                                      objectFit: "cover",
-                                      marginRight: 10,
-                                      border: "1px solid #ccc",
-                                      background: "#fff"
-                                    }}
-                                    onError={e => (e.currentTarget.style.display = "none")}
-                                  />
-                                  <span style={{
-                                    fontWeight: 500,
-                                    fontSize: 15,
-                                    color: "#fff",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    maxWidth: 120
-                                  }}>
-                                    {fleet.name || `Fleet #${fleet.id}`}
-                                  </span>
-                                  {selectedFleets.some(f => f.id === fleet.id) && (
-                                    <span style={{ marginLeft: 8, color: "#5865F2", fontWeight: 700 }}>✓</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setShowFleetPicker(false)}
-                              style={{ marginTop: 16 }}
-                            >
-                              Done
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
+              {/* Fleet association removed */}
             </div>
           </div>
         </div>

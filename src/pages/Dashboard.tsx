@@ -4,7 +4,6 @@ import "./Dashboard.css";
 import { getUserById, getUserRank } from "../api/userService";
 import { useUserContext } from "../context/UserContext"; // <-- Import the context hook
 import Navbar from "../components/Navbar";
-import { fetchFleetByMember } from "../api/fleetApi";
 import OrgGoals from "../components/dashboardComponents/OrgGoals";
 import { fetchSBAllOrgSummaries } from "../api/leaderboardApi";
 import { SBLeaderboardOrgSummary } from "../types/sb_leaderboard_org_summary";
@@ -71,14 +70,6 @@ export default function Dashboard() {
         .catch(() => setUserRank(null));
     }
   }, [dbUser, setUserRank]);
-
-  useEffect(() => {
-    if (user && user.id) {
-      fetchFleetByMember(user.id)
-        .then((fleet) => setFleet(fleet))
-        .catch(() => setFleet(null));
-    }
-  }, [user]);
 
   // Fetch playerStats
   useEffect(() => {

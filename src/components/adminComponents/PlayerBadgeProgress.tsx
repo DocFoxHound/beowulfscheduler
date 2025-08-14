@@ -3,6 +3,7 @@ import React from "react";
 import styles from "./PlayerBadgeProgress.module.css";
 import { createBadge } from "../../api/badgeRecordApi";
 import { notifyAward } from "../../api/notifyAwardApi";
+import { getBadgeProgress, isBadgeReady } from "../../utils/progressionEngine";
 
 interface BadgeProgressProps {
   badgeReusables: any[];
@@ -17,38 +18,6 @@ interface BadgeProgressProps {
   onRefreshBadges?: () => void; // Optional callback to refresh badge reusables
   onRefreshPlayerBadges?: () => void; // Optional callback to refresh player badges
 }
-
-
-// Helper to evaluate conditionals
-const evaluateCondition = (playerValue: number, operator: string, targetValue: number) => {
-  switch (operator) {
-    case '>=':
-      return playerValue >= targetValue;
-    case '<=':
-      return playerValue <= targetValue;
-    case '>':
-      return playerValue > targetValue;
-    case '<':
-      return playerValue < targetValue;
-    case '=':
-    case '==':
-      return playerValue === targetValue;
-    default:
-      return false;
-  }
-};
-
-// Helper to calculate progress percentage
-const getProgress = (playerValue: number, operator: string, targetValue: number) => {
-  if (operator === '>=' || operator === '>') {
-    return Math.min((playerValue / targetValue) * 100, 100);
-  } else if (operator === '<=' || operator === '<') {
-    return Math.min(((targetValue - playerValue) / targetValue) * 100, 100);
-  } else if (operator === '=' || operator === '==') {
-    return playerValue === targetValue ? 100 : 0;
-  }
-  return 0;
-};
 
 
 const BadgeProgress: React.FC<BadgeProgressProps> = ({ badgeReusables, loading, playerStats, playerBadges, isModerator, dbUser, player, onRefreshBadges, onRefreshPlayerBadges }) => {
@@ -373,27 +342,9 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
                             {!collapsed[prestigeKey] && (
                               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                                 {(badges as any[]).map((badge: any, idx: number) => {
-                                  // ...existing code for rendering badge...
-                                  let triggers: any[] = [];
-                                  try {
-                                    triggers = Array.isArray(badge.trigger)
-                                      ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
-                                      : [];
-                                  } catch (e) {
-                                    triggers = [];
-                                  }
                                   const isCompleted = playerBadgeNames.has(badge.badge_name);
-                                  const triggerProgress = triggers.map((trigger) => {
-                                    const metric = trigger.metric;
-                                    const operator = trigger.operator || trigger.conditional;
-                                    const value = Number(trigger.value);
-                                    let playerValue = Number(playerStats?.[metric] ?? 0);
-                                    if (isNaN(playerValue)) playerValue = 0;
-                                    return getProgress(playerValue, operator, value);
-                                  });
-                                  let overallProgress = triggerProgress.length > 0
-                                    ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
-                                    : 0;
+                                  const ready = isBadgeReady(badge, playerStats);
+                                  let overallProgress = Math.round(getBadgeProgress(badge, playerStats) * 100);
                                   if (isCompleted) overallProgress = 100;
                                   return (
                                     <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
@@ -404,7 +355,7 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
                                       <InfoTooltip description={badge.badge_description || ''} />
                                       <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
                                         <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
-                                          <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
+                                          <div style={{ height: '100%', width: `${overallProgress}%`, background: (overallProgress === 100 || ready) ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
                                           <div
                                             style={{
                                               position: 'absolute',
@@ -484,27 +435,9 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
                             {!collapsed[seriesKey] && (
                               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                                 {(badges as any[]).map((badge: any, idx: number) => {
-                                  // ...existing code for rendering badge...
-                                  let triggers: any[] = [];
-                                  try {
-                                    triggers = Array.isArray(badge.trigger)
-                                      ? badge.trigger.map((t: any) => (typeof t === 'string' ? JSON.parse(t) : t))
-                                      : [];
-                                  } catch (e) {
-                                    triggers = [];
-                                  }
                                   const isCompleted = playerBadgeNames.has(badge.badge_name);
-                                  const triggerProgress = triggers.map((trigger) => {
-                                    const metric = trigger.metric;
-                                    const operator = trigger.operator || trigger.conditional;
-                                    const value = Number(trigger.value);
-                                    let playerValue = Number(playerStats?.[metric] ?? 0);
-                                    if (isNaN(playerValue)) playerValue = 0;
-                                    return getProgress(playerValue, operator, value);
-                                  });
-                                  let overallProgress = triggerProgress.length > 0
-                                    ? Math.round(triggerProgress.reduce((a, b) => a + b, 0) / triggerProgress.length)
-                                    : 0;
+                                  const ready = isBadgeReady(badge, playerStats);
+                                  let overallProgress = Math.round(getBadgeProgress(badge, playerStats) * 100);
                                   if (isCompleted) overallProgress = 100;
                                   return (
                                     <li key={badge.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: '1px solid #e0e0e0' }}>
@@ -515,7 +448,7 @@ const PlayerBadgesTable: React.FC<{ playerBadges: any[]; totalPoints: number }> 
                                       <InfoTooltip description={badge.badge_description || ''} />
                                       <div style={{ flex: 1, marginLeft: 8, marginRight: 8 }}>
                                         <div style={{ position: 'relative', background: '#f3f3f3', borderRadius: 6, height: 12, width: '100%', overflow: 'hidden' }}>
-                                          <div style={{ height: '100%', width: `${overallProgress}%`, background: overallProgress === 100 ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
+                                          <div style={{ height: '100%', width: `${overallProgress}%`, background: (overallProgress === 100 || ready) ? '#4caf50' : '#2196f3', transition: 'width 0.5s', position: 'absolute', left: 0, top: 0, borderRadius: 6 }} />
                                           <div
                                             style={{
                                               position: 'absolute',

@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./playerCard.css";
 import PlayerPromotionProgress from "../adminComponents/PlayerPromotionProgress";
 import RsiHandleModal from "./RsiHandleModal";
+import { fetchPlayerStatsByUserId } from "../../api/playerStatsApi";
 
 interface PlayerCardProps {
   dbUser: any;
@@ -12,6 +13,9 @@ interface PlayerCardProps {
 
 const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, playerStatsLoading }) => {
   const [showRsiModal, setShowRsiModal] = useState(false);
+  // Local stats state to ensure PromotionProgress can render outside admin page
+  const [localStats, setLocalStats] = useState<any | null>(playerStats ?? null);
+  const [localLoading, setLocalLoading] = useState<boolean>(!!playerStatsLoading);
   const username = dbUser?.username || "Unknown";
   const discriminator = dbUser?.discriminator || "0000";
   const avatar = user?.avatar;
@@ -22,6 +26,66 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, play
     avatar && userId
       ? `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png`
       : undefined;
+
+  // If parent didn't provide stats, fetch them by userId
+  useEffect(() => {
+    let cancelled = false;
+
+    // Derive rank name from Discord roles as a fallback when stats are missing
+    const deriveRankNameFromRoles = (): string | undefined => {
+      const roles: string[] = Array.isArray(dbUser?.roles) ? dbUser.roles : [];
+      const toIds = (v: string | undefined) => (v || "").split(",").map((s) => s.trim()).filter(Boolean);
+      const bloodedIds = toIds(import.meta.env.VITE_BLOODED_ID);
+      const marauderIds = toIds(import.meta.env.VITE_MARAUDER_ID);
+      const crewIds = toIds(import.meta.env.VITE_CREW_ID);
+      const prospectIds = toIds(import.meta.env.VITE_PROSPECT_ID);
+      const friendlyIds = toIds(import.meta.env.VITE_FRIENDLY_ID);
+      const hasAny = (ids: string[]) => roles.some((r) => ids.includes(r));
+      if (hasAny(bloodedIds)) return "Blooded";
+      if (hasAny(marauderIds)) return "Marauder";
+      if (hasAny(crewIds)) return "Crew";
+      if (hasAny(prospectIds)) return "Prospect";
+      if (hasAny(friendlyIds)) return "Friendly";
+      return undefined;
+    };
+
+    const run = async () => {
+      // If props provided, mirror them
+      if (playerStats) {
+        setLocalStats(playerStats);
+        setLocalLoading(!!playerStatsLoading);
+        return;
+      }
+
+      if (!userId) {
+        setLocalStats(null);
+        setLocalLoading(false);
+        return;
+      }
+
+      try {
+        setLocalLoading(true);
+        const stats = await fetchPlayerStatsByUserId(String(userId));
+        if (!cancelled) {
+          if (stats) {
+            setLocalStats(stats);
+          } else {
+            // Build minimal stats so PlayerPromotionProgress can still render requirements
+            setLocalStats({ user_id: userId, rank_name: deriveRankNameFromRoles() });
+          }
+        }
+      } catch {
+        if (!cancelled) setLocalStats({ user_id: userId, rank_name: deriveRankNameFromRoles() });
+      } finally {
+        if (!cancelled) setLocalLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [playerStats, playerStatsLoading, userId]);
 
   return (
     <>
@@ -55,8 +119,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, play
       </div>
       {/* Promotion progress below RSI handle */}
       <PlayerPromotionProgress
-        playerStats={playerStats}
-        playerStatsLoading={!!playerStatsLoading}
+    playerStats={localStats ?? {}}
+        playerStatsLoading={!!localLoading}
         player={user}
         dbUser={dbUser}
       />

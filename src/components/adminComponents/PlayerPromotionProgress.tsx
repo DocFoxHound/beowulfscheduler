@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { promotePlayer } from "../../api/promotePlayerApi";
 import { getUserById } from "../../api/userService";
+import { assessPromotion } from "../../utils/progressionEngine";
 
 interface PlayerPromotionProgressProps {
   playerStats: any;
@@ -59,65 +60,19 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
 
   // Determine current rank from user.rank (or user.rank_id)
   let detectedRank: string | null = null;
-  const userRankId = user?.rank || user?.rank_id || "";
+  const userRankRaw = (user?.rank ?? user?.rank_id ?? "") as string | number;
+  const userRankId = String(userRankRaw);
   if (bloodedIds.includes(userRankId)) detectedRank = "Blooded";
   else if (marauderIds.includes(userRankId)) detectedRank = "Marauder";
   else if (crewIds.includes(userRankId)) detectedRank = "Crew";
   else if (prospectIds.includes(userRankId)) detectedRank = "Prospect";
   else if (friendlyIds.includes(userRankId)) detectedRank = "Friendly";
 
-  let nextRank = null;
-  let progressPercent = 0;
-  const currentRankIndex = detectedRank ? rankOrder.indexOf(detectedRank) : -1;
-  nextRank = currentRankIndex >= 0 ? rankOrder[currentRankIndex + 1] || null : null;
-
-  // Progression logic for each rank
-  if (detectedRank === "Friendly") {
-    progressPercent = 100;
-  } else if (detectedRank === "Prospect") {
-    const piracyHits = Number(playerStats.piracyhits) || 0;
-    const fleetParticipated = Number(playerStats.fleetparticipated) || 0;
-    const recentGatherings = Number(playerStats.recentgatherings) || 0;
-    const points = piracyHits + fleetParticipated + 0.25 * recentGatherings;
-    const pointsProgress = Math.min(points / 10, 1);
-    const flightHours = Number(playerStats.flighthours) || 0;
-    const shipsBLeaderboardRank = Number(playerStats.shipsbleaderboardrank) || Infinity;
-    const shipKills = Number(playerStats.shipkills) || 0;
-    const secondaryProgress = Math.max(
-      Math.min(flightHours / 20, 1),
-      shipsBLeaderboardRank <= 1000 ? 1 : 0,
-      Math.min(shipKills / 100, 1)
-    );
-    progressPercent = Math.round(((pointsProgress + secondaryProgress) / 2) * 100);
-  } else if (detectedRank === "Crew") {
-    const shipsBLeaderboardRank = Number(playerStats.shipsbleaderboardrank) || Infinity;
-    const piracyHits = Number(playerStats.piracyhits) || 0;
-    const fleetParticipated = Number(playerStats.fleetparticipated) || 0;
-    const recentGatherings = Number(playerStats.recentgatherings) || 0;
-    const voiceHours = Number(playerStats.voicehours) || 0;
-    const reqProgress = [
-      shipsBLeaderboardRank <= 200 ? 1 : 0,
-      piracyHits >= 200 ? 1 : Math.min(piracyHits / 200, 1),
-      fleetParticipated > 20 ? 1 : Math.max(fleetParticipated / 20, 0),
-      recentGatherings >= 50 ? 1 : Math.min(recentGatherings / 50, 1),
-      voiceHours >= 200 ? 1 : Math.min(voiceHours / 200, 1),
-    ];
-    const metCount = reqProgress.filter(v => v === 1).length;
-    if (metCount >= 2) {
-      progressPercent = 100;
-    } else if (metCount === 1) {
-      progressPercent = 50;
-    } else {
-      progressPercent = Math.round(Math.max(...reqProgress) * 50);
-    }
-  } else if (detectedRank === "Marauder") {
-    progressPercent = 0;
-  } else if (detectedRank === "Blooded") {
-    progressPercent = 100;
-    nextRank = null;
-  } else {
-    progressPercent = 0;
-  }
+  // Centralized promotion computation
+  const promo = assessPromotion(playerStats, userRankId);
+  const nextRank = promo.nextRank;
+  const progressPercent = promo.progressPercent;
+  detectedRank = promo.detectedRank;
 
   // Prepare requirements breakdown
   let requirementsSection = null;
@@ -125,17 +80,17 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
     if (detectedRank === "Prospect") {
       const piracyHits = Number(playerStats.piracyhits) || 0;
       const fleetParticipated = Number(playerStats.fleetparticipated) || 0;
-      const recentGatherings = Number(playerStats.recentgatherings) || 0;
-      const points = piracyHits + fleetParticipated + 0.25 * recentGatherings;
+      // Prospect -> Crew points: piracyHits + (fleetParticipated * 0.25)
+      const points = piracyHits + (fleetParticipated * 0.25);
       const flightHours = Number(playerStats.flighthours) || 0;
       const shipsBLeaderboardRank = Number(playerStats.shipsbleaderboardrank) || Infinity;
       const shipKills = Number(playerStats.shipkills) || 0;
       requirementsSection = (
-        <div style={{ marginTop: "1rem" }}>
+    <div style={{ marginTop: "1rem" }}>
           <strong>Requirements for Crew:</strong>
           <ul style={{ marginTop: 4 }}>
             <li>
-              <span>10 total points (1 per piracy hit, 1 per fleet participated, 0.25 per recent gathering): </span>
+      <span>10 total points (1 per piracy hit, 0.25 per gang): </span><br/>
               <strong>{points.toFixed(2)} / 10</strong>
             </li>
             <li>
@@ -149,20 +104,19 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           </ul>
         </div>
       );
-    } else if (detectedRank === "Crew") {
+  } else if (detectedRank === "Crew") {
       const shipsBLeaderboardRank = Number(playerStats.shipsbleaderboardrank) || Infinity;
       const piracyHits = Number(playerStats.piracyhits) || 0;
       const fleetParticipated = Number(playerStats.fleetparticipated) || 0;
-      const recentGatherings = Number(playerStats.recentgatherings) || 0;
-      const voiceHours = Number(playerStats.voicehours) || 0;
+  const voiceHours = Number(playerStats.voicehours) || 0;
       requirementsSection = (
         <div style={{ marginTop: "1rem" }}>
-          <strong>Requirements for Marauder (any two):</strong>
+          <strong>Requirements for Marauder (any three):</strong>
           <ul style={{ marginTop: 4 }}>
             <li>SquadronBattle leaderboard rank: <strong>{shipsBLeaderboardRank}</strong> (≤ 200) {shipsBLeaderboardRank <= 200 ? '✅' : ''}</li>
-            <li>Piracy hits: <strong>{piracyHits} / 100</strong> {piracyHits >= 100 ? '✅' : ''}</li>
-            <li>Fleet participated: <strong>{fleetParticipated} &gt; 100</strong> {fleetParticipated > 50 ? '✅' : ''}</li>
-            <li>Voice hours: <strong>{voiceHours} / 500</strong> {voiceHours >= 500 ? '✅' : ''}</li>
+    <li>Piracy hits: <strong>{piracyHits} / 30</strong> {piracyHits >= 30 ? '✅' : ''}</li>
+    <li>Gang participation: <strong>{fleetParticipated} / 100</strong> {fleetParticipated >= 100 ? '✅' : ''}</li>
+    <li>Voice hours: <strong>{voiceHours} / 300</strong> {voiceHours >= 300 ? '✅' : ''}</li>
           </ul>
         </div>
       );

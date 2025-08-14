@@ -1,24 +1,23 @@
 
 import React, { useEffect, useState } from "react";
 import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
-import { fetchPlayerStatsByUserId } from "../../api/playerStatsApi";
+// Player stats are now provided from parent to avoid per-click fetches
 import BadgeProgress from "./PlayerBadgeProgress";
 import PromotionProgress from "./PlayerPromotionProgress";
 import PrestigeProgress from "./PlayerPrestigeProgress";
 
 interface AdminManagementPlayerProps {
   player: any; // Replace 'any' with your UserWithData type if available
+  playerStats?: any | null;
+  playerStatsLoading?: boolean;
   emojis?: any[];
   activeBadgeReusables: any[];
   dbUser?: any; // Optional prop for database user context
 }
 
-
-const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, emojis, activeBadgeReusables, dbUser }) => {
+const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, playerStats, playerStatsLoading = false, emojis, activeBadgeReusables, dbUser }) => {
   const [badgeReusables, setBadgeReusables] = useState<any[]>([]);
   const [badgesLoading, setBadgesLoading] = useState(false);
-  const [playerStats, setPlayerStats] = useState<any | null>(null);
-  const [playerStatsLoading, setPlayerStatsLoading] = useState(false);
   const [badges, setBadges] = useState<any[]>([]); // New state for badges
   const [badgesArrayLoading, setBadgesArrayLoading] = useState(false); // Loading state for badges array
   
@@ -30,15 +29,9 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, e
     if (player && player.id) {
       refreshBadgeReusables();
       refreshPlayerBadges();
-      setPlayerStatsLoading(true);
-      fetchPlayerStatsByUserId(player.id)
-        .then((data) => setPlayerStats(data))
-        .catch(() => setPlayerStats(null))
-        .finally(() => setPlayerStatsLoading(false));
     } else {
       setBadgeReusables([]);
       setBadges([]);
-      setPlayerStats(null);
     }
   }, [player]);
 

@@ -10,6 +10,7 @@ import { fetchAllEmojis } from "../api/emojiApi";
 import { getAllUsers } from "../api/userService";
 import { fetchAllBadgeReusables, deleteBadgeReusable, createBadgeReusable, fetchAllActiveBadgeReusables } from "../api/badgeReusableApi";
 import { fetchLeaderboardSBLogsByTimespan } from "../api/leaderboardSBLogApi";
+import { refreshPlayerStatsView, fetchAllPlayerStats } from "../api/playerStatsApi";
 
 const BLOODED_PLUS_IDS = (import.meta.env.VITE_LIVE_BLOODED_PLUS || "").split(",");
 
@@ -71,6 +72,9 @@ const AdminActivity: React.FC = () => {
   }, [startDate, endDate]);
   const [emojis, setEmojis] = useState<any[]>([]);
   const [activeBadgeReusables, setActiveBadgeReusables] = useState<any[]>([]);
+  // Player stats cache (loaded once per page view)
+  const [allPlayerStats, setAllPlayerStats] = useState<any[]>([]);
+  const [allPlayerStatsLoading, setAllPlayerStatsLoading] = useState(false);
   // Fetch active badge reusables on mount
   useEffect(() => {
     fetchAllBadgeReusables()
@@ -91,6 +95,11 @@ const AdminActivity: React.FC = () => {
   }, []);
   // Track selected player from AdminUserList
   const selectedPlayer = filteredUsersWithData.length === 1 ? filteredUsersWithData[0] : null;
+  // Derive selected player's stats from the cached list
+  const selectedPlayerStats = React.useMemo(() => {
+    if (!selectedPlayer || !Array.isArray(allPlayerStats)) return null;
+    return allPlayerStats.find((ps: any) => ps?.user_id === selectedPlayer.id) || null;
+  }, [selectedPlayer, allPlayerStats]);
   const navigate = useNavigate();
   // Fetch all users when page loads
   useEffect(() => {
@@ -104,6 +113,30 @@ const AdminActivity: React.FC = () => {
         setAllUsers([]);
         setUsersLoading(false);
       });
+  }, []);
+  
+  // Refresh aggregated player stats, then fetch all player stats once
+  useEffect(() => {
+    let cancelled = false;
+    setAllPlayerStatsLoading(true);
+    // Ensure the view is refreshed before fetching
+    refreshPlayerStatsView()
+      .catch(() => undefined)
+      .finally(() => {
+        fetchAllPlayerStats()
+          .then((data) => {
+            if (!cancelled) setAllPlayerStats(Array.isArray(data) ? data : []);
+          })
+          .catch(() => {
+            if (!cancelled) setAllPlayerStats([]);
+          })
+          .finally(() => {
+            if (!cancelled) setAllPlayerStatsLoading(false);
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fetch Discord user
@@ -153,6 +186,8 @@ const AdminActivity: React.FC = () => {
                   hitTrackersData={hitTrackersData}
                   recentGatheringsData={recentGatheringsData}
                   selectedUser={selectedPlayer}
+                  allPlayerStats={allPlayerStats}
+                  activeBadgeReusables={activeBadgeReusables}
                 />
               </React.Suspense>
             </div>
@@ -167,6 +202,7 @@ const AdminActivity: React.FC = () => {
                 users={allUsers}
                 loading={usersLoading || resourceLoading}
                 onFilteredUsersChange={setFilteredUsersWithData}
+                selectedPlayerStats={selectedPlayerStats}
                 blackBoxesData={blackBoxesData}
                 fleetLogsData={fleetLogsData}
                 recentGatheringsData={recentGatheringsData}
@@ -184,6 +220,8 @@ const AdminActivity: React.FC = () => {
           <div style={{ flex: 1, background: "#222", borderRadius: "8px", padding: "1rem", minHeight: "400px" }}>
             <AdminManagementTab
               selectedPlayer={selectedPlayer}
+              selectedPlayerStats={selectedPlayerStats}
+              playerStatsLoading={allPlayerStatsLoading}
               users={allUsers}
               loading={usersLoading}
               emojis={emojis}
