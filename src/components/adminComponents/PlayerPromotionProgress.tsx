@@ -114,9 +114,9 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           <strong>Requirements for Marauder (any three):</strong>
           <ul style={{ marginTop: 4 }}>
             <li>SquadronBattle leaderboard rank: <strong>{shipsBLeaderboardRank}</strong> (≤ 200) {shipsBLeaderboardRank <= 200 ? '✅' : ''}</li>
-    <li>Piracy hits: <strong>{piracyHits} / 30</strong> {piracyHits >= 30 ? '✅' : ''}</li>
-    <li>Gang participation: <strong>{fleetParticipated} / 100</strong> {fleetParticipated >= 100 ? '✅' : ''}</li>
-    <li>Voice hours: <strong>{voiceHours} / 300</strong> {voiceHours >= 300 ? '✅' : ''}</li>
+            <li>Piracy hits: <strong>{piracyHits} / 30</strong> {piracyHits >= 30 ? '✅' : ''}</li>
+            <li>Gang participation: <strong>{fleetParticipated} / 100</strong> {fleetParticipated >= 100 ? '✅' : ''}</li>
+            <li>Voice hours: <strong>{Math.round(voiceHours)} / 300</strong> {voiceHours >= 300 ? '✅' : ''}</li>
           </ul>
         </div>
       );
