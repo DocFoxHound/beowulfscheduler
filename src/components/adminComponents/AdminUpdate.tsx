@@ -14,7 +14,7 @@ type AdminUpdateProps = {
 type PlaceholderEntry = {
   id: string | number;
   name: string;
-  status: "earned" | "needs_award" | "eligible";
+  status: "earned" | "needs_award" | "eligible" | "progress";
   tooltip?: string;
   badgeName?: string;
   badgeSubject?: string;
@@ -59,8 +59,10 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
           updates.forEach((u, upIdx) => {
             // For AdminUpdate, only show prestige when ready (met requirements)
             if (u.type === 'prestige' && u.severity !== 'success') return;
+            // Only show promotion when ready (no partial progress)
+            if (u.type === 'promotion' && u.severity !== 'success') return;
             const statusSummary = summarizeUpdates([u]);
-            const status: PlaceholderEntry["status"] = statusSummary.status;
+            const status: PlaceholderEntry["status"] = statusSummary.status as PlaceholderEntry["status"];
             updatesList.push({
               id: `${id}-${u.type}-${upIdx}`,
               name,
@@ -106,14 +108,16 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
 
   // Hide any entries marked as 'needs_award' (partial progress not required to display)
   const visibleEntries = React.useMemo(
-    () => entries.filter((e) => e.status !== 'needs_award'),
+  () => entries.filter((e) => e.status !== 'needs_award' && e.status !== 'progress'),
     [entries]
   );
 
   const statusText = (e: PlaceholderEntry) => {
     // If we know the update type, tailor copy accordingly
     if (e.type === 'promotion') {
-      return e.status === 'eligible' ? 'is eligible to promote' : 'has promotion progress';
+  if (e.status === 'eligible') return 'is eligible to promote';
+  if (e.status === 'progress') return 'has promotion progress';
+  return 'has a promotion update';
     }
     if (e.type === 'prestige') {
       if (e.status === 'earned') return 'is ready to advance prestige';
@@ -135,7 +139,7 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
   const statusColor = (s: PlaceholderEntry["status"]) => {
     if (s === "earned") return "#4caf50"; // green
     if (s === "needs_award") return "#ff9800"; // orange
-    return "#42a5f5"; // blue
+  return "#42a5f5"; // blue
   };
 
   return (

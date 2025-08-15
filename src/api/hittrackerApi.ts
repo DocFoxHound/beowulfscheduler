@@ -66,6 +66,14 @@ export const fetchHitEntryCount = async (): Promise<number> => {
   return response.data.count;
 };
 
+export const fetchHitEntryCountByPatch = async (patch: string): Promise<number> => {
+  const response = await axios.get<{ patch: string; count: number }>(
+    `${API_BASE_URL}/api/hittracker/countbypatch`,
+    { params: { patch } }
+  );
+  return response.data.count;
+};
+
 export const fetchTotalValueStolenSum = async (): Promise<number> => {
   const response = await axios.get<{ total_sum: number }>(`${API_BASE_URL}/api/hittracker/totalsum`);
   return response.data.total_sum;

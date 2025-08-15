@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { grantPrestige } from "../../api/grantPrestige";
-import { groupPrestige, getBadgeProgress, isBadgeReady } from "../../utils/progressionEngine";
+import { groupPrestige, getBadgeProgress, isBadgeReady, voiceHoursFromStats } from "../../utils/progressionEngine";
 
 interface PlayerPrestigeProgressProps {
   activeBadgeReusables: any[];
@@ -147,6 +147,10 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
                       const operator: string = parsed.operator;
                       const value: number = Number(parsed.value);
                       let playerValue = playerStats?.[metric] ?? 0;
+                      // Normalize voice hours display
+                      if (metric === 'voicehours' || metric === 'voice_minutes') {
+                        playerValue = voiceHoursFromStats(playerStats);
+                      }
                       // Special case: shipsbleaderboardrank, show as 'infinite' if 0 or null
                       let displayValue: string | number = playerValue;
                       if (metric === 'shipsbleaderboardrank' && (!playerValue || playerValue === 0)) {
@@ -157,7 +161,7 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
                       return (
                         <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
                           <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
-                          (<span>you: {displayValue}</span>)
+                          (<span>you: {typeof displayValue === 'number' ? Math.round(displayValue) : displayValue}</span>)
                         </div>
                       );
                     })}
@@ -207,12 +211,15 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
                       const metric: string = parsed.metric;
                       const operator: string = parsed.operator;
                       const value: number = Number(parsed.value);
-                      const playerValue = playerStats?.[metric] ?? 0;
+                      let playerValue = playerStats?.[metric] ?? 0;
+                      if (metric === 'voicehours' || metric === 'voice_minutes') {
+                        playerValue = voiceHoursFromStats(playerStats);
+                      }
                       const met = isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
                       return (
                         <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
                           <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
-                          (<span>you: {playerValue}</span>)
+                          (<span>you: {typeof playerValue === 'number' ? Math.round(playerValue) : playerValue}</span>)
                         </div>
                       );
                     })}

@@ -17,7 +17,7 @@ import { fetchPlayerStatsByUserId, refreshPlayerStatsView, fetchAllPlayerStats }
 import PlayerGangStats from '../components/gangComponents/PlayerGangStats';
 import AddHitModal3 from '../components/hitComponents/CreateHitModa3';
 import AddHitModal from '../components/hitComponents/CreateHitModal';
-import { fetchRecentHitsSummary, fetchTotalHitsSummary } from '../api/hittrackerApi';
+import { fetchRecentHitsSummary, fetchTotalHitsSummary, fetchHitEntryCount, fetchHitEntryCountByPatch } from '../api/hittrackerApi';
 
 const Hittracker: React.FC = () => {
   const { dbUser, setDbUser } = useUserContext();
@@ -42,6 +42,10 @@ const Hittracker: React.FC = () => {
   const [hitsSummary, setHitsSummary] = useState<any[]>([]);
   // Add state for total hits summary (mirrors recent summary)
   const [_totalHitsSummary, setTotalHitsSummary] = useState<any[]>([]);
+  // Total count of all hit entries across all patches (from backend)
+  const [totalHitsCount, setTotalHitsCount] = useState<number | null>(null);
+  // Total count of hit entries for the selected patch (from backend)
+  const [patchHitsCount, setPatchHitsCount] = useState<number | null>(null);
   const PROSPECT_IDS = (import.meta.env.VITE_PROSPECT_ID || "").split(",");
   const CREW_IDS = (import.meta.env.VITE_CREW_ID || "").split(",");
   const MARAUDER_IDS = (import.meta.env.VITE_MARAUDER_ID || "").split(",");
@@ -55,28 +59,34 @@ const Hittracker: React.FC = () => {
 
   // Combine all values in hitsSummary into a single hitSummary object
   const pirateOrgPatchStats = Array.isArray(hitsSummary) && hitsSummary.length > 0
-    ? hitsSummary.reduce((acc, curr) => {
-        return {
+    ? (() => {
+        const aggregate = hitsSummary.reduce((acc, curr) => {
+          return {
+            user_id: 'ORG',
+            total_hits: (parseInt(acc.total_hits) + parseInt(curr.total_hits || '0')).toString(),
+            total_cut_scu: acc.total_cut_scu + (curr.total_cut_scu || 0),
+            total_cut_value: acc.total_cut_value + (curr.total_cut_value || 0),
+            fps_kills_pu: (parseInt(acc.fps_kills_pu) + parseInt(curr.fps_kills_pu || '0')).toString(),
+            ship_kills_pu: (parseInt(acc.ship_kills_pu) + parseInt(curr.ship_kills_pu || '0')).toString(),
+            value_pu: acc.value_pu + (curr.value_pu || 0),
+          };
+        }, {
           user_id: 'ORG',
-          total_hits: (parseInt(acc.total_hits) + parseInt(curr.total_hits || '0')).toString(),
-          total_cut_scu: acc.total_cut_scu + (curr.total_cut_scu || 0),
-          total_cut_value: acc.total_cut_value + (curr.total_cut_value || 0),
-          fps_kills_pu: (parseInt(acc.fps_kills_pu) + parseInt(curr.fps_kills_pu || '0')).toString(),
-          ship_kills_pu: (parseInt(acc.ship_kills_pu) + parseInt(curr.ship_kills_pu || '0')).toString(),
-          value_pu: acc.value_pu + (curr.value_pu || 0),
+          total_hits: '0',
+          total_cut_scu: 0,
+          total_cut_value: 0,
+          fps_kills_pu: '0',
+          ship_kills_pu: '0',
+          value_pu: 0,
+        });
+        return {
+          ...aggregate,
+          total_hits: patchHitsCount !== null ? String(patchHitsCount) : aggregate.total_hits,
         };
-      }, {
-        user_id: 'ORG',
-        total_hits: '0',
-        total_cut_scu: 0,
-        total_cut_value: 0,
-        fps_kills_pu: '0',
-        ship_kills_pu: '0',
-        value_pu: 0,
-      })
+      })()
     : {
         user_id: 'ORG',
-        total_hits: '0',
+        total_hits: patchHitsCount !== null ? String(patchHitsCount) : '0',
         total_cut_scu: 0,
         total_cut_value: 0,
         fps_kills_pu: '0',
@@ -86,28 +96,34 @@ const Hittracker: React.FC = () => {
 
   // Aggregate all users' total summaries into a single org-wide total summary
   const pirateOrgTotalStats = Array.isArray(_totalHitsSummary) && _totalHitsSummary.length > 0
-    ? _totalHitsSummary.reduce((acc, curr) => {
-        return {
+    ? (() => {
+        const aggregate = _totalHitsSummary.reduce((acc, curr) => {
+          return {
+            user_id: 'ORG',
+            total_hits: (parseInt(acc.total_hits) + parseInt(curr.total_hits || '0')).toString(),
+            total_cut_scu: acc.total_cut_scu + (curr.total_cut_scu || 0),
+            total_cut_value: acc.total_cut_value + (curr.total_cut_value || 0),
+            fps_kills_pu: (parseInt(acc.fps_kills_pu) + parseInt(curr.fps_kills_pu || '0')).toString(),
+            ship_kills_pu: (parseInt(acc.ship_kills_pu) + parseInt(curr.ship_kills_pu || '0')).toString(),
+            value_pu: acc.value_pu + (curr.value_pu || 0),
+          };
+        }, {
           user_id: 'ORG',
-          total_hits: (parseInt(acc.total_hits) + parseInt(curr.total_hits || '0')).toString(),
-          total_cut_scu: acc.total_cut_scu + (curr.total_cut_scu || 0),
-          total_cut_value: acc.total_cut_value + (curr.total_cut_value || 0),
-          fps_kills_pu: (parseInt(acc.fps_kills_pu) + parseInt(curr.fps_kills_pu || '0')).toString(),
-          ship_kills_pu: (parseInt(acc.ship_kills_pu) + parseInt(curr.ship_kills_pu || '0')).toString(),
-          value_pu: acc.value_pu + (curr.value_pu || 0),
+          total_hits: '0',
+          total_cut_scu: 0,
+          total_cut_value: 0,
+          fps_kills_pu: '0',
+          ship_kills_pu: '0',
+          value_pu: 0,
+        });
+        return {
+          ...aggregate,
+          total_hits: totalHitsCount !== null ? String(totalHitsCount) : aggregate.total_hits,
         };
-      }, {
-        user_id: 'ORG',
-        total_hits: '0',
-        total_cut_scu: 0,
-        total_cut_value: 0,
-        fps_kills_pu: '0',
-        ship_kills_pu: '0',
-        value_pu: 0,
-      })
+      })()
     : {
         user_id: 'ORG',
-        total_hits: '0',
+        total_hits: totalHitsCount !== null ? String(totalHitsCount) : '0',
         total_cut_scu: 0,
         total_cut_value: 0,
         fps_kills_pu: '0',
@@ -117,8 +133,12 @@ const Hittracker: React.FC = () => {
   // Fetch recent hits summary (like fetchRecentGangsSummary in Dashboard)
   useEffect(() => {
     if (gameVersion && dbUser && dbUser.id) {
-      fetchRecentHitsSummary(gameVersion, 500, 0)
-        .then((data) => {
+      // Fetch per-user patch summary and the per-patch global hit count in parallel
+      Promise.all([
+        fetchRecentHitsSummary(gameVersion, 500, 0),
+        fetchHitEntryCountByPatch(gameVersion)
+      ])
+        .then(([data, count]) => {
           const formatted = Array.isArray(data)
             ? data.map(obj => ({
                 user_id: String(obj.user_id),
@@ -131,18 +151,27 @@ const Hittracker: React.FC = () => {
               }))
             : [];
           setHitsSummary(formatted);
+          setPatchHitsCount(typeof count === 'number' ? count : null);
         })
-        .catch(() => setHitsSummary([]));
+        .catch(() => {
+          setHitsSummary([]);
+          setPatchHitsCount(null);
+        });
     } else {
       setHitsSummary([]);
+      setPatchHitsCount(null);
     }
   }, [gameVersion, dbUser]);
 
   // Fetch total hits summary across all patches (no patch filter)
   useEffect(() => {
     if (dbUser && dbUser.id) {
-      fetchTotalHitsSummary(undefined, 10000, 0)
-        .then((data) => {
+      // Fetch per-user totals and the global total entry count in parallel
+      Promise.all([
+        fetchTotalHitsSummary(undefined, 10000, 0),
+        fetchHitEntryCount()
+      ])
+        .then(([data, count]) => {
           const formatted = Array.isArray(data)
             ? data.map(obj => ({
                 user_id: String(obj.user_id),
@@ -155,10 +184,15 @@ const Hittracker: React.FC = () => {
               }))
             : [];
           setTotalHitsSummary(formatted);
+          setTotalHitsCount(typeof count === 'number' ? count : null);
         })
-        .catch(() => setTotalHitsSummary([]));
+        .catch(() => {
+          setTotalHitsSummary([]);
+          setTotalHitsCount(null);
+        });
     } else {
       setTotalHitsSummary([]);
+      setTotalHitsCount(null);
     }
   }, [dbUser]);
 
@@ -437,6 +471,7 @@ const Hittracker: React.FC = () => {
                 )}
               </>
             )}
+            {/* Player stats */}
             <div style={{ borderRadius: 8, minHeight: 200 }} className="column recent-pirate-hits">
               <RecentPirateHits 
                 recentHits={recentHits} 

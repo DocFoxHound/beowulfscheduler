@@ -128,6 +128,23 @@ export const detectRank = (userRankId: string | undefined, env?: RankEnv): strin
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
+// Normalize metrics coming from stats. Today we only normalize voice hours.
+// Many backends store voice time in minutes under a field named `voicehours`.
+// Heuristic: if the field is very large (e.g., > 2000), treat as minutes and convert to hours.
+const toNumber = (v: any) => (v === null || v === undefined || v === '' ? 0 : Number(v));
+
+export const voiceHoursFromStats = (stats?: PlayerStatsLike | null): number => {
+  if (!stats) return 0;
+  // Prefer explicit minutes field if present
+  const voiceMinutes = toNumber((stats as any).voice_minutes);
+  if (voiceMinutes > 0) return voiceMinutes / 60;
+  const raw = toNumber((stats as any).voicehours);
+  if (raw <= 0) return 0;
+  // If the value is suspiciously large, assume minutes and convert
+  if (raw >= 2000) return raw / 60; // ~33 hours
+  return raw; // already in hours
+};
+
 // Promotion rules (mirrors PlayerPromotionProgress)
 export const assessPromotion = (
   stats: PlayerStatsLike | null | undefined,
@@ -174,10 +191,10 @@ export const assessPromotion = (
     );
     progressPercent = Math.round(((pointsProgress + secondaryProgress) / 2) * 100);
   } else if (detected === 'Crew') {
-    const shipsBLeaderboardRank = Number(stats.shipsbleaderboardrank) || Infinity;
-    const piracyHits = Number(stats.piracyhits) || 0;
-    const fleetParticipated = Number(stats.fleetparticipated) || 0;
-    const voiceHours = Number(stats.voicehours) || 0;
+  const shipsBLeaderboardRank = Number(stats.shipsbleaderboardrank) || Infinity;
+  const piracyHits = Number(stats.piracyhits) || 0;
+  const fleetParticipated = Number(stats.fleetparticipated) || 0;
+  const voiceHours = voiceHoursFromStats(stats);
     const reqProgress = [
       shipsBLeaderboardRank <= 200 ? 1 : 0,
       // Updated thresholds: Piracy 30, Gang Participation 100, Voice 300
@@ -267,7 +284,11 @@ export const getBadgeProgress = (badge: BadgeReusable, stats?: PlayerStatsLike |
   for (const t of triggers) {
     const tr = parseTrigger(t);
     if (!tr?.metric || !tr?.operator || tr?.value === undefined) continue;
-    const playerValue = Number(stats[tr.metric] ?? 0);
+    let playerValue = Number(stats[tr.metric] ?? 0);
+    // Normalize voicehours metrics (or voice_minutes) to hours
+    if (tr.metric === 'voicehours' || tr.metric === 'voice_minutes') {
+      playerValue = voiceHoursFromStats(stats);
+    }
     total += getTriggerProgress(playerValue, tr.operator, Number(tr.value));
     count++;
   }
@@ -281,7 +302,10 @@ export const isBadgeReady = (badge: BadgeReusable, stats?: PlayerStatsLike | nul
   for (const t of triggers) {
     const tr = parseTrigger(t);
     if (!tr?.metric || !tr?.operator || tr?.value === undefined) return false;
-    const playerValue = Number(stats[tr.metric] ?? 0);
+    let playerValue = Number(stats[tr.metric] ?? 0);
+    if (tr.metric === 'voicehours' || tr.metric === 'voice_minutes') {
+      playerValue = voiceHoursFromStats(stats);
+    }
     // Special-case: leaderboard rank of 0 typically means "unranked"; never treat as ready
     if (tr.metric === 'shipsbleaderboardrank' && (!playerValue || playerValue === 0)) {
       return false;
@@ -428,20 +452,26 @@ export const assessPlayerForAdminUpdates = (args: {
 };
 
 // Utility to produce a compact summary status for AdminUpdate list
-export const summarizeUpdates = (updates: AdminUpdateItem[]): { status: 'earned' | 'needs_award' | 'eligible'; label: string } => {
-  // Priority: success badge/prestige/promotion => "earned"
+export const summarizeUpdates = (
+  updates: AdminUpdateItem[]
+): { status: 'earned' | 'needs_award' | 'eligible' | 'progress'; label: string } => {
+  // Priority: success badge/prestige => "earned"
   if (updates.some((u) => u.severity === 'success' && (u.type === 'badge' || u.type === 'prestige'))) {
     return { status: 'earned', label: 'earned a badge/prestige' };
   }
+  // Promotion: distinguish ready vs progress
   if (updates.some((u) => u.type === 'promotion' && u.severity === 'success')) {
     return { status: 'eligible', label: 'is eligible to promote' };
   }
-  // If there are info-level items, show eligible/needs
+  if (updates.some((u) => u.type === 'promotion' && u.severity === 'info')) {
+    return { status: 'progress', label: 'has promotion progress' };
+  }
+  // If there are info-level badge items, show needs_award; hide later in UI if desired
   if (updates.some((u) => u.type === 'badge')) {
     return { status: 'needs_award', label: 'needs to be awarded a badge' };
   }
   if (updates.length > 0) {
-    return { status: 'eligible', label: 'is progressing' };
+    return { status: 'progress', label: 'is progressing' };
   }
   return { status: 'eligible', label: 'is eligible' };
 };

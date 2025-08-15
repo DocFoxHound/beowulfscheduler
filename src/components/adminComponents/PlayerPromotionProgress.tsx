@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { promotePlayer } from "../../api/promotePlayerApi";
 import { getUserById } from "../../api/userService";
-import { assessPromotion } from "../../utils/progressionEngine";
+import { assessPromotion, voiceHoursFromStats } from "../../utils/progressionEngine";
 
 interface PlayerPromotionProgressProps {
   playerStats: any;
@@ -108,7 +108,7 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
       const shipsBLeaderboardRank = Number(playerStats.shipsbleaderboardrank) || Infinity;
       const piracyHits = Number(playerStats.piracyhits) || 0;
       const fleetParticipated = Number(playerStats.fleetparticipated) || 0;
-  const voiceHours = Number(playerStats.voicehours) || 0;
+  const voiceHours = voiceHoursFromStats(playerStats);
       requirementsSection = (
         <div style={{ marginTop: "1rem" }}>
           <strong>Requirements for Marauder (any three):</strong>
