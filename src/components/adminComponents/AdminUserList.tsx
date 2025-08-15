@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { shouldShowPromoteTag } from "../../utils/promotionUtils";
 import { fetchVoiceChannelSessionsByTimeframe } from "../../api/voiceChannelSessionsApi";
 import { VoiceChannelSession } from "../../types/voice_channel_sessions";
 import { type User } from "../../types/user";
@@ -345,9 +344,6 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
                   >
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                       {user.username || "-"}
-                      {shouldShowPromoteTag(user) && (
-                        <span title="Eligible for promotion" style={{ marginLeft: 4, cursor: 'help' }}>🔼</span>
-                      )}
                     </td>
                     {/* <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333" }}>{user.displayName || "-"}</td> */}
                     {(() => {

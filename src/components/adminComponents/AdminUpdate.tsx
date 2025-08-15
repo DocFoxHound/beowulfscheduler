@@ -49,6 +49,9 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
         activeUsersWithStats.forEach(({ user, stats: ps }, uIdx) => {
           const id = user?.id ?? uIdx + 1;
           const name = user?.username ?? user?.displayName ?? `User ${id}`;
+          // Determine if we actually have badge data loaded for this user.
+          // Undefined means we haven't fetched it; an empty array means fetched and none earned.
+          const badgeDataLoadedForUser = playerBadgesByUser && Object.prototype.hasOwnProperty.call(playerBadgesByUser, String(id));
           const updates = assessPlayerForAdminUpdates({
             user,
             stats: ps,
@@ -61,6 +64,9 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
             if (u.type === 'prestige' && u.severity !== 'success') return;
             // Only show promotion when ready (no partial progress)
             if (u.type === 'promotion' && u.severity !== 'success') return;
+            // Avoid showing badge "ready" items unless we have confirmed earned-badge data for this user.
+            // This prevents false positives when bulk badge data hasn't been fetched for this user.
+            if (u.type === 'badge' && u.severity === 'success' && !badgeDataLoadedForUser) return;
             const statusSummary = summarizeUpdates([u]);
             const status: PlaceholderEntry["status"] = statusSummary.status as PlaceholderEntry["status"];
             updatesList.push({
@@ -78,32 +84,19 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
       }
 
       // Legacy placeholder selection if no badge data provided
-      return activeUsersWithStats.map(({ user }, idx) => {
-        const id = user?.id ?? idx + 1;
-        const name = user?.username ?? user?.displayName ?? `User ${id}`;
-        const statusIdx = idx % 3;
-        const status: PlaceholderEntry["status"] = statusIdx === 0 ? "earned" : statusIdx === 1 ? "needs_award" : "eligible";
-  return { id, name, status } as PlaceholderEntry;
-      });
+      // Previously returned rotating placeholder statuses; suppress to avoid misleading entries.
+      return [] as PlaceholderEntry[];
     }
 
     // Next, if no matches yet but we do have stats, fall back to stats-only rows
     if (stats.length > 0) {
-      return stats.map((ps: any, idx: number) => {
-        const id = ps?.user_id ?? ps?.id ?? idx + 1;
-        const name = ps?.username ?? ps?.display_name ?? `User ${id}`;
-        const statusIdx = idx % 3;
-        const status: PlaceholderEntry["status"] = statusIdx === 0 ? "earned" : statusIdx === 1 ? "needs_award" : "eligible";
-        return { id, name, status } as PlaceholderEntry;
-      });
+      // Previously returned placeholder stats-only rows; suppress to avoid misleading entries.
+      return [] as PlaceholderEntry[];
     }
 
     // Fallback: generate 50 placeholder rows when no stats yet
-    return Array.from({ length: 50 }, (_, i) => {
-      const statusIdx = i % 3;
-      const status: PlaceholderEntry["status"] = statusIdx === 0 ? "earned" : statusIdx === 1 ? "needs_award" : "eligible";
-      return { id: i + 1, name: `User ${i + 1}`, status };
-    });
+    // Suppress placeholder content entirely until real data is ready.
+    return [] as PlaceholderEntry[];
   }, [activeUsersWithStats, stats, activeBadgeReusables, playerBadgesByUser]);
 
   // Hide any entries marked as 'needs_award' (partial progress not required to display)
