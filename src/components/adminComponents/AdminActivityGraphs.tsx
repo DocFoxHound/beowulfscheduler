@@ -3,7 +3,7 @@ import AdminVoiceActivityGraph from "./AdminVoiceActivityGraph";
 import AdminFlightHoursGraph from "./AdminFlightHoursGraph";
 import React from "react";
 import AdminUpdate from "./AdminUpdate";
-import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
+import { fetchBadgesByUserId, fetchBadgesByUserIdsBulk } from "../../api/badgeRecordApi";
 
 interface UserWithData extends Record<string, unknown> {
   id: string | number;
@@ -28,7 +28,7 @@ interface AdminActivityGraphProps {
   activeBadgeReusables?: any[];
 }
 
-const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData, activeBadgeReusables, allPlayerStats }) => {
+const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, fleetLogsData, hitTrackersData, recentGatheringsData, activeBadgeReusables, allPlayerStats, selectedUser }) => {
   // Helper: format date to YYYY-MM-DD
   const formatDate = (dateStr: string | Date) => {
     const d = new Date(dateStr);
@@ -38,43 +38,113 @@ const AdminActivityGraph: React.FC<AdminActivityGraphProps> = ({ usersWithData, 
   // ...existing code...
 
   // Build a map of userId -> earned badges to prevent duplicate award prompts
+  // Avoid fetching for all users at once. Cache results and only fetch for the selected user
+  // and a small filtered set (if usersWithData is small). Limit concurrency to reduce load.
   const [playerBadgesByUser, setPlayerBadgesByUser] = React.useState<Record<string, any[]>>({});
+  const badgesCacheRef = React.useRef<Record<string, any[]>>({});
 
   React.useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      const ids = (usersWithData || [])
-        .map((u) => (u && u.id != null ? String(u.id) : null))
-        .filter((v): v is string => Boolean(v));
-      if (ids.length === 0) {
-        setPlayerBadgesByUser({});
-        return;
-      }
-      try {
-        const results: Array<[string, any[]]> = await Promise.all(
-          ids.map(async (id): Promise<[string, any[]]> => {
-            try {
-              const badges = await fetchBadgesByUserId(id);
-              return [id, Array.isArray(badges) ? [...badges] : []];
-            } catch {
-              return [id, []];
-            }
-          })
-        );
-        if (!cancelled) {
-          const map: Record<string, any[]> = {};
-          for (const [id, arr] of results) map[id] = arr;
-          setPlayerBadgesByUser(map);
-        }
-      } catch {
-        if (!cancelled) setPlayerBadgesByUser({});
-      }
+
+    const includedIds = new Set<string>();
+    if (selectedUser && selectedUser.id != null) {
+      includedIds.add(String(selectedUser.id));
+    }
+
+    // If the list is already filtered/small, include those as well; otherwise skip to avoid floods
+    const MAX_BULK = 12;
+    if (Array.isArray(usersWithData) && usersWithData.length > 0 && usersWithData.length <= MAX_BULK) {
+      usersWithData.forEach((u) => {
+        if (u && u.id != null) includedIds.add(String(u.id));
+      });
+    }
+
+    const idsToFetch = Array.from(includedIds).filter((id) => !(id in badgesCacheRef.current));
+
+    // Helper to project cache into the state map for the included ids
+    const projectFromCache = () => {
+      const map: Record<string, any[]> = {};
+      includedIds.forEach((id) => {
+        map[id] = badgesCacheRef.current[id] || [];
+      });
+      setPlayerBadgesByUser(map);
     };
-    load();
+
+    if (idsToFetch.length === 0) {
+      projectFromCache();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const fetchBulkOrFallback = async () => {
+      // Try bulk first when multiple IDs are needed
+      if (idsToFetch.length > 1) {
+        try {
+          const resp = await fetchBadgesByUserIdsBulk(idsToFetch);
+          if (cancelled) return;
+          // resp may be an array (flat) or a map keyed by user id; support both
+          if (Array.isArray(resp)) {
+            const grouped: Record<string, any[]> = {};
+            for (const rec of resp as any[]) {
+              const uid = rec?.user_id != null ? String(rec.user_id) : undefined;
+              if (!uid) continue;
+              if (!grouped[uid]) grouped[uid] = [];
+              grouped[uid].push(rec);
+            }
+            for (const id of idsToFetch) {
+              badgesCacheRef.current[id] = grouped[id] || [];
+            }
+            projectFromCache();
+            return;
+          }
+          if (resp && typeof resp === "object") {
+            const mapResp = resp as Record<string, any[]>;
+            for (const id of idsToFetch) {
+              badgesCacheRef.current[id] = Array.isArray(mapResp[id]) ? mapResp[id] : [];
+            }
+            projectFromCache();
+            return;
+          }
+        } catch {
+          // fall through to per-id limited fetch
+        }
+      }
+
+      // Fallback: fetch per id with limited concurrency
+      const concurrency = 3;
+      let next = 0;
+      const results: Array<[string, any[]]> = [];
+      const runWorker = async () => {
+        while (true) {
+          const i = next++;
+          if (i >= idsToFetch.length) break;
+          const id = idsToFetch[i];
+          try {
+            const badges = await fetchBadgesByUserId(id);
+            results.push([id, Array.isArray(badges) ? [...badges] : []]);
+          } catch {
+            results.push([id, []]);
+          }
+          if (cancelled) return;
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(concurrency, idsToFetch.length) }, runWorker));
+      if (cancelled) return;
+      for (const [id, arr] of results) {
+        badgesCacheRef.current[id] = arr;
+      }
+      projectFromCache();
+    };
+
+    fetchBulkOrFallback().catch(() => {
+      if (!cancelled) projectFromCache();
+    });
+
     return () => {
       cancelled = true;
     };
-  }, [usersWithData]);
+  }, [usersWithData, selectedUser]);
 
   // 2. Pie chart: Blackbox data (moved to AdminPieChart)
   const allBlackBoxes = usersWithData.flatMap(u => Array.isArray(u.blackBoxes) ? u.blackBoxes : []);

@@ -18,8 +18,8 @@ interface AdminManagementPlayerProps {
 const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, playerStats, playerStatsLoading = false, emojis, activeBadgeReusables, dbUser }) => {
   const [badgeReusables, setBadgeReusables] = useState<any[]>([]);
   const [badgesLoading, setBadgesLoading] = useState(false);
-  const [badges, setBadges] = useState<any[]>([]); // New state for badges
-  const [badgesArrayLoading, setBadgesArrayLoading] = useState(false); // Loading state for badges array
+  const [badges, setBadges] = useState<any[]>([]);
+  const [badgesArrayLoading, setBadgesArrayLoading] = useState(false);
   
   //check if player is a moderator or not
   const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
@@ -27,8 +27,24 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, p
   
   useEffect(() => {
     if (player && player.id) {
-      refreshBadgeReusables();
-      refreshPlayerBadges();
+      // Single fetch used to populate both: the user's badges and any dependent views
+      const run = async () => {
+        setBadgesLoading(true);
+        setBadgesArrayLoading(true);
+        try {
+          const data = await fetchBadgesByUserId(player.id);
+          const arr = Array.isArray(data) ? data : [];
+          setBadgeReusables(arr);
+          setBadges(arr);
+        } catch {
+          setBadgeReusables([]);
+          setBadges([]);
+        } finally {
+          setBadgesLoading(false);
+          setBadgesArrayLoading(false);
+        }
+      };
+      run();
     } else {
       setBadgeReusables([]);
       setBadges([]);
@@ -40,8 +56,15 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, p
     if (player && player.id) {
       setBadgesLoading(true);
       fetchBadgesByUserId(player.id)
-        .then((data) => setBadgeReusables(Array.isArray(data) ? data : []))
-        .catch(() => setBadgeReusables([]))
+        .then((data) => {
+          const arr = Array.isArray(data) ? data : [];
+          setBadgeReusables(arr);
+          setBadges(arr); // keep both in sync
+        })
+        .catch(() => {
+          setBadgeReusables([]);
+          setBadges([]);
+        })
         .finally(() => setBadgesLoading(false));
     }
   };
@@ -50,8 +73,15 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, p
     if (player && player.id) {
       setBadgesArrayLoading(true);
       fetchBadgesByUserId(player.id)
-        .then((data) => setBadges(Array.isArray(data) ? data : []))
-        .catch(() => setBadges([]))
+        .then((data) => {
+          const arr = Array.isArray(data) ? data : [];
+          setBadges(arr);
+          setBadgeReusables(arr); // keep both in sync
+        })
+        .catch(() => {
+          setBadges([]);
+          setBadgeReusables([]);
+        })
         .finally(() => setBadgesArrayLoading(false));
     }
   };

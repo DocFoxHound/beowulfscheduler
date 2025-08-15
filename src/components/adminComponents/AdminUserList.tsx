@@ -50,6 +50,8 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
 }) => {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedFilter, setDebouncedFilter] = useState("");
   const [sessions, setSessions] = useState<VoiceChannelSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
@@ -163,15 +165,27 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
+  // Debounce search/filter to reduce recompute thrash and dependent callbacks
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedFilter(filter), 250);
+    return () => clearTimeout(t);
+  }, [filter]);
+
   // Filter and search logic (visible users only) + sorting packaged in useMemo
   // Only show users with allowed ranks
   const allowedRanks = ["Prospect", "Crew", "Marauder", "Blooded"];
   const displayedUsers = React.useMemo(() => {
     let arr = filteredUsersWithData.filter((user: any) => {
-      const matchesSearch = user.username?.toLowerCase().includes(search.toLowerCase());
+      const q = debouncedSearch.toLowerCase();
+      const matchesSearch = q ? user.username?.toLowerCase().includes(q) : true;
       const userRank = getUserRank(user);
       const matchesAllowedRanks = userRank && allowedRanks.includes(userRank.name);
-      const matchesFilter = filter ? (userRank && userRank.name === filter) : true;
+      const matchesFilter = debouncedFilter ? (userRank && userRank.name === debouncedFilter) : true;
       const hasAnyActivity =
         user.voiceHours > 0 ||
         (Array.isArray(user.blackBoxes) && user.blackBoxes.length > 0) ||
@@ -227,10 +241,11 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     return arr;
   }, [filteredUsersWithData, search, filter, sortConfig]);
 
-  // Notify parent of the actually displayed list
+  // Notify parent of the actually displayed list (debounced to match filters)
   useEffect(() => {
     if (typeof onFilteredUsersChange === "function") {
-      onFilteredUsersChange(displayedUsers);
+      const t = setTimeout(() => onFilteredUsersChange(displayedUsers), 0);
+      return () => clearTimeout(t);
     }
   }, [displayedUsers, onFilteredUsersChange]);
 

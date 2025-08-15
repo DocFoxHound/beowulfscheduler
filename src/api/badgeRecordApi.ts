@@ -49,3 +49,8 @@ export const updateBadge = async (id: string, badge: Partial<BadgeRecord>): Prom
 export const deleteBadge = async (id: string): Promise<void> => {
   await axios.delete(`${API_BASE_URL}/api/badges/${id}`);
 }; 
+
+export const fetchBadgesByUserIdsBulk = async (userIds: string[]): Promise<Record<string, BadgeRecord[]>> => {
+  const response = await axios.post<Record<string, BadgeRecord[]>>(`${API_BASE_URL}/api/badges/users`, { user_ids: userIds });
+  return response.data;
+};

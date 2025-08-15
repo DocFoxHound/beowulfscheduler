@@ -37,13 +37,16 @@ const AdminActivity: React.FC = () => {
     const d = new Date();
     return d.toISOString().slice(0, 10);
   });
-  // Fetch resources by timeframe
+  // Fetch resources by timeframe with cancellation support (skip state updates when aborted)
   useEffect(() => {
+    const ac = new AbortController();
+    const { signal } = ac;
     setResourceLoading(true);
     const startDateTime = `${startDate}T00:00:00`;
     const endDateTime = `${endDate}T23:59:59.999`;
     const startMs = new Date(startDateTime).getTime();
     const endMs = new Date(endDateTime).getTime();
+
     Promise.all([
       import("../api/blackboxApi").then(m => m.fetchBlackBoxesWithinTimeframe(startDateTime, endDateTime)).catch(() => []),
       import("../api/fleetLogApi").then(m => m.fetchShipLogsByTimeframe(startDateTime, endDateTime)).catch(() => []),
@@ -53,6 +56,7 @@ const AdminActivity: React.FC = () => {
       import("../api/leaderboardSBLogApi").then(m => m.fetchLeaderboardSBLogsByTimespan(startMs.toString(), endMs.toString())).catch(() => [])
     ])
       .then(([blackBoxes, fleetLogs, recentGatherings, hitTrackers, sbPlayerSummaries, sbLeaderboardLogs]) => {
+        if (signal.aborted) return;
         setBlackBoxesData(Array.isArray(blackBoxes) ? blackBoxes : []);
         setFleetLogsData(Array.isArray(fleetLogs) ? fleetLogs : []);
         setRecentGatheringsData(Array.isArray(recentGatherings) ? recentGatherings : []);
@@ -61,6 +65,7 @@ const AdminActivity: React.FC = () => {
         setSBLeaderboardLogsData(Array.isArray(sbLeaderboardLogs) ? sbLeaderboardLogs : []);
       })
       .catch(() => {
+        if (signal.aborted) return;
         setBlackBoxesData([]);
         setFleetLogsData([]);
         setRecentGatheringsData([]);
@@ -68,7 +73,11 @@ const AdminActivity: React.FC = () => {
         setSBPlayerSummariesData([]);
         setSBLeaderboardLogsData([]);
       })
-      .finally(() => setResourceLoading(false));
+      .finally(() => {
+        if (!signal.aborted) setResourceLoading(false);
+      });
+
+    return () => ac.abort();
   }, [startDate, endDate]);
   const [emojis, setEmojis] = useState<any[]>([]);
   const [activeBadgeReusables, setActiveBadgeReusables] = useState<any[]>([]);
