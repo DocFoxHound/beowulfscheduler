@@ -34,7 +34,6 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   const raiderLevel = localLevels.raider;
   const raptorLevel = localLevels.raptor;
   const nextRaider = (prestigeGroups["RAIDER"] || []).filter((b) => (b.prestige_level ?? 0) === raiderLevel + 1);
-  const nextRaptor = (prestigeGroups["RAPTOR"] || []).filter((b) => (b.prestige_level ?? 0) === raptorLevel + 1);
 
   // Max level for prestige
   const MAX_PRESTIGE_LEVEL = 5;
@@ -106,10 +105,10 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   return (
     <div style={{ marginTop: "2rem", position: "relative" }}>
       <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>Prestige Progress</div>
+      {/* RAPTOR section converted to approval/assessment messaging (no progress bar, no badge list) */}
       <div style={{ marginBottom: "1rem" }}>
-        <strong>RAPTOR {raptorLevel} → {raptorLevel + 1} Requirements:</strong>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ProgressBar progress={raptorLevel >= MAX_PRESTIGE_LEVEL ? 1 : getPrestigeProgress(nextRaptor)} />
+        <strong>RAPTOR {raptorLevel} → {Math.min(raptorLevel + 1, MAX_PRESTIGE_LEVEL)} Advancement:</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
           {canGrant && raptorLevel < MAX_PRESTIGE_LEVEL && (
             <button
               style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
@@ -119,58 +118,10 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
             </button>
           )}
         </div>
+        <div style={{ marginTop: 10, background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 12 }}>
+          Advancement in RAPTOR is based on senior pilot approval. Demonstrate the required skills with a senior dogfighter pilot, and ask a senior RAPTOR about assessments.
+        </div>
       </div>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {raptorLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
-          nextRaptor.length === 0 ? <li>No requirements for next level.</li> :
-          nextRaptor.map((badge, idx) => (
-            <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{badge.badge_name}</div>
-                <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{badge.badge_description}</div>
-                {(!badge.trigger || badge.trigger.length === 0) ? (
-                  <div><em>Given Manually</em></div>
-                ) : (
-                  <div style={{ fontSize: 13 }}>
-                    {badge.trigger.map((triggerStr: string | { metric: string; operator: string; value: number }, tIdx: number) => {
-                      let parsed: any;
-                      try {
-                        parsed = typeof triggerStr === 'string' ? JSON.parse(triggerStr) : triggerStr;
-                      } catch {
-                        return <div key={tIdx}>Invalid requirement</div>;
-                      }
-                      if (!parsed || typeof parsed !== 'object' || parsed.metric === undefined || parsed.operator === undefined || parsed.value === undefined) {
-                        return <div key={tIdx}>Invalid requirement</div>;
-                      }
-                      const metric: string = parsed.metric;
-                      const operator: string = parsed.operator;
-                      const value: number = Number(parsed.value);
-                      let playerValue = playerStats?.[metric] ?? 0;
-                      // Normalize voice hours display
-                      if (metric === 'voicehours' || metric === 'voice_minutes') {
-                        playerValue = voiceHoursFromStats(playerStats);
-                      }
-                      // Special case: shipsbleaderboardrank, show as 'infinite' if 0 or null
-                      let displayValue: string | number = playerValue;
-                      if (metric === 'shipsbleaderboardrank' && (!playerValue || playerValue === 0)) {
-                        displayValue = 'infinite';
-                      }
-                      // Use engine readiness logic for consistency
-                      const met = isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
-                      return (
-                        <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
-                          <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
-                          (<span>you: {typeof displayValue === 'number' ? Math.round(displayValue) : displayValue}</span>)
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </li>
-          ))}
-      </ul>
       <div style={{ marginBottom: "1rem" }}>
         <strong>RAIDER {raiderLevel} → {raiderLevel + 1} Requirements:</strong>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

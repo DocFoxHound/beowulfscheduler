@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { promotePlayer } from "../../api/promotePlayerApi";
 import { getUserById } from "../../api/userService";
-import { assessPromotion, voiceHoursFromStats } from "../../utils/progressionEngine";
+import { assessPromotion } from "../../utils/progressionEngine";
 
 interface PlayerPromotionProgressProps {
   playerStats: any;
@@ -14,7 +14,7 @@ interface PlayerPromotionProgressProps {
 }
 
 
-const rankOrder = ["Friendly", "Prospect", "Crew", "Marauder", "Blooded"];
+// Note: rank ordering is handled by the progression engine
 
 const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats, playerStatsLoading, isModerator, player, dbUser, onPromote }) => {
   const [showPromoteModal, setShowPromoteModal] = useState(false);
@@ -77,55 +77,44 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
   // Prepare requirements breakdown
   let requirementsSection = null;
   if (nextRank) {
+    // Replace numeric requirements with suggestion lists per request
     if (detectedRank === "Prospect") {
-      const piracyHits = Number(playerStats.piracyhits) || 0;
-      const fleetParticipated = Number(playerStats.fleetparticipated) || 0;
-      // Prospect -> Crew points: piracyHits + (fleetParticipated * 0.25)
-      const points = piracyHits + (fleetParticipated * 0.25);
-      const flightHours = Number(playerStats.flighthours) || 0;
-      const shipsBLeaderboardRank = Number(playerStats.shipsbleaderboardrank) || Infinity;
-      const shipKills = Number(playerStats.shipkills) || 0;
       requirementsSection = (
-    <div style={{ marginTop: "1rem" }}>
-          <strong>Requirements for Crew:</strong>
-          <ul style={{ marginTop: 4 }}>
+        <div style={{ marginTop: "1rem", background: "#1e232b", color: "#e6eef8", border: "1px solid #2c3440", borderRadius: 8, padding: 12 }}>
+          <strong>How to reach Crew</strong>
+          <ul style={{ marginTop: 6, lineHeight: 1.6 }}>
+            <li>10 pirate hits (Pirate badge)</li>
+            <li>1 month of participation and training</li>
             <li>
-      <span>10 total points (1 per piracy hit, 0.25 per gang): </span><br/>
-              <strong>{points.toFixed(2)} / 10</strong>
-            </li>
-            <li>
-              <span>One of the following:</span>
-              <ul>
-                <li>Flight hours: <strong>{flightHours} / 20</strong> {flightHours >= 20 ? '✅' : ''}</li>
-                <li>Squadron Battle leaderboard rank: <strong>{shipsBLeaderboardRank}</strong> (≤ 1000) {shipsBLeaderboardRank <= 1000 ? '✅' : ''}</li>
-                <li>Ship kills: <strong>{shipKills} / 100</strong> {shipKills >= 100 ? '✅' : ''}</li>
-              </ul>
+              The <strong>CREW CHALLENGE</strong>: be able to beat a Crew member (RAPTOR skill level 1) of IronPoint in a dogfight to join
             </li>
           </ul>
         </div>
       );
-  } else if (detectedRank === "Crew") {
-      const shipsBLeaderboardRank = Number(playerStats.shipsbleaderboardrank) || Infinity;
-      const piracyHits = Number(playerStats.piracyhits) || 0;
-      const fleetParticipated = Number(playerStats.fleetparticipated) || 0;
-  const voiceHours = voiceHoursFromStats(playerStats);
+    } else if (detectedRank === "Friendly") {
       requirementsSection = (
-        <div style={{ marginTop: "1rem" }}>
-          <strong>Requirements for Marauder (any three):</strong>
-          <ul style={{ marginTop: 4 }}>
-            <li>SquadronBattle leaderboard rank: <strong>{shipsBLeaderboardRank}</strong> (≤ 200) {shipsBLeaderboardRank <= 200 ? '✅' : ''}</li>
-            <li>Piracy hits: <strong>{piracyHits} / 30</strong> {piracyHits >= 30 ? '✅' : ''}</li>
-            <li>Gang participation: <strong>{fleetParticipated} / 100</strong> {fleetParticipated >= 100 ? '✅' : ''}</li>
-            <li>Voice hours: <strong>{Math.round(voiceHours)} / 300</strong> {voiceHours >= 300 ? '✅' : ''}</li>
+        <div style={{ marginTop: "1rem", background: "#1e232b", color: "#e6eef8", border: "1px solid #2c3440", borderRadius: 8, padding: 12 }}>
+          Apply to IronPoint
+        </div>
+      );
+    } else if (detectedRank === "Crew") {
+      requirementsSection = (
+        <div style={{ marginTop: "1rem", background: "#1e232b", color: "#e6eef8", border: "1px solid #2c3440", borderRadius: 8, padding: 12 }}>
+          <strong>How to reach Marauder</strong>
+          <ul style={{ marginTop: 6, lineHeight: 1.6 }}>
+            <li>Heavy engagement with Prestige Schools, gaining multiple levels</li>
+            <li>High activity</li>
+            <li>Longevity (seniority)</li>
           </ul>
         </div>
       );
     } else if (detectedRank === "Marauder") {
       requirementsSection = (
-        <div style={{ marginTop: "1rem" }}>
-          <strong>Requirements for Blooded:</strong>
-          <ul style={{ marginTop: 4 }}>
-            <li>No requirements. Promotion is manual or based on other criteria.</li>
+        <div style={{ marginTop: "1rem", background: "#1e232b", color: "#e6eef8", border: "1px solid #2c3440", borderRadius: 8, padding: 12 }}>
+          <strong>How to reach Blooded</strong>
+          <ul style={{ marginTop: 6, lineHeight: 1.6 }}>
+            <li>Selected based on leadership potential</li>
+            <li>Mentor, guide, and leader</li>
           </ul>
         </div>
       );
@@ -194,22 +183,27 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           <div style={{ marginBottom: "0.5rem" }}>
             Next Rank: <strong>{nextRank}</strong>
           </div>
-          <div style={{
-            background: "#eee",
-            borderRadius: "8px",
-            overflow: "hidden",
-            height: "24px",
-            width: "100%",
-            marginBottom: "0.5rem"
-          }}>
-            <div style={{
-              width: `${progressPercent}%`,
-              background: "linear-gradient(90deg, #4caf50, #2196f3)",
-              height: "100%",
-              transition: "width 0.5s"
-            }} />
-          </div>
-          <div>{progressPercent}% to {nextRank}</div>
+          {/* Show progress bar only for transitions other than Prospect->Crew, Crew->Marauder, Marauder->Blooded */}
+          {!(detectedRank === "Prospect" || detectedRank === "Crew" || detectedRank === "Marauder") && (
+            <>
+              <div style={{
+                background: "#eee",
+                borderRadius: "8px",
+                overflow: "hidden",
+                height: "24px",
+                width: "100%",
+                marginBottom: "0.5rem"
+              }}>
+                <div style={{
+                  width: `${progressPercent}%`,
+                  background: "linear-gradient(90deg, #4caf50, #2196f3)",
+                  height: "100%",
+                  transition: "width 0.5s"
+                }} />
+              </div>
+              <div>{progressPercent}% to {nextRank}</div>
+            </>
+          )}
           {requirementsSection}
         </div>
       ) : (
