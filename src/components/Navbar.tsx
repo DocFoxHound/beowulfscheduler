@@ -23,7 +23,6 @@ const Navbar: React.FC<NavbarProps> = ({ dbUser }) => {
         {/* <a href="/fleets">Fleets</a> */}
         <a href="/gangs">Gangs</a>
         <a href="/warehouse">Warehouse</a>
-        <a href="/scheduler">Scheduler</a>
         <a href="/leaderboards">Leaderboards</a>
         <a href="/info">About</a>
         {isAdmin && (
