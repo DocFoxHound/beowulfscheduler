@@ -7,7 +7,7 @@ import AdminUserList from "../components/adminComponents/AdminUserList";
 import AdminActivityGraph from "../components/adminComponents/AdminActivityGraphs";
 import AdminManagementTab from "../components/adminComponents/AdminManagementTab";
 import { fetchAllEmojis } from "../api/emojiApi";
-import { getAllUsers } from "../api/userService";
+import { getUsersByActiveMemberRole } from "../api/userService";
 import { fetchAllBadgeReusables, deleteBadgeReusable, createBadgeReusable, fetchAllActiveBadgeReusables } from "../api/badgeReusableApi";
 import { fetchLeaderboardSBLogsByTimespan } from "../api/leaderboardSBLogApi";
 import { refreshPlayerStatsView, fetchAllPlayerStats } from "../api/playerStatsApi";
@@ -110,18 +110,17 @@ const AdminActivity: React.FC = () => {
     return allPlayerStats.find((ps: any) => ps?.user_id === selectedPlayer.id) || null;
   }, [selectedPlayer, allPlayerStats]);
   const navigate = useNavigate();
-  // Fetch all users when page loads
+  // Fetch active member users when page loads
   useEffect(() => {
     setUsersLoading(true);
-    getAllUsers()
+    getUsersByActiveMemberRole()
       .then((data) => {
         setAllUsers(Array.isArray(data) ? data : []);
-        setUsersLoading(false);
       })
       .catch(() => {
         setAllUsers([]);
-        setUsersLoading(false);
-      });
+      })
+      .finally(() => setUsersLoading(false));
   }, []);
   
   // Refresh aggregated player stats, then fetch all player stats once

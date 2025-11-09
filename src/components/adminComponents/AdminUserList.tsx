@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { getUsersByActiveMemberRole, getUsersByProspectRole, getUsersByCrewRole, getUsersByMarauderRole, getUsersByBloodedRole } from "../../api/userService";
 import { shouldShowPromoteTag } from "../../utils/promotionUtils";
 import { fetchVoiceChannelSessionsByTimeframe } from "../../api/voiceChannelSessionsApi";
 import { VoiceChannelSession } from "../../types/voice_channel_sessions";
@@ -52,9 +53,20 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
   const [filter, setFilter] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [debouncedFilter, setDebouncedFilter] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
   const [sessions, setSessions] = useState<VoiceChannelSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  // Local source users state to support server-side role fetches on filter
+  const [sourceUsers, setSourceUsers] = useState<User[]>(users || []);
+  const [fetchUsersLoading, setFetchUsersLoading] = useState(false);
+  const [timeframe, setTimeframe] = useState<'last_month' | 'last_3_months' | 'last_year' | 'all_time'>('last_month');
+
+  // Keep local source users in sync when parent updates (e.g., active-member list)
+  useEffect(() => {
+    setSourceUsers(users || []);
+  }, [users]);
 
   // Fetch voice channel sessions only
   useEffect(() => {
@@ -71,10 +83,32 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       .finally(() => setSessionsLoading(false));
   }, [startDate, endDate]);
 
+  // Derive start/end dates from timeframe selection
+  useEffect(() => {
+    let start: Date;
+    const end = new Date();
+    if (timeframe === 'last_month') {
+      start = new Date();
+      start.setMonth(start.getMonth() - 1);
+    } else if (timeframe === 'last_3_months') {
+      start = new Date();
+      start.setMonth(start.getMonth() - 3);
+    } else if (timeframe === 'last_year') {
+      start = new Date();
+      start.setFullYear(start.getFullYear() - 1);
+    } else { // all_time
+      start = new Date('2000-01-01T00:00:00Z');
+    }
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
+    if (startStr !== startDate) setStartDate(startStr);
+    if (endStr !== endDate) setEndDate(endStr);
+  }, [timeframe, startDate, endDate, setStartDate, setEndDate]);
+
 
   // Baseline list: all users with all associated data (not filtered by timeframe or selection)
   const baselineUsersWithData = React.useMemo(() =>
-    users.map((user) => {
+    (sourceUsers || []).map((user) => {
       const userIdStr = String(user.id);
       // Voice sessions and hours
       const userSessions = sessions.filter((session) => String(session.user_id) === userIdStr);
@@ -136,7 +170,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       }
       return row;
     })
-  , [users, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData, selectedPlayerStats]);
+  , [sourceUsers, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData, selectedPlayerStats]);
 
   // Filtered list: updates based on timeframe and selected user
   const [filteredUsersWithData, setFilteredUsersWithData] = useState(baselineUsersWithData);
@@ -176,6 +210,43 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     return () => clearTimeout(t);
   }, [filter]);
 
+  // Build a lightweight search index for suggestions (username + nickname)
+  const searchIndex = React.useMemo(() => {
+    return (sourceUsers || []).map(u => ({
+      id: u.id,
+      username: (u.username || "").toString(),
+      nickname: (u.nickname || "").toString(),
+      username_lc: (u.username || "").toString().toLowerCase(),
+      nickname_lc: (u.nickname || "").toString().toLowerCase(),
+    }));
+  }, [sourceUsers]);
+
+  // Compute suggestions (not aggressive): prefix match first, then substring, limit to 8
+  const suggestions = React.useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return [] as Array<{ id: string | number; label: string; type: 'username' | 'nickname' }>;
+
+    const prefixMatches: Array<{ id: string | number; label: string; type: 'username' | 'nickname' }> = [];
+    const substrMatches: Array<{ id: string | number; label: string; type: 'username' | 'nickname' }> = [];
+
+    for (const rec of searchIndex) {
+      if (rec.username_lc.startsWith(q)) prefixMatches.push({ id: rec.id, label: rec.username, type: 'username' });
+      else if (rec.nickname_lc.startsWith(q)) prefixMatches.push({ id: rec.id, label: rec.nickname, type: 'nickname' });
+      else if (rec.username_lc.includes(q)) substrMatches.push({ id: rec.id, label: rec.username, type: 'username' });
+      else if (rec.nickname_lc.includes(q)) substrMatches.push({ id: rec.id, label: rec.nickname, type: 'nickname' });
+    }
+
+    // Deduplicate by label preserving order
+    const seen = new Set<string>();
+    const ordered = [...prefixMatches, ...substrMatches].filter(s => {
+      const key = `${s.type}:${s.label.toLowerCase()}`;
+      if (seen.has(key) || !s.label) return false;
+      seen.add(key);
+      return true;
+    });
+    return ordered.slice(0, 8);
+  }, [debouncedSearch, searchIndex]);
+
   // Filter and search logic (visible users only) + sorting packaged in useMemo
   // Only show users with allowed ranks
   const allowedRanks = ["Prospect", "Crew", "Marauder", "Blooded"];
@@ -186,14 +257,8 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       const userRank = getUserRank(user);
       const matchesAllowedRanks = userRank && allowedRanks.includes(userRank.name);
       const matchesFilter = debouncedFilter ? (userRank && userRank.name === debouncedFilter) : true;
-      const hasAnyActivity =
-        user.voiceHours > 0 ||
-        (Array.isArray(user.blackBoxes) && user.blackBoxes.length > 0) ||
-        (Array.isArray(user.fleetLogs) && user.fleetLogs.length > 0) ||
-        (Array.isArray(user.recentGatherings) && user.recentGatherings.length > 0) ||
-        (Array.isArray(user.hitTrackers) && user.hitTrackers.length > 0) || 
-        (Array.isArray(user.sbLogEntries) && user.sbLogEntries.length > 0);
-      return matchesSearch && matchesAllowedRanks && matchesFilter && hasAnyActivity;
+      // Do not require any activity; show all users in allowed roles
+      return matchesSearch && matchesAllowedRanks && matchesFilter;
     });
 
     if (sortConfig) {
@@ -239,7 +304,35 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     }
 
     return arr;
-  }, [filteredUsersWithData, search, filter, sortConfig]);
+  }, [filteredUsersWithData, debouncedSearch, debouncedFilter, sortConfig]);
+
+  // When rank filter changes to a specific role, fetch from backend; empty filter uses parent-provided list
+  useEffect(() => {
+    const role = debouncedFilter;
+    let cancelled = false;
+    const fetchByRole = async () => {
+      if (!role || !allowedRanks.includes(role)) {
+        // Reset to parent-provided users
+        setSourceUsers(users || []);
+        return;
+      }
+      setFetchUsersLoading(true);
+      try {
+        let data: User[] | null = null;
+        if (role === 'Prospect') data = await getUsersByProspectRole();
+        else if (role === 'Crew') data = await getUsersByCrewRole();
+        else if (role === 'Marauder') data = await getUsersByMarauderRole();
+        else if (role === 'Blooded') data = await getUsersByBloodedRole();
+        if (!cancelled) setSourceUsers(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (!cancelled) setSourceUsers([]);
+      } finally {
+        if (!cancelled) setFetchUsersLoading(false);
+      }
+    };
+    fetchByRole();
+    return () => { cancelled = true; };
+  }, [debouncedFilter, users]);
 
   // Notify parent of the actually displayed list (debounced to match filters)
   useEffect(() => {
@@ -249,55 +342,127 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     }
   }, [displayedUsers, onFilteredUsersChange]);
 
-  // Calculate averages for each column using only filteredUsers (the displayed users)
-  const avgVoiceHours = displayedUsers.length > 0 ? displayedUsers.reduce((sum, u) => sum + (u.voiceHours || 0), 0) / displayedUsers.length : 0;
-  const avgFleetLogs = displayedUsers.length > 0 ? displayedUsers.reduce((sum, u) => sum + (Array.isArray(u.fleetLogs) ? u.fleetLogs.length : 0), 0) / displayedUsers.length : 0;
-  const avgHitTrackers = displayedUsers.length > 0 ? displayedUsers.reduce((sum, u) => sum + (Array.isArray(u.hitTrackers) ? u.hitTrackers.length : 0), 0) / displayedUsers.length : 0;
-  const avgBlackBoxes = displayedUsers.length > 0 ? displayedUsers.reduce((sum, u) => sum + (Array.isArray(u.blackBoxes) ? u.blackBoxes.length : 0), 0) / displayedUsers.length : 0;
-  const avgFlightTime = displayedUsers.length > 0 ? displayedUsers.reduce((sum, u) => sum + (typeof u.sbPlayerSummary?.total_flight_time === 'number' ? u.sbPlayerSummary.total_flight_time : 0), 0) / displayedUsers.length : 0;
+  // Compute 90th percentile thresholds (top 10%) per metric over displayed users, excluding zeros/nulls
+  const percentile90 = (vals: number[]): number => {
+    const arr = vals.filter(v => typeof v === 'number' && v > 0).sort((a, b) => a - b);
+    const n = arr.length;
+    if (n === 0) return Number.POSITIVE_INFINITY; // no highlights when no valid data
+    const idx = Math.ceil(0.9 * n) - 1; // 0-based index
+    return arr[Math.max(0, Math.min(idx, n - 1))];
+    };
+
+  const thresholds = React.useMemo(() => {
+    const voiceHoursVals = displayedUsers.map(u => Number(u.voiceHours) || 0);
+    const fleetLogsVals = displayedUsers.map(u => (Array.isArray(u.fleetLogs) ? u.fleetLogs.length : 0));
+    const hitTrackersVals = displayedUsers.map(u => (Array.isArray(u.hitTrackers) ? u.hitTrackers.length : 0));
+    const blackBoxesVals = displayedUsers.map(u => (Array.isArray(u.blackBoxes) ? u.blackBoxes.length : 0));
+    const flightTimeVals = displayedUsers.map(u => (typeof u.sbPlayerSummary?.total_flight_time === 'number' ? u.sbPlayerSummary.total_flight_time : 0));
+    return {
+      voiceHours: percentile90(voiceHoursVals),
+      fleetLogs: percentile90(fleetLogsVals),
+      hitTrackers: percentile90(hitTrackersVals),
+      blackBoxes: percentile90(blackBoxesVals),
+      flightTime: percentile90(flightTimeVals),
+    };
+  }, [displayedUsers]);
 
   return (
     <div>
       {/* Search, filter, and date selector section */}
       <div style={{ marginBottom: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+        <div style={{ position: "relative", display: "inline-block" }}>
         <input
           type="text"
           placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => {
+            // small delay to allow click on suggestion
+            setTimeout(() => setSearchFocused(false), 120);
+            setActiveSuggestionIndex(-1);
+          }}
+          onKeyDown={(e) => {
+            if (!suggestions.length) return;
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setActiveSuggestionIndex((i) => (i + 1) % suggestions.length);
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setActiveSuggestionIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+            } else if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+              e.preventDefault();
+              const s = suggestions[activeSuggestionIndex];
+              if (s) setSearch(s.label);
+              setActiveSuggestionIndex(-1);
+              setSearchFocused(false);
+            }
+          }}
           style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #444", background: "#111", color: "#fff" }}
         />
+        {searchFocused && suggestions.length > 0 && (
+          <ul style={{
+            position: 'absolute',
+            top: '2.25rem',
+            left: 0,
+            right: 0,
+            maxHeight: '220px',
+            overflowY: 'auto',
+            background: '#111',
+            border: '1px solid #444',
+            borderRadius: 4,
+            margin: 0,
+            padding: '0.25rem 0',
+            listStyle: 'none',
+            zIndex: 10,
+          }}>
+            {suggestions.map((s, idx) => (
+              <li
+                key={`${s.type}:${s.id}:${s.label}`}
+                onMouseDown={(e) => {
+                  // prevent input blur before click
+                  e.preventDefault();
+                  setSearch(s.label);
+                  setSearchFocused(false);
+                  setActiveSuggestionIndex(-1);
+                }}
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  cursor: 'pointer',
+                  background: idx === activeSuggestionIndex ? '#1c1c1c' : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+                title={s.type === 'nickname' ? 'nickname' : 'username'}
+              >
+                <span style={{ opacity: 0.7, fontSize: 12 }}>{s.type === 'nickname' ? 'Nick' : 'User'}</span>
+                <span>{s.label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        </div>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #444", background: "#111", color: "#fff" }}
         >
           <option value="">All Ranks</option>
-          {playerRanks.map(rank => (
-            <option key={rank.name} value={rank.name}>{rank.name}</option>
+          {allowedRanks.map(rankName => (
+            <option key={rankName} value={rankName}>{rankName}</option>
           ))}
         </select>
-        <label style={{ color: "#fff" }}>
-          Start:
-          <input
-            type="date"
-            value={startDate}
-            max={endDate}
-            onChange={e => setStartDate(e.target.value)}
-            style={{ marginLeft: "0.5rem", padding: "0.5rem", borderRadius: "4px", border: "1px solid #444", background: "#111", color: "#fff" }}
-          />
-        </label>
-        <label style={{ color: "#fff" }}>
-          End:
-          <input
-            type="date"
-            value={endDate}
-            min={startDate}
-            max={new Date().toISOString().slice(0, 10)}
-            onChange={e => setEndDate(e.target.value)}
-            style={{ marginLeft: "0.5rem", padding: "0.5rem", borderRadius: "4px", border: "1px solid #444", background: "#111", color: "#fff" }}
-          />
-        </label>
+        <select
+          value={timeframe}
+          onChange={(e) => setTimeframe(e.target.value as any)}
+          style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #444", background: "#111", color: "#fff" }}
+        >
+          <option value="last_month">Last Month</option>
+          <option value="last_3_months">Last 3 Months</option>
+          <option value="last_year">Last Year</option>
+          <option value="all_time">All Time</option>
+        </select>
       </div>
       {/* Users table */}
       <div style={{ overflowX: "auto" }}>
@@ -310,17 +475,17 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'voiceHours' ? { key: 'voiceHours', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'voiceHours', direction: 'desc' })}>
                 Voice Hours {sortConfig?.key === 'voiceHours' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
-              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'fleetLogs' ? { key: 'fleetLogs', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'fleetLogs', direction: 'desc' })}>
+              {/* <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'fleetLogs' ? { key: 'fleetLogs', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'fleetLogs', direction: 'desc' })}>
                 Fleet Activities {sortConfig?.key === 'fleetLogs' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
+              </th> */}
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'hitTrackers' ? { key: 'hitTrackers', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'hitTrackers', direction: 'desc' })}>
-                Pirate Actions {sortConfig?.key === 'hitTrackers' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                Hits {sortConfig?.key === 'hitTrackers' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'blackBoxes' ? { key: 'blackBoxes', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'blackBoxes', direction: 'desc' })}>
                 PVP Kills {sortConfig?.key === 'blackBoxes' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'flightTime' ? { key: 'flightTime', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'flightTime', direction: 'desc' })}>
-                Flight Time {sortConfig?.key === 'flightTime' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                SB Time {sortConfig?.key === 'flightTime' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'avgRank' ? { key: 'avgRank', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'avgRank', direction: 'desc' })}>
                 Avg Rank {sortConfig?.key === 'avgRank' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
@@ -328,7 +493,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
             </tr>
           </thead>
           <tbody>
-            {loading || sessionsLoading ? (
+            {loading || sessionsLoading || fetchUsersLoading ? (
               <tr>
                 <td colSpan={3} style={{ textAlign: "left", padding: "1rem" }}>Loading...</td>
               </tr>
@@ -360,31 +525,31 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
                     })()}
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                       {user.voiceHours}
-                      {user.voiceHours > avgVoiceHours && (
+                      {Number(user.voiceHours) > 0 && Number(user.voiceHours) >= thresholds.voiceHours && (
                         <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
                       )}
                     </td>
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                       {Array.isArray(user.fleetLogs) ? user.fleetLogs.length : 0}
-                      {Array.isArray(user.fleetLogs) && user.fleetLogs.length > avgFleetLogs && (
+                      {Array.isArray(user.fleetLogs) && user.fleetLogs.length > 0 && user.fleetLogs.length >= thresholds.fleetLogs && (
                         <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
                       )}
                     </td>
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                       {Array.isArray(user.hitTrackers) ? user.hitTrackers.length : 0}
-                      {Array.isArray(user.hitTrackers) && user.hitTrackers.length > avgHitTrackers && (
+                      {Array.isArray(user.hitTrackers) && user.hitTrackers.length > 0 && user.hitTrackers.length >= thresholds.hitTrackers && (
                         <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
                       )}
                     </td>
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                       {Array.isArray(user.blackBoxes) ? user.blackBoxes.length : 0}
-                      {Array.isArray(user.blackBoxes) && user.blackBoxes.length > avgBlackBoxes && (
+                      {Array.isArray(user.blackBoxes) && user.blackBoxes.length > 0 && user.blackBoxes.length >= thresholds.blackBoxes && (
                         <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
                       )}
                     </td>
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
                       {user.sbPlayerSummary?.total_flight_time || "-"}
-                      {typeof user.sbPlayerSummary?.total_flight_time === 'number' && user.sbPlayerSummary.total_flight_time > avgFlightTime && (
+                      {typeof user.sbPlayerSummary?.total_flight_time === 'number' && user.sbPlayerSummary.total_flight_time > 0 && user.sbPlayerSummary.total_flight_time >= thresholds.flightTime && (
                         <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
                       )}
                     </td>

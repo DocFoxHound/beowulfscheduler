@@ -1,6 +1,12 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { grantPrestige } from "../../api/grantPrestige";
 import { groupPrestige, getBadgeProgress, isBadgeReady, voiceHoursFromStats } from "../../utils/progressionEngine";
+import { getAllUsers } from "../../api/userService";
+import type { User as OrgUser } from "../../types/user";
+
+// Simple module-level cache to avoid duplicate fetches when component is rendered twice
+let cachedOrgUsers: OrgUser[] | null = null;
+let cachedOrgUsersPromise: Promise<OrgUser[] | null> | null = null;
 
 interface PlayerPrestigeProgressProps {
   activeBadgeReusables: any[];
@@ -9,10 +15,12 @@ interface PlayerPrestigeProgressProps {
   player?: any;
   isModerator?: boolean;
   dbUser?: any; // Optional prop for database user context
+  /** If provided, limits rendering to a single prestige (RAPTOR or RAIDER) */
+  onlyPrestige?: 'RAPTOR' | 'RAIDER';
 }
 
 
-const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeReusables, playerStats, playerStatsLoading, isModerator, dbUser, player }) => {
+const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeReusables, playerStats, playerStatsLoading, isModerator, dbUser, player, onlyPrestige }) => {
   // Build groups with shared engine
   const prestigeGroups = groupPrestige(activeBadgeReusables || []);
 
@@ -74,6 +82,91 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   // Track which prestige is being granted
   const [selectedPrestige, setSelectedPrestige] = useState<null | "RAPTOR" | "RAIDER">(null);
 
+  // Fetch and cache org users to build lists under cards
+  const [orgUsers, setOrgUsers] = useState<OrgUser[] | null>(cachedOrgUsers);
+  const [orgUsersLoading, setOrgUsersLoading] = useState<boolean>(!cachedOrgUsers);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        if (cachedOrgUsers) {
+          if (!cancelled) setOrgUsers(cachedOrgUsers);
+          return;
+        }
+        if (!cachedOrgUsersPromise) {
+          cachedOrgUsersPromise = getAllUsers() as unknown as Promise<OrgUser[] | null>;
+        }
+        const data = await cachedOrgUsersPromise;
+        if (!cancelled) {
+          cachedOrgUsers = Array.isArray(data) ? data : [];
+          setOrgUsers(cachedOrgUsers);
+        }
+      } catch (e) {
+        if (!cancelled) setOrgUsers([]);
+      } finally {
+        if (!cancelled) setOrgUsersLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Helper to parse env role IDs
+  const toIds = (envVar?: string) => (envVar || "").split(",").map(s => s.trim()).filter(Boolean);
+  const CREW_IDS = toIds(import.meta.env.VITE_CREW_ID);
+  const MARAUDER_IDS = toIds(import.meta.env.VITE_MARAUDER_ID);
+  const BLOODED_IDS_ENV = toIds(import.meta.env.VITE_BLOODED_ID);
+  const RONIN_IDS = toIds(import.meta.env.VITE_RONIN_ID); // Ronin role IDs for highlight/tag
+  const hasAny = (roles: string[] | undefined, ids: string[]) => Array.isArray(roles) && roles.some(r => ids.includes(r));
+  const isActiveRank = (u: OrgUser) => hasAny(u.roles, BLOODED_IDS_ENV) || hasAny(u.roles, MARAUDER_IDS) || hasAny(u.roles, CREW_IDS);
+
+  // Build sorted lists depending on view
+  const raptorList = useMemo(() => {
+    if (!orgUsers) return [] as OrgUser[];
+    return orgUsers
+      .filter(isActiveRank)
+      .filter(u => (u.raptor_level ?? 0) > 0)
+      .slice() // copy before sort
+      .sort((a, b) => (b.raptor_level ?? 0) - (a.raptor_level ?? 0) || (a.username || "").localeCompare(b.username || ""));
+  }, [orgUsers]);
+
+  const raiderList = useMemo(() => {
+    if (!orgUsers) return [] as OrgUser[];
+    return orgUsers
+      .filter(isActiveRank)
+      .filter(u => (u.raider_level ?? 0) > 0)
+      .slice()
+      .sort((a, b) => (b.raider_level ?? 0) - (a.raider_level ?? 0) || (a.username || "").localeCompare(b.username || ""));
+  }, [orgUsers]);
+
+  // Grouped lists by level
+  const raptorGroups = useMemo(() => {
+    const groups = new Map<number, OrgUser[]>();
+    for (const u of raptorList) {
+      const lvl = u.raptor_level ?? 0;
+      if (lvl <= 0) continue;
+      if (!groups.has(lvl)) groups.set(lvl, []);
+      groups.get(lvl)!.push(u);
+    }
+    return Array.from(groups.entries())
+      .sort((a, b) => b[0] - a[0])
+      .map(([level, users]) => ({ level, users: users.slice().sort((a, b) => (a.nickname || a.username || '').localeCompare(b.nickname || b.username || '')) }));
+  }, [raptorList]);
+
+  const raiderGroups = useMemo(() => {
+    const groups = new Map<number, OrgUser[]>();
+    for (const u of raiderList) {
+      const lvl = u.raider_level ?? 0;
+      if (lvl <= 0) continue;
+      if (!groups.has(lvl)) groups.set(lvl, []);
+      groups.get(lvl)!.push(u);
+    }
+    return Array.from(groups.entries())
+      .sort((a, b) => b[0] - a[0])
+      .map(([level, users]) => ({ level, users: users.slice().sort((a, b) => (a.nickname || a.username || '').localeCompare(b.nickname || b.username || '')) }));
+  }, [raiderList]);
+
   // Handler for Grant action
   const handleGrant = async () => {
     if (!selectedPrestige) return;
@@ -102,85 +195,181 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
     }
   };
 
+  // Determine which sections to show based on onlyPrestige prop
+  const showRaptor = !onlyPrestige || onlyPrestige === 'RAPTOR';
+  const showRaider = !onlyPrestige || onlyPrestige === 'RAIDER';
+
   return (
     <div style={{ marginTop: "2rem", position: "relative" }}>
-      <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>Prestige Progress</div>
-      {/* RAPTOR section converted to approval/assessment messaging (no progress bar, no badge list) */}
-      <div style={{ marginBottom: "1rem" }}>
-        <strong>RAPTOR {raptorLevel} → {Math.min(raptorLevel + 1, MAX_PRESTIGE_LEVEL)} Advancement:</strong>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
-          {canGrant && raptorLevel < MAX_PRESTIGE_LEVEL && (
-            <button
-              style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-              onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAPTOR"); }}
-            >
-              Grant
-            </button>
-          )}
-        </div>
-        <div style={{ marginTop: 10, background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 12 }}>
-          Advancement in RAPTOR is based on senior pilot approval. Demonstrate the required skills with a senior dogfighter pilot, and ask a senior RAPTOR about assessments.
-        </div>
+      <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>
+        {onlyPrestige ? `${onlyPrestige} Prestige Progress` : 'Prestige Progress'}
       </div>
-      <div style={{ marginBottom: "1rem" }}>
-        <strong>RAIDER {raiderLevel} → {raiderLevel + 1} Requirements:</strong>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ProgressBar progress={raiderLevel >= MAX_PRESTIGE_LEVEL ? 1 : getPrestigeProgress(nextRaider)} />
-          {canGrant && raiderLevel < MAX_PRESTIGE_LEVEL && (
-            <button
-              style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-              onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAIDER"); }}
-            >
-              Grant
-            </button>
-          )}
+      {showRaptor && (
+        <div style={{ marginBottom: "1rem" }}>
+          <strong>RAPTOR {raptorLevel} → {Math.min(raptorLevel + 1, MAX_PRESTIGE_LEVEL)} Advancement:</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+            {canGrant && raptorLevel < MAX_PRESTIGE_LEVEL && (
+              <button
+                style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAPTOR"); }}
+              >
+                Grant
+              </button>
+            )}
+          </div>
+          <div style={{ marginTop: 10, background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 12 }}>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li style={{ marginBottom: 6 }}>Defeat the next level of RAPTOR pilot in a Best-Out-Of-Three dogfight.</li>
+              <li>Pass a Teamfight assessment with a Ronin Team (our competitive dogfighting team) pilot.</li>
+            </ul>
+          </div>
+          {/* Active members by RAPTOR level */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>RAPTOR Members</div>
+            <div style={{ background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 8 }}>
+              {orgUsersLoading ? (
+                <div>Loading…</div>
+              ) : raptorGroups.length === 0 ? (
+                <div>No active members found.</div>
+              ) : (
+                <div>
+                  {raptorGroups.map(group => (
+                    <div key={group.level} style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 700, color: '#9cc3ff', margin: '6px 0' }}>Level {group.level}</div>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                        {group.users.map(u => {
+                          const isRoninRole = Array.isArray(u.roles) && u.roles.some(r => RONIN_IDS.includes(r));
+                          return (
+                            <li
+                              key={u.id}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                padding: '6px 4px',
+                                borderBottom: '1px solid #2c3440',
+                                ...(isRoninRole ? {
+                                  background: 'rgba(255,215,0,0.10)',
+                                  color: '#ffd700',
+                                  fontWeight: 600
+                                } : {})
+                              }}
+                            >
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {u.nickname || u.username}
+                                {isRoninRole && (
+                                  <span
+                                    style={{
+                                      background: '#ffd700',
+                                      color: '#1a1a1a',
+                                      padding: '2px 6px',
+                                      borderRadius: 4,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      letterSpacing: '0.05em'
+                                    }}
+                                  >RONIN</span>
+                                )}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {raiderLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
-          nextRaider.length === 0 ? <li>No requirements for next level.</li> :
-          nextRaider.map((badge, idx) => (
-            <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{badge.badge_name}</div>
-                <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{badge.badge_description}</div>
-                {(!badge.trigger || badge.trigger.length === 0) ? (
-                  <div><em>Given Manually</em></div>
-                ) : (
-                  <div style={{ fontSize: 13 }}>
-                    {badge.trigger.map((triggerStr: string | { metric: string; operator: string; value: number }, tIdx: number) => {
-                      let parsed: any;
-                      try {
-                        parsed = typeof triggerStr === 'string' ? JSON.parse(triggerStr) : triggerStr;
-                      } catch {
-                        return <div key={tIdx}>Invalid requirement</div>;
-                      }
-                      if (!parsed || typeof parsed !== 'object' || parsed.metric === undefined || parsed.operator === undefined || parsed.value === undefined) {
-                        return <div key={tIdx}>Invalid requirement</div>;
-                      }
-                      const metric: string = parsed.metric;
-                      const operator: string = parsed.operator;
-                      const value: number = Number(parsed.value);
-                      let playerValue = playerStats?.[metric] ?? 0;
-                      if (metric === 'voicehours' || metric === 'voice_minutes') {
-                        playerValue = voiceHoursFromStats(playerStats);
-                      }
-                      const met = isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
-                      return (
-                        <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
-                          <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
-                          (<span>you: {typeof playerValue === 'number' ? Math.round(playerValue) : playerValue}</span>)
-                        </div>
-                      );
-                    })}
+      )}
+      {showRaider && (
+        <>
+          <div style={{ marginBottom: "1rem" }}>
+            <strong>RAIDER {raiderLevel} → {raiderLevel + 1} Requirements:</strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <ProgressBar progress={raiderLevel >= MAX_PRESTIGE_LEVEL ? 1 : getPrestigeProgress(nextRaider)} />
+              {canGrant && raiderLevel < MAX_PRESTIGE_LEVEL && (
+                <button
+                  style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                  onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAIDER"); }}
+                >
+                  Grant
+                </button>
+              )}
+            </div>
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {raiderLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
+              nextRaider.length === 0 ? <li>No requirements for next level.</li> :
+              nextRaider.map((badge, idx) => (
+                <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 16 }}>{badge.badge_name}</div>
+                    <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{badge.badge_description}</div>
+                    {(!badge.trigger || badge.trigger.length === 0) ? (
+                      <div><em>Given Manually</em></div>
+                    ) : (
+                      <div style={{ fontSize: 13 }}>
+                        {badge.trigger.map((triggerStr: string | { metric: string; operator: string; value: number }, tIdx: number) => {
+                          let parsed: any;
+                          try {
+                            parsed = typeof triggerStr === 'string' ? JSON.parse(triggerStr) : triggerStr;
+                          } catch {
+                            return <div key={tIdx}>Invalid requirement</div>;
+                          }
+                          if (!parsed || typeof parsed !== 'object' || parsed.metric === undefined || parsed.operator === undefined || parsed.value === undefined) {
+                            return <div key={tIdx}>Invalid requirement</div>;
+                          }
+                          const metric: string = parsed.metric;
+                          const operator: string = parsed.operator;
+                          const value: number = Number(parsed.value);
+                          let playerValue = playerStats?.[metric] ?? 0;
+                          if (metric === 'voicehours' || metric === 'voice_minutes') {
+                            playerValue = voiceHoursFromStats(playerStats);
+                          }
+                          const met = isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
+                          return (
+                            <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
+                              <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
+                              (<span>you: {typeof playerValue === 'number' ? Math.round(playerValue) : playerValue}</span>)
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </li>
-          ))}
-      </ul>
-      {/* Grant Confirmation Modal */}
+                </li>
+              ))}
+          </ul>
+          {/* Active members by RAIDER level */}
+          <div style={{ marginTop: 4 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>RAIDER Members</div>
+            <div style={{ background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 8 }}>
+              {orgUsersLoading ? (
+                <div>Loading…</div>
+              ) : raiderGroups.length === 0 ? (
+                <div>No active members found.</div>
+              ) : (
+                <div>
+                  {raiderGroups.map(group => (
+                    <div key={group.level} style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 700, color: '#9cc3ff', margin: '6px 0' }}>Level {group.level}</div>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                        {group.users.map(u => (
+                          <li key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid #2c3440' }}>
+                            <span>{u.nickname || u.username}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
       {showGrantModal && (
         <div style={{
           position: "fixed",

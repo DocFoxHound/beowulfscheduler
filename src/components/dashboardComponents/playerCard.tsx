@@ -9,9 +9,10 @@ interface PlayerCardProps {
   user: any;
   playerStats?: any;
   playerStatsLoading?: boolean;
+  playerBadges?: any[]; // pass down to promotion progress for Crew Challenge badge detection
 }
 
-const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, playerStatsLoading }) => {
+const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, playerStatsLoading, playerBadges = [] }) => {
   const [showRsiModal, setShowRsiModal] = useState(false);
   // Local stats state to ensure PromotionProgress can render outside admin page
   const [localStats, setLocalStats] = useState<any | null>(playerStats ?? null);
@@ -119,10 +120,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, play
       </div>
       {/* Promotion progress below RSI handle */}
       <PlayerPromotionProgress
-    playerStats={localStats ?? {}}
+        playerStats={localStats ?? {}}
         playerStatsLoading={!!localLoading}
         player={user}
         dbUser={dbUser}
+        playerBadges={playerBadges}
       />
       {showRsiModal && (
         <RsiHandleModal dbUser={dbUser} onClose={() => setShowRsiModal(false)} />

@@ -12,7 +12,7 @@ import PlayerBadgeProgress from "../components/adminComponents/PlayerBadgeProgre
 import PlayerPromotionProgress from "../components/adminComponents/PlayerPromotionProgress";
 import PlayerPrestigeProgress from "../components/adminComponents/PlayerPrestigeProgress";
 import SpecializedTeams from "../components/dashboardComponents/SpecializedTeams";
-import PlayerGangStats from "../components/gangComponents/PlayerGangStats";
+// import PlayerGangStats from "../components/gangComponents/PlayerGangStats";
 import KillOverviewBoard from "../components/dashboardComponents/KillOverviewBoard";
 import { fetchRecentGangsSummary } from "../api/recentGangsApi";
 import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
@@ -178,7 +178,8 @@ export default function Dashboard() {
             user={user}
             playerStats={playerStats}
             playerStatsLoading={playerStatsLoading}
-             />
+            playerBadges={playerBadges}
+          />
         </div>
         <div className="dashboard-area org-goals-area" style={{ gridColumn: '2 / 4' }}>
           <OrgGoals
@@ -191,6 +192,11 @@ export default function Dashboard() {
         </div>
         {/* Bottom row: three progress sections */}
         <div className="dashboard-area">
+          <SpecializedTeams 
+            dbUser={dbUser} 
+            orgSummaries={orgSummaries}
+            latestPatch={latestPatch}
+          />
           <PlayerBadgeProgress
             badgeReusables={activeBadgeReusables}
             loading={activeBadgeReusablesLoading}
@@ -208,25 +214,17 @@ export default function Dashboard() {
             playerStatsLoading={playerStatsLoading}
             player={dbUser}
             dbUser={dbUser}
-          />
-          <SpecializedTeams 
-            dbUser={dbUser} 
-            orgSummaries={orgSummaries}
-            latestPatch={latestPatch}
+            onlyPrestige="RAPTOR"
           />
         </div>
         <div className="dashboard-area">
-          <PlayerGangStats
-            dbUser={dbUser}
-            gameVersion={latestPatch}
-            summaryData={summaryData}
-            displayType="Dashboard"
+          <PlayerPrestigeProgress
+            activeBadgeReusables={activeBadgeReusables}
             playerStats={playerStats}
             playerStatsLoading={playerStatsLoading}
-          />
-          <KillOverviewBoard
-            patch={latestPatch}
-            dbUser={dbUser ? [dbUser] : []}
+            player={dbUser}
+            dbUser={dbUser}
+            onlyPrestige="RAIDER"
           />
         </div>
       </main>

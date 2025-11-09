@@ -149,7 +149,8 @@ export const voiceHoursFromStats = (stats?: PlayerStatsLike | null): number => {
 export const assessPromotion = (
   stats: PlayerStatsLike | null | undefined,
   userRankId?: string,
-  env?: RankEnv
+  env?: RankEnv,
+  playerBadges?: PlayerBadge[]
 ): PromotionAssessment => {
   // Prefer explicit rank ID; if missing/unmatched, fall back to stats.rank_name
   let detected = detectRank(userRankId, env);
@@ -176,20 +177,29 @@ export const assessPromotion = (
   if (detected === 'Friendly') {
     progressPercent = 100; // ready to Prospect manually
   } else if (detected === 'Prospect') {
-    const piracyHits = Number(stats.piracyhits) || 0;
-    const fleetParticipated = Number(stats.fleetparticipated) || 0;
-    // Prospect -> Crew: points are piracyHits + 0.25 * fleetParticipated
-    const points = piracyHits + (fleetParticipated * 0.25);
-    const pointsProgress = clamp01(points / 10);
-    const flightHours = Number(stats.flighthours) || 0;
-    const shipsBLeaderboardRank = Number(stats.shipsbleaderboardrank) || Infinity;
-    const shipKills = Number(stats.shipkills) || 0;
-    const secondaryProgress = Math.max(
-      clamp01(flightHours / 20),
-      shipsBLeaderboardRank <= 1000 ? 1 : 0,
-      clamp01(shipKills / 100)
+    // NEW Prospect -> Crew logic (2025-11): Only two metrics now
+    // 1. Pirate hits (target: 10)
+    // 2. Crew Challenge completion (boolean flag in stats)
+    // Overall completion = average of the two (each worth 50%).
+    const piracyHits = Number((stats as any).piracyhits) || 0;
+    const pirateHitsProgress = clamp01(piracyHits / 10);
+    // Crew Challenge completion: prefer explicit badge possession, fallback to flags
+    const hasCrewChallengeBadge = (playerBadges || []).some(
+      (b) => (b?.badge_name || '').toLowerCase() === 'crew challenge'
     );
-    progressPercent = Math.round(((pointsProgress + secondaryProgress) / 2) * 100);
+    const challengeFlags = [
+      (stats as any)?.crewchallenge,
+      (stats as any)?.crew_challenge,
+      (stats as any)?.crewchallengepassed,
+      (stats as any)?.crewChallengePassed,
+      (stats as any)?.crew_challenge_passed,
+      (stats as any)?.crew_challenge_completed,
+    ];
+    const challengeCompleted = hasCrewChallengeBadge || challengeFlags.some(
+      (v) => v === true || v === 1 || v === 'true' || v === 'completed'
+    );
+    const challengeProgress = challengeCompleted ? 1 : 0;
+    progressPercent = Math.round(((pirateHitsProgress + challengeProgress) / 2) * 100);
   } else if (detected === 'Crew') {
   const shipsBLeaderboardRank = Number(stats.shipsbleaderboardrank) || Infinity;
   const piracyHits = Number(stats.piracyhits) || 0;
@@ -381,7 +391,7 @@ export const assessPlayerForAdminUpdates = (args: {
 
   // Promotion
   const userRankId = rankIdFromUser(user);
-  const promo = assessPromotion(stats, userRankId, env);
+  const promo = assessPromotion(stats, userRankId, env, playerBadges);
   if (promo.nextRank && promo.progressPercent >= 100) {
     updates.push({
       type: 'promotion',

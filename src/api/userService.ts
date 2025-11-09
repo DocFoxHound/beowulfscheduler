@@ -44,6 +44,86 @@ export const getUserRank = async (rankId: string): Promise<User | null> => {
 };
 
 /**
+ * Fetches users whose roles contain any Prospect role IDs
+ * @returns Promise with array of User data
+ */
+export const getUsersByProspectRole = async (): Promise<User[] | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/by-prospect-role`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users by Prospect role:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches users whose roles contain any Crew role IDs
+ * @returns Promise with array of User data
+ */
+export const getUsersByCrewRole = async (): Promise<User[] | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/by-crew-role`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users by Crew role:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches users whose roles contain any Marauder role IDs
+ * @returns Promise with array of User data
+ */
+export const getUsersByMarauderRole = async (): Promise<User[] | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/by-marauder-role`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users by Marauder role:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches users whose roles contain any Blooded role IDs
+ * @returns Promise with array of User data
+ */
+export const getUsersByBloodedRole = async (): Promise<User[] | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/by-blooded-role`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users by Blooded role:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches users considered active members (Prospect/Crew/Marauder/Blooded)
+ * @returns Promise with array of User data
+ */
+export const getUsersByActiveMemberRole = async (): Promise<User[] | null> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/users/by-active-member-role`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users by Active Member role:', error);
+    throw error;
+  }
+};
+
+/**
  * Fetches users whose roles contain any RONIN_IDS
  * @returns Promise with array of User data
  */

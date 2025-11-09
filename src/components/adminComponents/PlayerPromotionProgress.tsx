@@ -10,13 +10,14 @@ interface PlayerPromotionProgressProps {
   player?: any;
   isModerator?: boolean;
   dbUser?: any; // Optional prop for database user context
+  playerBadges?: any[]; // Newly added: list of player's earned badges (badge_name field expected)
   onPromote?: () => void; // Optional callback to trigger refresh in parent
 }
 
 
 // Note: rank ordering is handled by the progression engine
 
-const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats, playerStatsLoading, isModerator, player, dbUser, onPromote }) => {
+const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats, playerStatsLoading, isModerator, player, dbUser, playerBadges = [], onPromote }) => {
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState<string | null>(null);
@@ -74,6 +75,25 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
   const progressPercent = promo.progressPercent;
   detectedRank = promo.detectedRank;
 
+  // Prospect metric readouts for display (non-authoritative; engine is source of truth)
+  const prospectPiracyHits = Number((playerStats as any)?.piracyhits) || 0;
+  const crewChallengeFlags = [
+    (playerStats as any)?.crewchallenge,
+    (playerStats as any)?.crew_challenge,
+    (playerStats as any)?.crewchallengepassed,
+    (playerStats as any)?.crewChallengePassed,
+    (playerStats as any)?.crew_challenge_passed,
+    (playerStats as any)?.crew_challenge_completed,
+  ];
+  // Crew Challenge completion now determined by possession of the "Crew Challenge" badge.
+  const hasCrewChallengeBadge = (playerBadges || []).some(
+    (b) => (b?.badge_name || '').toLowerCase() === 'crew challenge'
+  );
+  // Fallback flags if badge not yet migrated
+  const prospectCrewChallenge = hasCrewChallengeBadge || crewChallengeFlags.some(
+    (v) => v === true || v === 1 || v === "true" || v === "completed"
+  );
+
   // Prepare requirements breakdown
   let requirementsSection = null;
   if (nextRank) {
@@ -81,13 +101,10 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
     if (detectedRank === "Prospect") {
       requirementsSection = (
         <div style={{ marginTop: "1rem", background: "#1e232b", color: "#e6eef8", border: "1px solid #2c3440", borderRadius: 8, padding: 12 }}>
-          <strong>How to reach Crew</strong>
+          <strong>The Crew Challenge</strong>
           <ul style={{ marginTop: 6, lineHeight: 1.6 }}>
-            <li>10 pirate hits (Pirate badge)</li>
-            <li>1 month of participation and training</li>
-            <li>
-              The <strong>CREW CHALLENGE</strong>: be able to beat a Crew member (RAPTOR skill level 1) of IronPoint in a dogfight to join
-            </li>
+            <li>The <strong>CREW CHALLENGE</strong> is a skill gate for dogfighting, making sure that IronPoint's Crew have at least a basic competency and will be able to overcome the average Star Citizen player.</li>
+            <li><strong>TASK: </strong>Defeat a <strong>RAPTOR I</strong> pilot in a dogfight within 3 lives. </li>
           </ul>
         </div>
       );
@@ -183,8 +200,8 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           <div style={{ marginBottom: "0.5rem" }}>
             Next Rank: <strong>{nextRank}</strong>
           </div>
-          {/* Show progress bar only for transitions other than Prospect->Crew, Crew->Marauder, Marauder->Blooded */}
-          {!(detectedRank === "Prospect" || detectedRank === "Crew" || detectedRank === "Marauder") && (
+          {/* Show progress bar for all ranks except manual-only transitions Crew->Marauder and Marauder->Blooded */}
+          {!(detectedRank === "Crew" || detectedRank === "Marauder") && (
             <>
               <div style={{
                 background: "#eee",
@@ -202,6 +219,15 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
                 }} />
               </div>
               <div>{progressPercent}% to {nextRank}</div>
+              {detectedRank === 'Prospect' && (
+                <div style={{ marginTop: 8, fontSize: 13, color: '#d0d7e2' }}>
+                  <div>Progress = (Pirate Hits / 10 + Crew Challenge completion) / 2</div>
+                  <ul style={{ marginTop: 6, lineHeight: 1.4 }}>
+                    <li>Pirate hits: {prospectPiracyHits}/10</li>
+                    <li>Crew challenge: {prospectCrewChallenge ? 'Completed (badge earned)' : 'Not yet'}</li>
+                  </ul>
+                </div>
+              )}
             </>
           )}
           {requirementsSection}
