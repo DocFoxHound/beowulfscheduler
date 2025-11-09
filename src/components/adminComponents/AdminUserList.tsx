@@ -472,12 +472,10 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", fontWeight: 500 }}>Username</th>
               {/* <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444" }}>Display Name</th> */}
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", fontWeight: 500 }}>Rank</th>
+              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", fontWeight: 500 }}>Time in Rank</th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'voiceHours' ? { key: 'voiceHours', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'voiceHours', direction: 'desc' })}>
                 Voice Hours {sortConfig?.key === 'voiceHours' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
-              {/* <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'fleetLogs' ? { key: 'fleetLogs', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'fleetLogs', direction: 'desc' })}>
-                Fleet Activities {sortConfig?.key === 'fleetLogs' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th> */}
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'hitTrackers' ? { key: 'hitTrackers', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'hitTrackers', direction: 'desc' })}>
                 Hits {sortConfig?.key === 'hitTrackers' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
@@ -504,6 +502,27 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
             ) : (
               displayedUsers.map((user: any) => (
                 <React.Fragment key={user.id}>
+                  {/* Helper: Time in Rank formatting */}
+                  {(() => {
+                    const formatTimeInRank = (promoteDate?: string | Date) => {
+                      if (!promoteDate) return "-";
+                      const start = new Date(promoteDate);
+                      if (isNaN(start.getTime())) return "-";
+                      const now = new Date();
+                      if (start > now) return "0 days";
+                      let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+                      const anchor = new Date(start);
+                      anchor.setMonth(start.getMonth() + months);
+                      if (anchor > now) {
+                        months -= 1;
+                      }
+                      anchor.setMonth(start.getMonth() + months);
+                      const days = Math.floor((now.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+                      if (months <= 0) return `${days} day${days === 1 ? '' : 's'}`;
+                      return `${months} month${months === 1 ? '' : 's'}${days > 0 ? `, ${days} day${days === 1 ? '' : 's'}` : ''}`;
+                    };
+                    return null;
+                  })()}
                   <tr
                     style={{ cursor: "pointer", background: expandedUserId === user.id ? "#333" : undefined }}
                     onClick={() => setExpandedUserId(expandedUserId === user.id ? null : user.id)}
@@ -524,14 +543,27 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
                       );
                     })()}
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
-                      {user.voiceHours}
-                      {Number(user.voiceHours) > 0 && Number(user.voiceHours) >= thresholds.voiceHours && (
-                        <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
-                      )}
+                      {(() => {
+                        const promoteDate = (user as any).promote_date;
+                        const start = promoteDate ? new Date(promoteDate) : null;
+                        if (!start || isNaN(start.getTime())) return "-";
+                        const now = new Date();
+                        if (start > now) return "0 days";
+                        let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+                        const anchor = new Date(start);
+                        anchor.setMonth(start.getMonth() + months);
+                        if (anchor > now) {
+                          months -= 1;
+                        }
+                        anchor.setMonth(start.getMonth() + months);
+                        const days = Math.floor((now.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+                        if (months <= 0) return `${days} day${days === 1 ? '' : 's'}`;
+                        return `${months} month${months === 1 ? '' : 's'}${days > 0 ? `, ${days} day${days === 1 ? '' : 's'}` : ''}`;
+                      })()}
                     </td>
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
-                      {Array.isArray(user.fleetLogs) ? user.fleetLogs.length : 0}
-                      {Array.isArray(user.fleetLogs) && user.fleetLogs.length > 0 && user.fleetLogs.length >= thresholds.fleetLogs && (
+                      {user.voiceHours}
+                      {Number(user.voiceHours) > 0 && Number(user.voiceHours) >= thresholds.voiceHours && (
                         <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
                       )}
                     </td>

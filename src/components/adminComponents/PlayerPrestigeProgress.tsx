@@ -17,10 +17,12 @@ interface PlayerPrestigeProgressProps {
   dbUser?: any; // Optional prop for database user context
   /** If provided, limits rendering to a single prestige (RAPTOR or RAIDER) */
   onlyPrestige?: 'RAPTOR' | 'RAIDER';
+  /** If false, hides the member lists (used on Admin Activity page) */
+  showMembers?: boolean;
 }
 
 
-const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeReusables, playerStats, playerStatsLoading, isModerator, dbUser, player, onlyPrestige }) => {
+const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeReusables, playerStats, playerStatsLoading, isModerator, dbUser, player, onlyPrestige, showMembers = true }) => {
   // Build groups with shared engine
   const prestigeGroups = groupPrestige(activeBadgeReusables || []);
 
@@ -87,6 +89,10 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   const [orgUsersLoading, setOrgUsersLoading] = useState<boolean>(!cachedOrgUsers);
 
   React.useEffect(() => {
+    if (!showMembers) {
+      // If we are not showing members, skip fetch to save bandwidth
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       try {
@@ -167,6 +173,17 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
       .map(([level, users]) => ({ level, users: users.slice().sort((a, b) => (a.nickname || a.username || '').localeCompare(b.nickname || b.username || '')) }));
   }, [raiderList]);
 
+  // Collapsible state per level for readability
+  const [collapsedRaptorLevels, setCollapsedRaptorLevels] = useState<Record<number, boolean>>({});
+  const [collapsedRaiderLevels, setCollapsedRaiderLevels] = useState<Record<number, boolean>>({});
+
+  const toggleRaptorLevel = (level: number) => {
+    setCollapsedRaptorLevels((prev) => ({ ...prev, [level]: !prev[level] }));
+  };
+  const toggleRaiderLevel = (level: number) => {
+    setCollapsedRaiderLevels((prev) => ({ ...prev, [level]: !prev[level] }));
+  };
+
   // Handler for Grant action
   const handleGrant = async () => {
     if (!selectedPrestige) return;
@@ -223,63 +240,87 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
               <li>Pass a Teamfight assessment with a Ronin Team (our competitive dogfighting team) pilot.</li>
             </ul>
           </div>
-          {/* Active members by RAPTOR level */}
-          <div style={{ marginTop: 14 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>RAPTOR Members</div>
-            <div style={{ background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 8 }}>
-              {orgUsersLoading ? (
-                <div>Loading…</div>
-              ) : raptorGroups.length === 0 ? (
-                <div>No active members found.</div>
-              ) : (
-                <div>
-                  {raptorGroups.map(group => (
-                    <div key={group.level} style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 700, color: '#9cc3ff', margin: '6px 0' }}>Level {group.level}</div>
-                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                        {group.users.map(u => {
-                          const isRoninRole = Array.isArray(u.roles) && u.roles.some(r => RONIN_IDS.includes(r));
-                          return (
-                            <li
-                              key={u.id}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                padding: '6px 4px',
-                                borderBottom: '1px solid #2c3440',
-                                ...(isRoninRole ? {
-                                  background: 'rgba(255,215,0,0.10)',
-                                  color: '#ffd700',
-                                  fontWeight: 600
-                                } : {})
-                              }}
-                            >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {u.nickname || u.username}
-                                {isRoninRole && (
-                                  <span
-                                    style={{
-                                      background: '#ffd700',
-                                      color: '#1a1a1a',
-                                      padding: '2px 6px',
-                                      borderRadius: 4,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      letterSpacing: '0.05em'
-                                    }}
-                                  >RONIN</span>
-                                )}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {showMembers && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>RAPTOR Members</div>
+              <div style={{ background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 8 }}>
+                {orgUsersLoading ? (
+                  <div>Loading…</div>
+                ) : raptorGroups.length === 0 ? (
+                  <div>No active members found.</div>
+                ) : (
+                  <div>
+                    {raptorGroups.map(group => (
+                      <div key={group.level} style={{ marginBottom: 8 }}>
+                        <div
+                          onClick={() => toggleRaptorLevel(group.level)}
+                          style={{
+                            fontWeight: 700,
+                            color: '#9cc3ff',
+                            margin: '6px 0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                          }}
+                          title="Toggle group"
+                        >
+                          <span style={{ display: 'inline-block', width: 14 }}>
+                            {collapsedRaptorLevels[group.level] ? '▶' : '▼'}
+                          </span>
+                          <span>Level {group.level}</span>
+                        </div>
+                        {!collapsedRaptorLevels[group.level] && (
+                          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 0 14px' }}>
+                            {group.users.map((u, idx) => {
+                            const isRoninRole = Array.isArray(u.roles) && u.roles.some(r => RONIN_IDS.includes(r));
+                            return (
+                              <li
+                                key={u.id}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  padding: '6px 6px',
+                                  borderBottom: '1px solid #2c3440',
+                                  marginLeft: 6,
+                                  borderRadius: 4,
+                                  background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                                  ...(isRoninRole ? {
+                                    background: 'rgba(255,215,0,0.10)',
+                                    color: '#ffd700',
+                                    fontWeight: 600
+                                  } : {})
+                                }}
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {u.nickname || u.username}
+                                  {isRoninRole && (
+                                    <span
+                                      style={{
+                                        background: '#ffd700',
+                                        color: '#1a1a1a',
+                                        padding: '2px 6px',
+                                        borderRadius: 4,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        letterSpacing: '0.05em'
+                                      }}
+                                    >RONIN</span>
+                                  )}
+                                </span>
+                              </li>
+                            );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
       {showRaider && (
@@ -342,32 +383,53 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
                 </li>
               ))}
           </ul>
-          {/* Active members by RAIDER level */}
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>RAIDER Members</div>
-            <div style={{ background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 8 }}>
-              {orgUsersLoading ? (
-                <div>Loading…</div>
-              ) : raiderGroups.length === 0 ? (
-                <div>No active members found.</div>
-              ) : (
-                <div>
-                  {raiderGroups.map(group => (
-                    <div key={group.level} style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 700, color: '#9cc3ff', margin: '6px 0' }}>Level {group.level}</div>
-                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                        {group.users.map(u => (
-                          <li key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid #2c3440' }}>
-                            <span>{u.nickname || u.username}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {showMembers && (
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>RAIDER Members</div>
+              <div style={{ background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 8 }}>
+                {orgUsersLoading ? (
+                  <div>Loading…</div>
+                ) : raiderGroups.length === 0 ? (
+                  <div>No active members found.</div>
+                ) : (
+                  <div>
+                    {raiderGroups.map(group => (
+                      <div key={group.level} style={{ marginBottom: 8 }}>
+                        <div
+                          onClick={() => toggleRaiderLevel(group.level)}
+                          style={{
+                            fontWeight: 700,
+                            color: '#9cc3ff',
+                            margin: '6px 0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                          }}
+                          title="Toggle group"
+                        >
+                          <span style={{ display: 'inline-block', width: 14 }}>
+                            {collapsedRaiderLevels[group.level] ? '▶' : '▼'}
+                          </span>
+                          <span>Level {group.level}</span>
+                        </div>
+                        {!collapsedRaiderLevels[group.level] && (
+                          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 0 14px' }}>
+                            {group.users.map((u, idx) => (
+                              <li key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 6px', borderBottom: '1px solid #2c3440', marginLeft: 6, borderRadius: 4, background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                                <span>{u.nickname || u.username}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
       {showGrantModal && (
