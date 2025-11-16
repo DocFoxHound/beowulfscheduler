@@ -51,7 +51,7 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
         const updatesList: PlaceholderEntry[] = [];
         activeUsersWithStats.forEach(({ user, stats: ps }, uIdx) => {
           const id = user?.id ?? uIdx + 1;
-          const name = user?.username ?? user?.displayName ?? `User ${id}`;
+          const name = user?.nickname || user?.username || user?.displayName || `User ${id}`;
           // Determine if we actually have badge data loaded for this user.
           // Undefined means we haven't fetched it; an empty array means fetched and none earned.
           const combinedBadgesByUser = { ...(playerBadgesByUser || {}), ...(fetchedBadgesByUser || {}) } as Record<string, any[]>;
@@ -120,7 +120,7 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
       const manualOnly: PlaceholderEntry[] = [];
       activeUsersWithStats.forEach(({ user, stats: ps }, uIdx) => {
         const id = user?.id ?? uIdx + 1;
-        const name = user?.username ?? user?.displayName ?? `User ${id}`;
+        const name = user?.nickname || user?.username || user?.displayName || `User ${id}`;
         const combinedBadgesByUser = { ...(playerBadgesByUser || {}), ...(fetchedBadgesByUser || {}) } as Record<string, any[]>;
         const userRankId = String((user?.rank ?? user?.rank_id ?? ""));
         const userBadges = combinedBadgesByUser?.[String(id)] || [];

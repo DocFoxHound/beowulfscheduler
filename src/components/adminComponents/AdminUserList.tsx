@@ -6,6 +6,8 @@ import { VoiceChannelSession } from "../../types/voice_channel_sessions";
 import { type User } from "../../types/user";
 import { type PlayerStats } from "../../types/player_stats";
 import { fetchPlayerStatsByUserId } from "../../api/playerStatsApi";
+import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
+import { buildProspectPromotionSummary } from "./PlayerPromotionProgress";
 
 interface AdminUserListProps {
   users: User[];
@@ -65,6 +67,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
   const [timeframe, setTimeframe] = useState<'last_month' | 'last_3_months' | 'last_year' | 'all_time'>('last_month');
   const [prospectStatsMap, setProspectStatsMap] = useState<Record<string, PlayerStats | null>>({});
   const [prospectStatsLoading, setProspectStatsLoading] = useState(false);
+  const [prospectBadgesMap, setProspectBadgesMap] = useState<Record<string, any[] | null>>({});
 
   // Keep local source users in sync when parent updates (e.g., active-member list)
   useEffect(() => {
@@ -177,11 +180,16 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       if (!row.playerStats && prospectStatsMap[userIdStr]) {
         row.playerStats = prospectStatsMap[userIdStr] as PlayerStats;
       }
+
+      // Attach pre-fetched Prospect badges when available
+      if (prospectBadgesMap[userIdStr]) {
+        row.playerBadges = prospectBadgesMap[userIdStr] as any[];
+      }
       return row;
     })
-  , [sourceUsers, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData, selectedPlayerStats, prospectStatsMap]);
+  , [sourceUsers, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData, selectedPlayerStats, prospectStatsMap, prospectBadgesMap]);
 
-  // Fetch player stats for all visible Prospects so promotion flags work on initial load
+  // Fetch player stats and badges for all visible Prospects so promotion flags work on initial load
   useEffect(() => {
     const doFetch = async () => {
       const prospectIdsEnv = (import.meta.env.VITE_PROSPECT_ID || "")
@@ -195,34 +203,57 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
         return prospectIdsEnv.includes(rankId);
       });
 
-      const missing = prospects.filter((u) => {
+      const missingStats = prospects.filter((u) => {
         const idStr = String(u.id);
         return !prospectStatsMap[idStr];
       });
+      const missingBadges = prospects.filter((u) => {
+        const idStr = String(u.id);
+        return !prospectBadgesMap[idStr];
+      });
 
-      if (!missing.length) return;
+      if (!missingStats.length && !missingBadges.length) return;
 
       setProspectStatsLoading(true);
       try {
-        const newEntries: Record<string, PlayerStats | null> = {};
-        for (const u of missing) {
+        const newStatsEntries: Record<string, PlayerStats | null> = {};
+        const newBadgesEntries: Record<string, any[] | null> = {};
+
+        for (const u of missingStats) {
           const idStr = String(u.id);
           try {
             const stats = await fetchPlayerStatsByUserId(idStr);
-            newEntries[idStr] = stats;
+            newStatsEntries[idStr] = stats;
           } catch (err) {
             console.error("Failed to fetch player stats for user", idStr, err);
-            newEntries[idStr] = null;
+            newStatsEntries[idStr] = null;
           }
         }
-        setProspectStatsMap((prev) => ({ ...prev, ...newEntries }));
+
+        for (const u of missingBadges) {
+          const idStr = String(u.id);
+          try {
+            const badges = await fetchBadgesByUserId(idStr);
+            newBadgesEntries[idStr] = Array.isArray(badges) ? badges : [];
+          } catch (err) {
+            console.error("Failed to fetch badges for user", idStr, err);
+            newBadgesEntries[idStr] = null;
+          }
+        }
+
+        if (Object.keys(newStatsEntries).length) {
+          setProspectStatsMap((prev) => ({ ...prev, ...newStatsEntries }));
+        }
+        if (Object.keys(newBadgesEntries).length) {
+          setProspectBadgesMap((prev) => ({ ...prev, ...newBadgesEntries }));
+        }
       } finally {
         setProspectStatsLoading(false);
       }
     };
 
     doFetch();
-  }, [sourceUsers, prospectStatsMap]);
+  }, [sourceUsers, prospectStatsMap, prospectBadgesMap]);
 
   // Filtered list: updates based on timeframe and selected user
   const [filteredUsersWithData, setFilteredUsersWithData] = useState(baselineUsersWithData);
@@ -444,43 +475,16 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     const stats = (user as any).playerStats;
     if (!stats) return null;
 
-    // Use centralized promotion computation (Prospect -> Crew logic)
-    const promo = assessPromotion(stats as any, rankId, undefined, []);
-    const ready = promo?.nextRank === 'Crew' && typeof promo?.progressPercent === 'number' && promo.progressPercent >= 100;
+    const badges = (user as any).playerBadges as any[] | undefined;
 
-    // Prospect-specific requirement flags
-    const piracyHits = Number((stats as any).piracyhits) || 0;
-    const hasHits = piracyHits >= 10;
+    // Shared Prospect promotion summary (same as PlayerPromotionProgress)
+    const summary = buildProspectPromotionSummary(stats as any, rankId, badges || [], (user as any).promote_date);
 
-    const crewChallengeFlags = [
-      (stats as any)?.crewchallenge,
-      (stats as any)?.crew_challenge,
-      (stats as any)?.crewchallengepassed,
-      (stats as any)?.crewChallengePassed,
-      (stats as any)?.crew_challenge_passed,
-      (stats as any)?.crew_challenge_completed,
-    ];
-    const hasCrewChallenge = crewChallengeFlags.some(
-      (v) => v === true || v === 1 || v === 'true' || v === 'completed'
-    );
+    const requiresCrewChallenge = !summary.prospectCrewChallenge;
+    const requiresHits = !summary.hasHits;
+    const requiresTime = !summary.hasTimeInRank;
 
-    const promoteDate = (user as any).promote_date;
-    let hasTime = false;
-    if (promoteDate) {
-      const start = new Date(promoteDate);
-      if (!isNaN(start.getTime())) {
-        const now = new Date();
-        const diffMs = now.getTime() - start.getTime();
-        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-        hasTime = diffDays >= 30;
-      }
-    }
-
-    const requiresCrewChallenge = !hasCrewChallenge;
-    const requiresHits = !hasHits;
-    const requiresTime = !hasTime;
-
-    const actuallyReady = ready && !requiresCrewChallenge && !requiresHits && !requiresTime;
+    const actuallyReady = summary.readyForCrew && !requiresCrewChallenge && !requiresHits && !requiresTime;
 
     const missing: string[] = [];
     if (requiresCrewChallenge) missing.push('Crew Challenge');

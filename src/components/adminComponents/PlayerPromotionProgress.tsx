@@ -6,6 +6,83 @@ import { assessPromotion } from "../../utils/progressionEngine";
 import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
 // If BadgeRecord type exists we could import it, but keep any to avoid breaking if not loaded lazily
 
+export interface ProspectPromotionSummary {
+  // Core promotion engine outputs
+  progressPercent: number;
+  nextRank: string | null;
+  detectedRank: string | null;
+
+  // Raw prospect metrics
+  prospectPiracyHits: number;
+  prospectCrewChallenge: boolean;
+  hasCrewChallengeBadge: boolean;
+
+  // Derived requirement flags (for C/H/T and arrows)
+  hasHits: boolean;
+  hasTimeInRank: boolean;
+  readyForCrew: boolean;
+}
+
+export const buildProspectPromotionSummary = (
+  playerStats: any,
+  userRankId: string,
+  activeBadges: any[],
+  promoteDate?: string | Date | null,
+): ProspectPromotionSummary => {
+  const promo = assessPromotion(playerStats, userRankId, undefined, activeBadges as { badge_name: string }[]);
+  const nextRank = promo.nextRank ?? null;
+  const progressPercent = promo.progressPercent ?? 0;
+  const detectedRank = promo.detectedRank ?? null;
+
+  const prospectPiracyHits = Number((playerStats as any)?.piracyhits) || 0;
+  const crewChallengeFlags = [
+    (playerStats as any)?.crewchallenge,
+    (playerStats as any)?.crew_challenge,
+    (playerStats as any)?.crewchallengepassed,
+    (playerStats as any)?.crewChallengePassed,
+    (playerStats as any)?.crew_challenge_passed,
+    (playerStats as any)?.crew_challenge_completed,
+  ];
+  const hasCrewChallengeBadge = (activeBadges || []).some(
+    (b) => (b?.badge_name || '').toLowerCase() === 'crew challenge'
+  );
+  const prospectCrewChallenge = hasCrewChallengeBadge || crewChallengeFlags.some(
+    (v) => v === true || v === 1 || v === 'true' || v === 'completed'
+  );
+
+  const hasHits = prospectPiracyHits >= 10;
+
+  let hasTimeInRank = false;
+  if (promoteDate) {
+    const start = new Date(promoteDate);
+    if (!isNaN(start.getTime())) {
+      const now = new Date();
+      const diffMs = now.getTime() - start.getTime();
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      hasTimeInRank = diffDays >= 30;
+    }
+  }
+
+  const readyForCrew =
+    nextRank === 'Crew' &&
+    progressPercent >= 100 &&
+    prospectCrewChallenge &&
+    hasHits &&
+    hasTimeInRank;
+
+  return {
+    progressPercent,
+    nextRank,
+    detectedRank,
+    prospectPiracyHits,
+    prospectCrewChallenge,
+    hasCrewChallengeBadge,
+    hasHits,
+    hasTimeInRank,
+    readyForCrew,
+  };
+};
+
 interface PlayerPromotionProgressProps {
   playerStats: any;
   playerStatsLoading: boolean;
@@ -125,34 +202,14 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
   else if (prospectIds.includes(userRankId)) detectedRank = "Prospect";
   else if (friendlyIds.includes(userRankId)) detectedRank = "Friendly";
 
-  // Centralized promotion computation
-  // Include playerBadges so Prospect -> Crew progress accounts for the "Crew Challenge" badge
-  // Cast playerBadges to expected shape (PlayerBadge[]) minimally; requires badge_name field.
-  // Prefer fetchedBadges if available, else fallback to playerBadges prop
+  // Centralized promotion computation, including badge-aware Prospect summary
   const activeBadges = (fetchedBadges !== null ? fetchedBadges : (playerBadges ?? []));
-  const promo = assessPromotion(playerStats, userRankId, undefined, activeBadges as { badge_name: string }[]);
-  const nextRank = promo.nextRank;
-  const progressPercent = promo.progressPercent;
-  detectedRank = promo.detectedRank;
-
-  // Prospect metric readouts for display (non-authoritative; engine is source of truth)
-  const prospectPiracyHits = Number((playerStats as any)?.piracyhits) || 0;
-  const crewChallengeFlags = [
-    (playerStats as any)?.crewchallenge,
-    (playerStats as any)?.crew_challenge,
-    (playerStats as any)?.crewchallengepassed,
-    (playerStats as any)?.crewChallengePassed,
-    (playerStats as any)?.crew_challenge_passed,
-    (playerStats as any)?.crew_challenge_completed,
-  ];
-  // Crew Challenge completion now determined by possession of the "Crew Challenge" badge.
-  const hasCrewChallengeBadge = (activeBadges || []).some(
-    (b) => (b?.badge_name || '').toLowerCase() === 'crew challenge'
-  );
-  // Fallback flags if badge not yet migrated
-  const prospectCrewChallenge = hasCrewChallengeBadge || crewChallengeFlags.some(
-    (v) => v === true || v === 1 || v === "true" || v === "completed"
-  );
+  const summary = buildProspectPromotionSummary(playerStats, userRankId, activeBadges, user?.promote_date);
+  const nextRank = summary.nextRank;
+  const progressPercent = summary.progressPercent;
+  detectedRank = summary.detectedRank;
+  const prospectPiracyHits = summary.prospectPiracyHits;
+  const prospectCrewChallenge = summary.prospectCrewChallenge;
 
   // Prepare requirements breakdown
   let requirementsSection = null;
