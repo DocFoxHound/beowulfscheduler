@@ -2,7 +2,31 @@ import axios from 'axios';
 import { SBLeaderboardPlayerSummary } from '../types/sb_leaderboard_summary'
 import { SBLeaderboardOrgSummary } from '../types/sb_leaderboard_org_summary';
 
-const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
+// Build base URL that ensures an '/api' suffix so our endpoint paths using '/api/...' resolve to '/api/api/...'
+const RAW_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
+const ROOT_BASE = RAW_BASE_URL.replace(/\/+$/, "");
+const API_BASE_URL = ROOT_BASE.endsWith("/api") ? ROOT_BASE : `${ROOT_BASE}/api`;
+
+// Normalize RSI media URLs: fix malformed schemes, protocol-relative, bare hosts, and common relative paths.
+function normalizeMediaUrl(input?: string | null): string | null {
+  const BASE = 'https://robertsspaceindustries.com';
+  if (!input || typeof input !== 'string') return null;
+  let s = input.trim();
+  // Fix missing colon in scheme
+  if (s.startsWith('https//')) s = 'https://' + s.slice('https//'.length);
+  if (s.startsWith('http//')) s = 'http://' + s.slice('http//'.length);
+  // Protocol-relative
+  if (s.startsWith('//')) return 'https:' + s;
+  // Bare CDN host
+  if (s.startsWith('cdn.robertsspaceindustries.com')) return 'https://' + s;
+  // Already absolute
+  if (/^https?:\/\//i.test(s)) return s;
+  // Normalize common path variants
+  if (s.startsWith('/')) return `${BASE}${s}`;
+  if (s.startsWith('media/') || s.startsWith('static/') || s.startsWith('images/') || s.startsWith('account/')) return `${BASE}/${s}`;
+  // Default: append to base
+  return `${BASE}/${s}`;
+}
 
 // Fetch all player summaries
 export const fetchSBAllPlayerSummaries = async (): Promise<SBLeaderboardPlayerSummary[]> => {
@@ -36,19 +60,17 @@ export const fetchSBAllPlayerSummaries = async (): Promise<SBLeaderboardPlayerSu
         : "0:0:0",
       avg_flight_time: p.avg_flight_time ?? "",
       created_at: p.created_at ? BigInt(p.created_at) : BigInt(0),
-      org_media:
-        p.org_media && typeof p.org_media === "string" && p.org_media.startsWith("/media")
-          ? `https://robertsspaceindustries.com${p.org_media}`
-          : p.org_media,
-      account_media:
-        p.account_media && typeof p.account_media === "string" && p.account_media.startsWith("/media")
-          ? `https://robertsspaceindustries.com${p.account_media}`
-          : p.account_media,
+      org_media: normalizeMediaUrl(p.org_media),
+      account_media: normalizeMediaUrl(p.account_media),
       total_rating: p.total_rating ? Number(p.total_rating) : 0, // Add total_rating
       total_score: p.total_score ? Number(p.total_score) : 0, // Add total_score
     }))
-    // Filter out empty player (no nickname and avg_rank 0)
-    .filter((player: SBLeaderboardPlayerSummary) => player.nickname && player.nickname.trim() !== "" && player.avg_rank !== 0);
+    // Keep entries that have at least one display name field
+    .filter((player: SBLeaderboardPlayerSummary) => {
+      const hasNick = typeof (player as any).nickname === 'string' && (player as any).nickname.trim() !== '';
+      const hasDisplay = typeof (player as any).displayname === 'string' && (player as any).displayname.trim() !== '';
+      return hasNick || hasDisplay;
+    });
 
   // Calculate global totals
   const total_global_damage_dealt = players.reduce((sum, p) => sum + Number(p.total_damage_dealt), 0);
@@ -80,7 +102,12 @@ export const fetchSBAllPlayerSummaries = async (): Promise<SBLeaderboardPlayerSu
 // Fetch a player summary by nickname
 export const fetchPlayerSummaryByNickname = async (nickname: string): Promise<SBLeaderboardPlayerSummary> => {
   const response = await axios.get<SBLeaderboardPlayerSummary>(`${API_BASE_URL}/api/leaderboardsbsummary/${encodeURIComponent(nickname)}`);
-  return response.data;
+  const data = response.data as any;
+  return {
+    ...data,
+    org_media: normalizeMediaUrl(data?.org_media) ?? undefined,
+    account_media: normalizeMediaUrl(data?.account_media) ?? undefined,
+  } as SBLeaderboardPlayerSummary;
 };
 
 function computeKillstealModifier(player: any, global_avg: number, lower20: number): number {
@@ -129,10 +156,7 @@ export const fetchSBAllOrgSummaries = async (): Promise<SBLeaderboardOrgSummary[
         : "0:0:0",
       avg_flight_time: p.avg_flight_time ?? "",
       created_at: p.created_at ? BigInt(p.created_at) : BigInt(0),
-      org_media:
-        p.org_media && typeof p.org_media === "string" && p.org_media.startsWith("/media")
-          ? `https://robertsspaceindustries.com${p.org_media}`
-          : p.org_media,
+      org_media: normalizeMediaUrl(p.org_media),
       total_rating: p.total_rating ? Number(p.total_rating) : 0, // Add total_rating
       total_score: p.total_score ? Number(p.total_score) : 0, // Add total_score
     }))

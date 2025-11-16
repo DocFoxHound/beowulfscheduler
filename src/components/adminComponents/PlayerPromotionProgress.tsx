@@ -1,8 +1,10 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { promotePlayer } from "../../api/promotePlayerApi";
 import { getUserById } from "../../api/userService";
 import { assessPromotion } from "../../utils/progressionEngine";
+import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
+// If BadgeRecord type exists we could import it, but keep any to avoid breaking if not loaded lazily
 
 interface PlayerPromotionProgressProps {
   playerStats: any;
@@ -17,12 +19,17 @@ interface PlayerPromotionProgressProps {
 
 // Note: rank ordering is handled by the progression engine
 
-const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats, playerStatsLoading, isModerator, player, dbUser, playerBadges = [], onPromote }) => {
+const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats, playerStatsLoading, isModerator, player, dbUser, playerBadges, onPromote }) => {
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [promoting, setPromoting] = useState(false);
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [userLoading, setUserLoading] = useState(true);
+  const [fetchedBadges, setFetchedBadges] = useState<any[] | null>(null);
+  const [badgesLoading, setBadgesLoading] = useState(false);
+  const [badgesError, setBadgesError] = useState<string | null>(null);
+  const lastFetchedUserIdRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Get all rank ID arrays from .env
   const friendlyIds = (import.meta.env.VITE_FRIENDLY_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
@@ -55,7 +62,56 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
     }
   }, [playerStatsLoading, playerStats, player]);
 
-  if (playerStatsLoading || !playerStats || userLoading) {
+  // Determine current playerId for badge fetching and other lookups
+  const playerId = playerStats?.user_id || playerStats?.id || (player && (player.id || player.user_id));
+
+  // Fetch badges if not provided via props
+  useEffect(() => {
+    const shouldFetch = !!playerId && !playerStatsLoading && !userLoading;
+    if (!shouldFetch) return;
+
+    // If parent provided badges, use them once per user and avoid network call
+    if (playerBadges && playerBadges.length > 0) {
+      if (lastFetchedUserIdRef.current !== String(playerId)) {
+        setFetchedBadges(playerBadges);
+        lastFetchedUserIdRef.current = String(playerId);
+      }
+      return;
+    }
+
+    // Prevent duplicate fetches for the same user
+    if (lastFetchedUserIdRef.current === String(playerId) && fetchedBadges !== null) {
+      return;
+    }
+
+    // Start a new fetch
+    setBadgesLoading(true);
+    setBadgesError(null);
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    fetchBadgesByUserId(String(playerId))
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setFetchedBadges(data || []);
+        lastFetchedUserIdRef.current = String(playerId);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setFetchedBadges([]);
+        setBadgesError("Failed to load badges");
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setBadgesLoading(false);
+      });
+
+    // Cleanup: abort on unmount or when dependencies change
+    return () => controller.abort();
+  }, [playerId, playerStatsLoading, userLoading, playerBadges, fetchedBadges]);
+
+  if (playerStatsLoading || !playerStats || userLoading || badgesLoading) {
     return <div style={{ marginTop: "2rem" }}>Loading promotion progress...</div>;
   }
 
@@ -70,7 +126,11 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
   else if (friendlyIds.includes(userRankId)) detectedRank = "Friendly";
 
   // Centralized promotion computation
-  const promo = assessPromotion(playerStats, userRankId);
+  // Include playerBadges so Prospect -> Crew progress accounts for the "Crew Challenge" badge
+  // Cast playerBadges to expected shape (PlayerBadge[]) minimally; requires badge_name field.
+  // Prefer fetchedBadges if available, else fallback to playerBadges prop
+  const activeBadges = (fetchedBadges !== null ? fetchedBadges : (playerBadges ?? []));
+  const promo = assessPromotion(playerStats, userRankId, undefined, activeBadges as { badge_name: string }[]);
   const nextRank = promo.nextRank;
   const progressPercent = promo.progressPercent;
   detectedRank = promo.detectedRank;
@@ -86,7 +146,7 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
     (playerStats as any)?.crew_challenge_completed,
   ];
   // Crew Challenge completion now determined by possession of the "Crew Challenge" badge.
-  const hasCrewChallengeBadge = (playerBadges || []).some(
+  const hasCrewChallengeBadge = (activeBadges || []).some(
     (b) => (b?.badge_name || '').toLowerCase() === 'crew challenge'
   );
   // Fallback flags if badge not yet migrated
@@ -104,7 +164,7 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           <strong>The Crew Challenge</strong>
           <ul style={{ marginTop: 6, lineHeight: 1.6 }}>
             <li>The <strong>CREW CHALLENGE</strong> is a skill gate for dogfighting, making sure that IronPoint's Crew have at least a basic competency and will be able to overcome the average Star Citizen player.</li>
-            <li><strong>TASK: </strong>Defeat a <strong>RAPTOR I</strong> pilot in a dogfight within 3 lives. </li>
+            <li><strong>TASK: </strong>Defeat a <strong>RAPTOR I</strong> pilot in a dogfight within 3 lives. The RAPTOR does not reset between lives.</li>
           </ul>
         </div>
       );
@@ -175,7 +235,7 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
 
   return (
     <div style={{ marginTop: "2rem", position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
         <div style={{ fontWeight: 700, fontSize: 20 }}>Promotion Progress</div>
         {isModerator && dbUser?.id !== playerStats?.user_id && (
           <button
@@ -195,6 +255,9 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           </button>
         )}
       </div>
+      {badgesError && (
+        <div style={{ color: "#ff7878", marginBottom: 12, fontSize: 13 }}>{badgesError}</div>
+      )}
       {nextRank ? (
         <div>
           <div style={{ marginBottom: "0.5rem" }}>

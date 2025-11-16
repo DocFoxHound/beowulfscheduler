@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { getUsersByActiveMemberRole, getUsersByProspectRole, getUsersByCrewRole, getUsersByMarauderRole, getUsersByBloodedRole } from "../../api/userService";
-import { shouldShowPromoteTag } from "../../utils/promotionUtils";
+import { assessPromotion } from "../../utils/progressionEngine";
 import { fetchVoiceChannelSessionsByTimeframe } from "../../api/voiceChannelSessionsApi";
 import { VoiceChannelSession } from "../../types/voice_channel_sessions";
 import { type User } from "../../types/user";
 import { type PlayerStats } from "../../types/player_stats";
+import { fetchPlayerStatsByUserId } from "../../api/playerStatsApi";
 
 interface AdminUserListProps {
   users: User[];
@@ -62,6 +63,8 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
   const [sourceUsers, setSourceUsers] = useState<User[]>(users || []);
   const [fetchUsersLoading, setFetchUsersLoading] = useState(false);
   const [timeframe, setTimeframe] = useState<'last_month' | 'last_3_months' | 'last_year' | 'all_time'>('last_month');
+  const [prospectStatsMap, setProspectStatsMap] = useState<Record<string, PlayerStats | null>>({});
+  const [prospectStatsLoading, setProspectStatsLoading] = useState(false);
 
   // Keep local source users in sync when parent updates (e.g., active-member list)
   useEffect(() => {
@@ -164,13 +167,62 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
         sbPlayerSummary,
         sbLogEntries: userSBLogEntries,
       } as any;
+
       // Attach selected player's stats to the matching user for table usage
       if (selectedPlayerStats && String(selectedPlayerStats.user_id) === userIdStr) {
         row.playerStats = selectedPlayerStats;
       }
+
+      // Attach pre-fetched Prospect stats when available
+      if (!row.playerStats && prospectStatsMap[userIdStr]) {
+        row.playerStats = prospectStatsMap[userIdStr] as PlayerStats;
+      }
       return row;
     })
-  , [sourceUsers, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData, selectedPlayerStats]);
+  , [sourceUsers, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData, selectedPlayerStats, prospectStatsMap]);
+
+  // Fetch player stats for all visible Prospects so promotion flags work on initial load
+  useEffect(() => {
+    const doFetch = async () => {
+      const prospectIdsEnv = (import.meta.env.VITE_PROSPECT_ID || "")
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter((v: string) => Boolean(v));
+      if (!prospectIdsEnv.length) return;
+
+      const prospects = (sourceUsers || []).filter((u) => {
+        const rankId = String((u as any).rank ?? (u as any).rank_id ?? "");
+        return prospectIdsEnv.includes(rankId);
+      });
+
+      const missing = prospects.filter((u) => {
+        const idStr = String(u.id);
+        return !prospectStatsMap[idStr];
+      });
+
+      if (!missing.length) return;
+
+      setProspectStatsLoading(true);
+      try {
+        const newEntries: Record<string, PlayerStats | null> = {};
+        for (const u of missing) {
+          const idStr = String(u.id);
+          try {
+            const stats = await fetchPlayerStatsByUserId(idStr);
+            newEntries[idStr] = stats;
+          } catch (err) {
+            console.error("Failed to fetch player stats for user", idStr, err);
+            newEntries[idStr] = null;
+          }
+        }
+        setProspectStatsMap((prev) => ({ ...prev, ...newEntries }));
+      } finally {
+        setProspectStatsLoading(false);
+      }
+    };
+
+    doFetch();
+  }, [sourceUsers, prospectStatsMap]);
 
   // Filtered list: updates based on timeframe and selected user
   const [filteredUsersWithData, setFilteredUsersWithData] = useState(baselineUsersWithData);
@@ -286,13 +338,27 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
             aValue = Array.isArray(a.hitTrackers) ? a.hitTrackers.length : 0;
             bValue = Array.isArray(b.hitTrackers) ? b.hitTrackers.length : 0;
             break;
+          case 'timeInRank': {
+            const getDaysInRank = (u: any) => {
+              const promoteDate = u.promote_date;
+              const start = promoteDate ? new Date(promoteDate) : null;
+              if (!start || isNaN(start.getTime())) return 0;
+              const now = new Date();
+              if (start > now) return 0;
+              const diffMs = now.getTime() - start.getTime();
+              return diffMs / (1000 * 60 * 60 * 24);
+            };
+            aValue = getDaysInRank(a);
+            bValue = getDaysInRank(b);
+            break;
+          }
           case 'flightTime':
             aValue = typeof a.sbPlayerSummary?.total_flight_time === 'number' ? a.sbPlayerSummary.total_flight_time : 0;
             bValue = typeof b.sbPlayerSummary?.total_flight_time === 'number' ? b.sbPlayerSummary.total_flight_time : 0;
             break;
           case 'avgRank':
-            aValue = typeof a.sbPlayerSummary?.avg_rank === 'number' ? a.sbPlayerSummary.avg_rank : 0;
-            bValue = typeof b.sbPlayerSummary?.avg_rank === 'number' ? b.sbPlayerSummary.avg_rank : 0;
+            aValue = typeof a.sbPlayerSummary?.avg_rank === 'number' ? a.sbPlayerSummary.avg_rank : Number.POSITIVE_INFINITY;
+            bValue = typeof b.sbPlayerSummary?.avg_rank === 'number' ? b.sbPlayerSummary.avg_rank : Number.POSITIVE_INFINITY;
             break;
           default:
             return 0;
@@ -365,6 +431,74 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       flightTime: percentile90(flightTimeVals),
     };
   }, [displayedUsers]);
+
+  // Helper to derive Prospect promotion readiness flags based on centralized promotion engine
+  const getProspectPromotionFlags = (user: any) => {
+    const rankId = String((user?.rank ?? (user as any)?.rank_id ?? ""));
+    const prospectIds = (import.meta.env.VITE_PROSPECT_ID || "")
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter((v: string) => Boolean(v));
+    if (!prospectIds.includes(rankId)) return null;
+
+    const stats = (user as any).playerStats;
+    if (!stats) return null;
+
+    // Use centralized promotion computation (Prospect -> Crew logic)
+    const promo = assessPromotion(stats as any, rankId, undefined, []);
+    const ready = promo?.nextRank === 'Crew' && typeof promo?.progressPercent === 'number' && promo.progressPercent >= 100;
+
+    // Prospect-specific requirement flags
+    const piracyHits = Number((stats as any).piracyhits) || 0;
+    const hasHits = piracyHits >= 10;
+
+    const crewChallengeFlags = [
+      (stats as any)?.crewchallenge,
+      (stats as any)?.crew_challenge,
+      (stats as any)?.crewchallengepassed,
+      (stats as any)?.crewChallengePassed,
+      (stats as any)?.crew_challenge_passed,
+      (stats as any)?.crew_challenge_completed,
+    ];
+    const hasCrewChallenge = crewChallengeFlags.some(
+      (v) => v === true || v === 1 || v === 'true' || v === 'completed'
+    );
+
+    const promoteDate = (user as any).promote_date;
+    let hasTime = false;
+    if (promoteDate) {
+      const start = new Date(promoteDate);
+      if (!isNaN(start.getTime())) {
+        const now = new Date();
+        const diffMs = now.getTime() - start.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        hasTime = diffDays >= 30;
+      }
+    }
+
+    const requiresCrewChallenge = !hasCrewChallenge;
+    const requiresHits = !hasHits;
+    const requiresTime = !hasTime;
+
+    const actuallyReady = ready && !requiresCrewChallenge && !requiresHits && !requiresTime;
+
+    const missing: string[] = [];
+    if (requiresCrewChallenge) missing.push('Crew Challenge');
+    if (requiresHits) missing.push('Pirate Hits');
+    if (requiresTime) missing.push('Time');
+
+    const tooltip = actuallyReady
+      ? 'Ready to promote'
+      : `Requires: ${missing.join(', ')}`;
+
+    return {
+      ready: actuallyReady,
+      requiresCrewChallenge,
+      requiresHits,
+      requiresTime,
+      tooltip,
+    };
+  };
 
   return (
     <div>
@@ -472,20 +606,34 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", fontWeight: 500 }}>Username</th>
               {/* <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444" }}>Display Name</th> */}
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", fontWeight: 500 }}>Rank</th>
-              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", fontWeight: 500 }}>Time in Rank</th>
+              <th
+                style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }}
+                onClick={() =>
+                  setSortConfig(
+                    sortConfig?.key === 'timeInRank'
+                      ? { key: 'timeInRank', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' }
+                      : { key: 'timeInRank', direction: 'desc' }
+                  )
+                }
+              >
+                Time in Rank {sortConfig?.key === 'timeInRank' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+              </th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'voiceHours' ? { key: 'voiceHours', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'voiceHours', direction: 'desc' })}>
                 Voice Hours {sortConfig?.key === 'voiceHours' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
               <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'hitTrackers' ? { key: 'hitTrackers', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'hitTrackers', direction: 'desc' })}>
                 Hits {sortConfig?.key === 'hitTrackers' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
-              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'blackBoxes' ? { key: 'blackBoxes', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'blackBoxes', direction: 'desc' })}>
-                PVP Kills {sortConfig?.key === 'blackBoxes' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
-              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'flightTime' ? { key: 'flightTime', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'flightTime', direction: 'desc' })}>
-                SB Time {sortConfig?.key === 'flightTime' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-              </th>
-              <th style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }} onClick={() => setSortConfig(sortConfig?.key === 'avgRank' ? { key: 'avgRank', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' } : { key: 'avgRank', direction: 'desc' })}>
+              <th
+                style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #444", textAlign: "left", cursor: "pointer", fontWeight: 500 }}
+                onClick={() =>
+                  setSortConfig(
+                    sortConfig?.key === 'avgRank'
+                      ? { key: 'avgRank', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' }
+                      : { key: 'avgRank', direction: 'asc' }
+                  )
+                }
+              >
                 Avg Rank {sortConfig?.key === 'avgRank' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
               </th>
             </tr>
@@ -527,11 +675,38 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
                     style={{ cursor: "pointer", background: expandedUserId === user.id ? "#333" : undefined }}
                     onClick={() => setExpandedUserId(expandedUserId === user.id ? null : user.id)}
                   >
-                    <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
-                      {user.username || "-"}
-                      {shouldShowPromoteTag(user) && (
-                        <span title="Eligible for promotion" style={{ marginLeft: 4, cursor: 'help' }}>🔼</span>
-                      )}
+                    <td
+                      style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}
+                      title={user.username || ""}
+                    >
+                      {user.nickname || user.username || "-"}
+                      {(() => {
+                        const flags = getProspectPromotionFlags(user);
+                        if (!flags) return null;
+                        if (flags.ready) {
+                          return (
+                            <span
+                              title={flags.tooltip}
+                              style={{ marginLeft: 4, cursor: 'help' }}
+                            >
+                              🔼
+                            </span>
+                          );
+                        }
+                        const parts: string[] = [];
+                        if (flags.requiresCrewChallenge) parts.push('C');
+                        if (flags.requiresHits) parts.push('H');
+                        if (flags.requiresTime) parts.push('T');
+                        if (!parts.length) return null;
+                        return (
+                          <span
+                            title={flags.tooltip}
+                            style={{ marginLeft: 4, cursor: 'help', fontSize: 11, opacity: 0.8 }}
+                          >
+                            ({parts.join(' / ')})
+                          </span>
+                        );
+                      })()}
                     </td>
                     {/* <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333" }}>{user.displayName || "-"}</td> */}
                     {(() => {
@@ -574,24 +749,12 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
                       )}
                     </td>
                     <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
-                      {Array.isArray(user.blackBoxes) ? user.blackBoxes.length : 0}
-                      {Array.isArray(user.blackBoxes) && user.blackBoxes.length > 0 && user.blackBoxes.length >= thresholds.blackBoxes && (
-                        <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
-                      )}
-                    </td>
-                    <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
-                      {user.sbPlayerSummary?.total_flight_time || "-"}
-                      {typeof user.sbPlayerSummary?.total_flight_time === 'number' && user.sbPlayerSummary.total_flight_time > 0 && user.sbPlayerSummary.total_flight_time >= thresholds.flightTime && (
-                        <span title="ahead of peers" style={{ marginLeft: 4, cursor: 'help' }}>✨</span>
-                      )}
-                    </td>
-                    <td style={{ padding: "0.3rem 0.2rem", borderBottom: "1px solid #333", textAlign: "left" }}>
-                      {typeof user.sbPlayerSummary?.avg_rank === 'number' ? user.sbPlayerSummary.avg_rank.toFixed(0) : (user.sbPlayerSummary?.avg_rank || "-")}
+                      {typeof user.sbPlayerSummary?.avg_rank === 'number' ? Math.round(user.sbPlayerSummary.avg_rank) : '-'}
                     </td>
                   </tr>
                   {expandedUserId === user.id && user.playerStats && (
                     <tr>
-                      <td colSpan={8} style={{ padding: "0.75rem 0.2rem", borderBottom: "1px solid #333" }}>
+                      <td colSpan={5} style={{ padding: "0.75rem 0.2rem", borderBottom: "1px solid #333" }}>
                         <div style={{ marginTop: "0.25rem" }}>
                           <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>Player Stats (All Time)</div>
                           <table style={{ width: "100%", borderCollapse: "collapse", background: "#1b1b1b", color: "#fff", border: "1px solid #333" }}>

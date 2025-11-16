@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { BadgeReusable } from '../types/badgeReusable';
 
-const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
+const RAW_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
+const ROOT_BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+const API_BASE_URL = ROOT_BASE_URL.endsWith("/api") ? ROOT_BASE_URL : `${ROOT_BASE_URL}/api`;
 
 // Get all badge reusables
 export const fetchAllBadgeReusables = async (): Promise<BadgeReusable[]> => {

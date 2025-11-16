@@ -1,6 +1,7 @@
 import React from "react";
 import { type PlayerStats } from "../../types/player_stats";
-import { assessPlayerForAdminUpdates, summarizeUpdates } from "../../utils/progressionEngine";
+import { assessPlayerForAdminUpdates, summarizeUpdates, assessPromotion } from "../../utils/progressionEngine";
+import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
 
 type AdminUpdateProps = {
   allPlayerStats: any[];
@@ -23,6 +24,8 @@ type PlaceholderEntry = {
 
 const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData, activeBadgeReusables, playerBadgesByUser }) => {
   const stats = Array.isArray(allPlayerStats) ? allPlayerStats : [];
+  // Local cache for fetched badges by user to fill gaps so promotion readiness can be computed globally
+  const [fetchedBadgesByUser, setFetchedBadgesByUser] = React.useState<Record<string, any[]>>({});
 
   // Create an array of active users that have a matching stats object
   const activeUsersWithStats = React.useMemo(
@@ -51,19 +54,30 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
           const name = user?.username ?? user?.displayName ?? `User ${id}`;
           // Determine if we actually have badge data loaded for this user.
           // Undefined means we haven't fetched it; an empty array means fetched and none earned.
-          const badgeDataLoadedForUser = playerBadgesByUser && Object.prototype.hasOwnProperty.call(playerBadgesByUser, String(id));
+          const combinedBadgesByUser = { ...(playerBadgesByUser || {}), ...(fetchedBadgesByUser || {}) } as Record<string, any[]>;
+          const badgeDataLoadedForUser = combinedBadgesByUser && Object.prototype.hasOwnProperty.call(combinedBadgesByUser, String(id));
+          // Compute promotion state mirroring PlayerPromotionProgress
+          const userRankId = String((user?.rank ?? user?.rank_id ?? ""));
+          const userBadges = combinedBadgesByUser?.[String(id)] || [];
+          const promo = assessPromotion(ps, userRankId, undefined, userBadges as any[]);
+          const nextRank = promo?.nextRank as string | undefined;
+          const progressPercent = typeof promo?.progressPercent === 'number' ? promo.progressPercent : 0;
           const updates = assessPlayerForAdminUpdates({
             user,
             stats: ps,
             activeBadgeReusables,
-            playerBadges: playerBadgesByUser?.[String(id)] || [],
+            playerBadges: combinedBadgesByUser?.[String(id)] || [],
           });
-          if (!updates || updates.length === 0) return; // skip users with no updates
-          updates.forEach((u, upIdx) => {
+          if (Array.isArray(updates) && updates.length > 0) {
+            updates.forEach((u, upIdx) => {
             // For AdminUpdate, only show prestige when ready (met requirements)
             if (u.type === 'prestige' && u.severity !== 'success') return;
             // Only show promotion when ready (no partial progress)
-            if (u.type === 'promotion' && u.severity !== 'success') return;
+            if (u.type === 'promotion') {
+              if (u.severity !== 'success') return;
+              // Remove Crew -> Marauder promotion notices
+              if (nextRank === 'Marauder') return;
+            }
             // Avoid showing badge "ready" items unless we have confirmed earned-badge data for this user.
             // This prevents false positives when bulk badge data hasn't been fetched for this user.
             if (u.type === 'badge' && u.severity === 'success' && !badgeDataLoadedForUser) return;
@@ -78,14 +92,53 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
               badgeSubject: u.type === 'badge' ? (u as any).badgeSubject : undefined,
               type: u.type as 'badge' | 'prestige' | 'promotion',
             });
-          });
+            });
+          }
+
+
+            // Manual injection parity with PlayerPromotionProgress for Prospect -> Crew only
+            // If engine didn't produce a promotion entry but progress is 100% to Crew, add one.
+            try {
+              const hasPromotionEntry = updatesList.some(e => String(e.id).startsWith(`${id}-promotion-`));
+              if (!hasPromotionEntry && nextRank === 'Crew' && progressPercent >= 100) {
+                updatesList.push({
+                  id: `${id}-promotion-manual`,
+                  name,
+                  status: 'eligible',
+                  tooltip: 'Ready for promotion to Crew',
+                  type: 'promotion',
+                });
+              }
+            } catch (e) {
+              // defensive
+            }
         });
         return updatesList;
       }
 
-      // Legacy placeholder selection if no badge data provided
-      // Previously returned rotating placeholder statuses; suppress to avoid misleading entries.
-      return [] as PlaceholderEntry[];
+      // No badge reusables provided: still compute Prospect -> Crew promotion readiness
+      const manualOnly: PlaceholderEntry[] = [];
+      activeUsersWithStats.forEach(({ user, stats: ps }, uIdx) => {
+        const id = user?.id ?? uIdx + 1;
+        const name = user?.username ?? user?.displayName ?? `User ${id}`;
+        const combinedBadgesByUser = { ...(playerBadgesByUser || {}), ...(fetchedBadgesByUser || {}) } as Record<string, any[]>;
+        const userRankId = String((user?.rank ?? user?.rank_id ?? ""));
+        const userBadges = combinedBadgesByUser?.[String(id)] || [];
+        const promo = assessPromotion(ps, userRankId, undefined, userBadges as any[]);
+        const nextRank = promo?.nextRank as string | undefined;
+        const progressPercent = typeof promo?.progressPercent === 'number' ? promo.progressPercent : 0;
+        // Only add Prospect -> Crew
+        if (nextRank === 'Crew' && progressPercent >= 100) {
+          manualOnly.push({
+            id: `${id}-promotion-manual`,
+            name,
+            status: 'eligible',
+            tooltip: 'Ready for promotion to Crew',
+            type: 'promotion',
+          });
+        }
+      });
+      return manualOnly;
     }
 
     // Next, if no matches yet but we do have stats, fall back to stats-only rows
@@ -97,7 +150,61 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
     // Fallback: generate 50 placeholder rows when no stats yet
     // Suppress placeholder content entirely until real data is ready.
     return [] as PlaceholderEntry[];
-  }, [activeUsersWithStats, stats, activeBadgeReusables, playerBadgesByUser]);
+  }, [activeUsersWithStats, stats, activeBadgeReusables, playerBadgesByUser, fetchedBadgesByUser]);
+
+  // Proactively fetch missing badge data for users (especially Prospects) so promotion readiness can be computed without clicking
+  React.useEffect(() => {
+    if (!activeUsersWithStats || activeUsersWithStats.length === 0) return;
+    // Determine Prospect rank IDs from env
+    const prospectIds = (import.meta.env.VITE_PROSPECT_ID || "")
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+
+    // Build list of user IDs that need badge fetching
+    const toFetch: string[] = [];
+    for (const { user } of activeUsersWithStats) {
+      const id = String(user?.id ?? "");
+      if (!id) continue;
+      const userRankId = String((user?.rank ?? user?.rank_id ?? ""));
+      // Only fetch for Prospects to limit API load
+      if (!prospectIds.includes(userRankId)) continue;
+      const alreadyProvided = playerBadgesByUser && Object.prototype.hasOwnProperty.call(playerBadgesByUser, id);
+      const alreadyFetched = fetchedBadgesByUser && Object.prototype.hasOwnProperty.call(fetchedBadgesByUser, id);
+      if (!alreadyProvided && !alreadyFetched) toFetch.push(id);
+    }
+    if (toFetch.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      // Fetch in parallel; could be batched if necessary
+      try {
+        const results = await Promise.all(
+          toFetch.map(async (uid) => {
+            try {
+              const badges = await fetchBadgesByUserId(uid);
+              return { uid, badges: Array.isArray(badges) ? badges : [] };
+            } catch {
+              return { uid, badges: [] as any[] };
+            }
+          })
+        );
+        if (cancelled) return;
+        setFetchedBadgesByUser((prev) => {
+          const next: Record<string, any[]> = { ...(prev || {}) };
+          for (const { uid, badges } of results) {
+            // Don't overwrite if parent provided since then it's authoritative
+            if (playerBadgesByUser && Object.prototype.hasOwnProperty.call(playerBadgesByUser, uid)) continue;
+            if (!(uid in next)) next[uid] = badges;
+          }
+          return next;
+        });
+      } catch {
+        // swallow errors; best-effort prefetch
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeUsersWithStats, playerBadgesByUser, fetchedBadgesByUser]);
 
   // Hide any entries marked as 'needs_award' (partial progress not required to display)
   const visibleEntries = React.useMemo(
