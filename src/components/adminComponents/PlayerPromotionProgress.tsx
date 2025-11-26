@@ -221,7 +221,8 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
           <strong>The Crew Challenge</strong>
           <ul style={{ marginTop: 6, lineHeight: 1.6 }}>
             <li>The <strong>CREW CHALLENGE</strong> is a skill gate for dogfighting, making sure that IronPoint's Crew have at least a basic competency and will be able to overcome the average Star Citizen player.</li>
-            <li><strong>TASK: </strong>Defeat a <strong>RAPTOR I</strong> pilot in a dogfight within 3 lives. The RAPTOR does not reset between lives.</li>
+            <li><strong>Part 1: </strong>You will recieve this badge once you have demonstrated that you understand the basics of dogfighting and can win the fighting portion of the Crew Challenge. </li>
+            <li><strong>Part 2: </strong>Defeat <strong>DocHound</strong> in a duel within 3 lives. When you recieve the Badge, DocHound will reach out and coordinate a time with you. </li>
           </ul>
         </div>
       );

@@ -1,5 +1,6 @@
 import React from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
+import { getSessionMinutes } from "../../utils/voiceSessions";
 
 interface UserWithData {
   id: string | number;
@@ -27,12 +28,14 @@ const AdminVoiceActivityGraph: React.FC<AdminVoiceActivityGraphProps> = ({ users
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
   voiceSessions.forEach(session => {
-    if (session.joined_at) {
-      const joined = new Date(session.joined_at);
+    const start = session.joined_at || session.started_at;
+    const end = session.left_at || session.ended_at;
+    if (start) {
+      const joined = new Date(start);
       if (!minDate || joined < minDate) minDate = joined;
     }
-    if (session.left_at) {
-      const left = new Date(session.left_at);
+    if (end) {
+      const left = new Date(end);
       if (!maxDate || left > maxDate) maxDate = left;
     }
   });
@@ -40,9 +43,10 @@ const AdminVoiceActivityGraph: React.FC<AdminVoiceActivityGraphProps> = ({ users
   // Group sessions by day (using joined_at)
   const voiceByDate: Record<string, number> = {};
   voiceSessions.forEach(session => {
-    if (session.joined_at) {
-      const date = formatDate(session.joined_at);
-      voiceByDate[date] = (voiceByDate[date] || 0) + (session.minutes || 0);
+    const start = session.joined_at || session.started_at;
+    if (start) {
+      const date = formatDate(start);
+      voiceByDate[date] = (voiceByDate[date] || 0) + getSessionMinutes(session);
     }
   });
 
@@ -64,7 +68,7 @@ const AdminVoiceActivityGraph: React.FC<AdminVoiceActivityGraphProps> = ({ users
   }));
 
   // Calculate total voice activity hours
-  const totalVoiceMinutes = voiceSessions.reduce((sum, session) => sum + (session.minutes || 0), 0);
+  const totalVoiceMinutes = voiceSessions.reduce((sum, session) => sum + getSessionMinutes(session), 0);
   const totalVoiceHours = +(totalVoiceMinutes / 60).toFixed(2);
 
   // Calculate average voice hours per day

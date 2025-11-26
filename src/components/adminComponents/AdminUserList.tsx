@@ -8,6 +8,7 @@ import { type PlayerStats } from "../../types/player_stats";
 import { fetchPlayerStatsByUserId } from "../../api/playerStatsApi";
 import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
 import { buildProspectPromotionSummary } from "./PlayerPromotionProgress";
+import { getSessionMinutes, normalizeVoiceSessions } from "../../utils/voiceSessions";
 
 interface AdminUserListProps {
   users: User[];
@@ -81,7 +82,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     const endDateTime = `${endDate}T23:59:59.999`;
     fetchVoiceChannelSessionsByTimeframe(startDateTime, endDateTime)
       .then((data) => {
-        setSessions(data);
+        setSessions(normalizeVoiceSessions(data));
       })
       .catch((err) => {
         console.error('Error fetching voice channel sessions:', err);
@@ -118,7 +119,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       const userIdStr = String(user.id);
       // Voice sessions and hours
       const userSessions = sessions.filter((session) => String(session.user_id) === userIdStr);
-      const totalMinutes = userSessions.reduce((sum, session) => sum + (session.minutes || 0), 0);
+      const totalMinutes = userSessions.reduce((sum, session) => sum + getSessionMinutes(session), 0);
       // BlackBoxes
       const userBlackBoxes = blackBoxesData.filter((bb) => String(bb.user_id) === userIdStr);
       // FleetLogs: commander or crew

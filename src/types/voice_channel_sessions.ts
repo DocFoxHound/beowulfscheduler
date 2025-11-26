@@ -1,11 +1,17 @@
-// filepath: /home/martinmedic/beowulfscheduler/src/types/hittracker.ts
-
 export interface VoiceChannelSession {
-  id: string;
-  user_id: string;
-  channel_id: string;
-  channel_name: string;
-  joined_at: string;
-  left_at: string;
-  minutes: number;
+  id?: string;
+  user_id?: string | number;
+  channel_id?: string | number;
+  channel_name?: string;
+  guild_id?: string;
+  created_by?: string;
+  created_by_name?: string;
+  joined_at?: string;
+  left_at?: string;
+  started_at?: string;
+  ended_at?: string;
+  minutes?: number | string | null;
+  metadata?: Record<string, unknown> | null;
+  created_at?: string;
+  updated_at?: string;
 }
