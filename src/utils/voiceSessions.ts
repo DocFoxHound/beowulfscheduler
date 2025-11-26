@@ -43,9 +43,11 @@ export const normalizeVoiceSessions = (
   sessions?: VoiceChannelSession[] | null
 ): VoiceChannelSession[] => {
   if (!Array.isArray(sessions)) return [];
-  return sessions.map((session) => ({
-    ...session,
-    user_id: getSessionUserId(session) ?? session.user_id,
-    minutes: getSessionMinutes(session),
-  }));
+  return sessions
+    .filter((session) => (session as any)?.minutes != null)
+    .map((session) => ({
+      ...session,
+      user_id: getSessionUserId(session) ?? session.user_id,
+      minutes: getSessionMinutes(session),
+    }));
 };

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { VoiceChannelSession } from '../types/voice_channel_sessions';
+import { normalizeVoiceSessions } from '../utils/voiceSessions';
 
 const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
 
@@ -13,7 +14,7 @@ export const fetchAllVoiceChannelSessions = async (): Promise<VoiceChannelSessio
     params: { _: Date.now() },
     headers: noCacheHeaders,
   });
-  return response.data;
+  return normalizeVoiceSessions(response.data);
 };
 
 export const createVoiceChannelSession = async (VoiceChannelSession: VoiceChannelSession): Promise<VoiceChannelSession> => {
@@ -50,7 +51,7 @@ export const fetchVoiceChannelSessionsByUserAndTimeframe = async (
       params: { user_id: userId, start, end }
     }
   );
-  return response.data;
+  return normalizeVoiceSessions(response.data);
 };
 
 // Fetch all voice channel sessions within a timeframe
@@ -65,5 +66,5 @@ export const fetchVoiceChannelSessionsByTimeframe = async (
       headers: noCacheHeaders,
     }
   );
-  return response.data;
+  return normalizeVoiceSessions(response.data);
 };
