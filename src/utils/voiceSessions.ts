@@ -7,6 +7,21 @@ const toTimestamp = (value?: string | number | Date | null): number | null => {
   return Number.isFinite(time) ? time : null;
 };
 
+export const getSessionUserId = (session?: VoiceChannelSession | null): string | null => {
+  if (!session) return null;
+  const raw =
+    session.user_id ??
+    session.userId ??
+    session.user?.id ??
+    (session as any).userID ??
+    session.discord_user_id ??
+    session.discordUserId ??
+    session.member_id ??
+    session.memberId;
+  if (raw == null) return null;
+  return String(raw);
+};
+
 export const getSessionMinutes = (session?: VoiceChannelSession | null): number => {
   if (!session) return 0;
   const numericMinutes = Number((session as any).minutes);
@@ -30,6 +45,7 @@ export const normalizeVoiceSessions = (
   if (!Array.isArray(sessions)) return [];
   return sessions.map((session) => ({
     ...session,
+    user_id: getSessionUserId(session) ?? session.user_id,
     minutes: getSessionMinutes(session),
   }));
 };

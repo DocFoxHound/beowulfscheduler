@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { getUsersByActiveMemberRole, getUsersByProspectRole, getUsersByCrewRole, getUsersByMarauderRole, getUsersByBloodedRole } from "../../api/userService";
 import { assessPromotion } from "../../utils/progressionEngine";
-import { fetchVoiceChannelSessionsByTimeframe } from "../../api/voiceChannelSessionsApi";
+import { fetchAllVoiceChannelSessions, fetchVoiceChannelSessionsByTimeframe } from "../../api/voiceChannelSessionsApi";
 import { VoiceChannelSession } from "../../types/voice_channel_sessions";
 import { type User } from "../../types/user";
 import { type PlayerStats } from "../../types/player_stats";
 import { fetchPlayerStatsByUserId } from "../../api/playerStatsApi";
 import { fetchBadgesByUserId } from "../../api/badgeRecordApi";
 import { buildProspectPromotionSummary } from "./PlayerPromotionProgress";
-import { getSessionMinutes, normalizeVoiceSessions } from "../../utils/voiceSessions";
+import { getSessionMinutes, getSessionUserId, normalizeVoiceSessions } from "../../utils/voiceSessions";
 
 interface AdminUserListProps {
   users: User[];
@@ -35,6 +35,27 @@ const playerRanks = [
   { name: "Prospect", color: "#4fd339", ids: (import.meta.env.VITE_PROSPECT_ID || "").split(",") },
   { name: "Friendly", color: "#3bbca9", ids: (import.meta.env.VITE_FRIENDLY_ID || "").split(",") },
 ];
+
+type TimeframeKey = 'last_month' | 'last_3_months' | 'last_year' | 'all_time';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const calculateTimeframeRange = (timeframe: TimeframeKey) => {
+  const now = new Date();
+  const end = new Date(now);
+  let start: Date;
+  if (timeframe === 'all_time') {
+    start = new Date(0); // epoch
+  } else {
+    const dayWindow = timeframe === 'last_month' ? 30 : timeframe === 'last_3_months' ? 90 : 365;
+    start = new Date(now.getTime() - dayWindow * DAY_MS);
+  }
+  const toISODate = (date: Date) => date.toISOString().slice(0, 10);
+  return {
+    start: toISODate(start),
+    end: toISODate(end),
+  };
+};
 
 
 const AdminUserList: React.FC<AdminUserListProps> = ({
@@ -65,7 +86,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
   // Local source users state to support server-side role fetches on filter
   const [sourceUsers, setSourceUsers] = useState<User[]>(users || []);
   const [fetchUsersLoading, setFetchUsersLoading] = useState(false);
-  const [timeframe, setTimeframe] = useState<'last_month' | 'last_3_months' | 'last_year' | 'all_time'>('last_month');
+  const [timeframe, setTimeframe] = useState<TimeframeKey>('last_month');
   const [prospectStatsMap, setProspectStatsMap] = useState<Record<string, PlayerStats | null>>({});
   const [prospectStatsLoading, setProspectStatsLoading] = useState(false);
   const [prospectBadgesMap, setProspectBadgesMap] = useState<Record<string, any[] | null>>({});
@@ -75,42 +96,80 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     setSourceUsers(users || []);
   }, [users]);
 
+  const timeframeRange = React.useMemo(() => calculateTimeframeRange(timeframe), [timeframe]);
+
+  useEffect(() => {
+    if ((!startDate || !endDate) && timeframeRange.start && timeframeRange.end) {
+      setStartDate(timeframeRange.start);
+      setEndDate(timeframeRange.end);
+    }
+  }, [startDate, endDate, timeframeRange, setStartDate, setEndDate]);
+
+  const handleTimeframeChange = (next: TimeframeKey) => {
+    const range = calculateTimeframeRange(next);
+    setTimeframe(next);
+    setStartDate(range.start);
+    setEndDate(range.end);
+  };
+
   // Fetch voice channel sessions only
   useEffect(() => {
+    const startDateStr = startDate || timeframeRange.start;
+    const endDateStr = endDate || timeframeRange.end;
+    if (!startDateStr || !endDateStr) return;
     setSessionsLoading(true);
-    const startDateTime = `${startDate}T00:00:00`;
-    const endDateTime = `${endDate}T23:59:59.999`;
-    fetchVoiceChannelSessionsByTimeframe(startDateTime, endDateTime)
-      .then((data) => {
-        setSessions(normalizeVoiceSessions(data));
-      })
-      .catch((err) => {
+    const startDateTime = `${startDateStr}T00:00:00`;
+    const endDateTime = `${endDateStr}T23:59:59.999`;
+    const startMs = Date.parse(startDateTime);
+    const endMs = Date.parse(endDateTime);
+    const fetchSessions = async () => {
+      try {
+        let data = await fetchVoiceChannelSessionsByTimeframe(startDateTime, endDateTime);
+        const timeframeCount = Array.isArray(data) ? data.length : 0;
+        let usedFallback = false;
+        if (!Array.isArray(data) || data.length === 0) {
+          usedFallback = true;
+          data = await fetchAllVoiceChannelSessions();
+        }
+        const normalized = normalizeVoiceSessions(data);
+        const bounded = normalized.filter((session) => {
+          const timestampSource = session.joined_at || session.started_at || session.created_at;
+          if (!timestampSource) return true;
+          const ts = Date.parse(timestampSource);
+          if (Number.isNaN(ts)) return true;
+          return ts >= startMs && ts <= endMs;
+        });
+        if (import.meta.env.DEV) {
+          const totalMinutes = bounded.reduce((acc, session) => acc + getSessionMinutes(session), 0);
+          console.debug('[VoiceSessions] timeframe fetch', {
+            start: startDateTime,
+            end: endDateTime,
+            timeframeCount,
+            received: Array.isArray(data) ? data.length : 0,
+            bounded: bounded.length,
+            totalMinutes,
+            totalHours: +(totalMinutes / 60).toFixed(2),
+            usedFallback,
+          });
+          console.debug('[VoiceSessions] raw sample', data.slice(0, 3));
+          const sample = bounded.slice(0, 8).map((session) => ({
+            userId: getSessionUserId(session),
+            minutes: getSessionMinutes(session),
+            joined_at: session.joined_at || session.started_at,
+            left_at: session.left_at || session.ended_at,
+          }));
+          console.table(sample, ['userId', 'minutes', 'joined_at', 'left_at']);
+        }
+        setSessions(bounded);
+      } catch (err) {
         console.error('Error fetching voice channel sessions:', err);
-      })
-      .finally(() => setSessionsLoading(false));
-  }, [startDate, endDate]);
-
-  // Derive start/end dates from timeframe selection
-  useEffect(() => {
-    let start: Date;
-    const end = new Date();
-    if (timeframe === 'last_month') {
-      start = new Date();
-      start.setMonth(start.getMonth() - 1);
-    } else if (timeframe === 'last_3_months') {
-      start = new Date();
-      start.setMonth(start.getMonth() - 3);
-    } else if (timeframe === 'last_year') {
-      start = new Date();
-      start.setFullYear(start.getFullYear() - 1);
-    } else { // all_time
-      start = new Date('2000-01-01T00:00:00Z');
-    }
-    const startStr = start.toISOString().slice(0, 10);
-    const endStr = end.toISOString().slice(0, 10);
-    if (startStr !== startDate) setStartDate(startStr);
-    if (endStr !== endDate) setEndDate(endStr);
-  }, [timeframe, startDate, endDate, setStartDate, setEndDate]);
+        setSessions([]);
+      } finally {
+        setSessionsLoading(false);
+      }
+    };
+    fetchSessions();
+  }, [startDate, endDate, timeframeRange]);
 
 
   // Baseline list: all users with all associated data (not filtered by timeframe or selection)
@@ -118,7 +177,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
     (sourceUsers || []).map((user) => {
       const userIdStr = String(user.id);
       // Voice sessions and hours
-      const userSessions = sessions.filter((session) => String(session.user_id) === userIdStr);
+      const userSessions = sessions.filter((session) => getSessionUserId(session) === userIdStr);
       const totalMinutes = userSessions.reduce((sum, session) => sum + getSessionMinutes(session), 0);
       // BlackBoxes
       const userBlackBoxes = blackBoxesData.filter((bb) => String(bb.user_id) === userIdStr);
@@ -189,6 +248,19 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
       return row;
     })
   , [sourceUsers, sessions, blackBoxesData, fleetLogsData, recentGatheringsData, hitTrackersData, sbPlayerSummariesData, sbLeaderboardLogsData, selectedPlayerStats, prospectStatsMap, prospectBadgesMap]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const voiceDebug = baselineUsersWithData.slice(0, 50).map((user: any) => ({
+      id: user.id,
+      username: user.username,
+      nickname: user.nickname,
+      voiceSessions: Array.isArray(user.voiceSessions) ? user.voiceSessions.length : 0,
+      voiceHours: user.voiceHours,
+      totalMinutes: Number(user.voiceHours) * 60,
+    }));
+    console.table(voiceDebug, ['id', 'username', 'voiceSessions', 'voiceHours']);
+  }, [baselineUsersWithData]);
 
   // Fetch player stats and badges for all visible Prospects so promotion flags work on initial load
   useEffect(() => {
@@ -594,7 +666,7 @@ const AdminUserList: React.FC<AdminUserListProps> = ({
         </select>
         <select
           value={timeframe}
-          onChange={(e) => setTimeframe(e.target.value as any)}
+          onChange={(e) => handleTimeframeChange(e.target.value as TimeframeKey)}
           style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #444", background: "#111", color: "#fff" }}
         >
           <option value="last_month">Last Month</option>

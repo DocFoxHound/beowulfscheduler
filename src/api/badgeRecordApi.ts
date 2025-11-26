@@ -11,18 +11,32 @@ export const fetchAllBadges = async (): Promise<BadgeRecord[]> => {
 
 // Get all badges by user ID (query param: user_id)
 export const fetchBadgesByUserId = async (userId: string): Promise<BadgeRecord[]> => {
-  const response = await axios.get<BadgeRecord[]>(`${API_BASE_URL}/api/badges/user`, {
-    params: { user_id: userId }
-  });
-  return response.data;
+  try {
+    const response = await axios.get<BadgeRecord[]>(`${API_BASE_URL}/api/badges/user`, {
+      params: { user_id: userId }
+    });
+    return response.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      return [];
+    }
+    throw err;
+  }
 };
 
 // Get all badges by user ID (query param: user_id)
 export const fetchBadgesByUserIdAndAccolade = async (userId: string): Promise<BadgeRecord[]> => {
-  const response = await axios.get<BadgeRecord[]>(`${API_BASE_URL}/api/badges/userandaccolade`, {
-    params: { user_id: userId }
-  });
-  return response.data;
+  try {
+    const response = await axios.get<BadgeRecord[]>(`${API_BASE_URL}/api/badges/userandaccolade`, {
+      params: { user_id: userId }
+    });
+    return response.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      return [];
+    }
+    throw err;
+  }
 };
 
 // Get all badges by patch (query param: patch)

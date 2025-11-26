@@ -3,8 +3,16 @@ import { VoiceChannelSession } from '../types/voice_channel_sessions';
 
 const API_BASE_URL = `${import.meta.env.VITE_IS_LIVE === "true" ? import.meta.env.VITE_LIVE_API_URL : import.meta.env.VITE_TEST_API_URL}`;
 
+const noCacheHeaders = {
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
+};
+
 export const fetchAllVoiceChannelSessions = async (): Promise<VoiceChannelSession[]> => {
-  const response = await axios.get<VoiceChannelSession[]>(`${API_BASE_URL}/api/voicechannelsessions`);
+  const response = await axios.get<VoiceChannelSession[]>(`${API_BASE_URL}/api/voicechannelsessions`, {
+    params: { _: Date.now() },
+    headers: noCacheHeaders,
+  });
   return response.data;
 };
 
@@ -53,7 +61,8 @@ export const fetchVoiceChannelSessionsByTimeframe = async (
   const response = await axios.get<VoiceChannelSession[]>(
     `${API_BASE_URL}/api/voicechannelsessions/timeframe`,
     {
-      params: { start, end }
+      params: { start, end, _: Date.now() },
+      headers: noCacheHeaders,
     }
   );
   return response.data;
