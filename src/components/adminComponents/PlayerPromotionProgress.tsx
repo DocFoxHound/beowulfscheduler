@@ -107,6 +107,8 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
   const [badgesError, setBadgesError] = useState<string | null>(null);
   const lastFetchedUserIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const previousPlayerIdRef = useRef<string | null>(null);
+  const userFetchIdRef = useRef(0);
 
   // Get all rank ID arrays from .env
   const friendlyIds = (import.meta.env.VITE_FRIENDLY_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
@@ -114,65 +116,100 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
   const crewIds = (import.meta.env.VITE_CREW_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
   const marauderIds = (import.meta.env.VITE_MARAUDER_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
   const bloodedIds = (import.meta.env.VITE_BLOODED_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
-
-  // Fetch user object from backend
-  useEffect(() => {
-    const fetchUser = async () => {
-      setUserLoading(true);
-      try {
-        const playerId = playerStats?.user_id || playerStats?.id || (player && (player.id || player.user_id));
-        if (!playerId) {
-          setUser(null);
-          setUserLoading(false);
-          return;
-        }
-        const userObj = await getUserById(playerId);
-        setUser(userObj);
-      } catch (err) {
-        setUser(null);
-      } finally {
-        setUserLoading(false);
-      }
-    };
-    if (!playerStatsLoading && playerStats) {
-      fetchUser();
-    }
-  }, [playerStatsLoading, playerStats, player]);
+  const raptorIds = (import.meta.env.VITE_RAPTOR_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+  const raiderIds = (import.meta.env.VITE_RAIDER_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
 
   // Determine current playerId for badge fetching and other lookups
   const playerId = playerStats?.user_id || playerStats?.id || (player && (player.id || player.user_id));
+  const playerIdKey = playerId ? String(playerId) : null;
+
+  // Fetch user object from backend with stale-response guards
+  useEffect(() => {
+    if (playerStatsLoading || !playerStats) return;
+    if (!playerIdKey) {
+      setUser(null);
+      setUserLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchId = ++userFetchIdRef.current;
+    setUserLoading(true);
+
+    const fetchUser = async () => {
+      try {
+        const userObj = await getUserById(playerIdKey);
+        if (cancelled || userFetchIdRef.current !== fetchId) return;
+        setUser(userObj);
+      } catch (err) {
+        if (cancelled || userFetchIdRef.current !== fetchId) return;
+        setUser(null);
+      } finally {
+        if (cancelled || userFetchIdRef.current !== fetchId) return;
+        setUserLoading(false);
+      }
+    };
+
+    fetchUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playerStatsLoading, playerStats, playerIdKey]);
+
+  const resolvedUserRoles: string[] = (Array.isArray(user?.roles)
+    ? user.roles
+    : Array.isArray(playerStats?.roles)
+    ? playerStats.roles
+    : Array.isArray(player?.roles)
+    ? player.roles
+    : [])
+    .filter((role: string | number | null | undefined): role is string | number => role !== null && role !== undefined)
+    .map((role: string | number) => String(role));
+  const hasRaptorRole = resolvedUserRoles.some((role) => raptorIds.includes(role));
+  const hasRaiderRole = resolvedUserRoles.some((role) => raiderIds.includes(role));
+  const meetsMarauderPrestigeRequirement = hasRaptorRole && hasRaiderRole;
+
+  // Reset badge cache whenever the target player changes to avoid stale state
+  useEffect(() => {
+    if (previousPlayerIdRef.current === playerIdKey) return;
+    previousPlayerIdRef.current = playerIdKey;
+    abortRef.current?.abort();
+    lastFetchedUserIdRef.current = null;
+    setFetchedBadges(null);
+    setBadgesError(null);
+  }, [playerIdKey]);
 
   // Fetch badges if not provided via props
   useEffect(() => {
-    const shouldFetch = !!playerId && !playerStatsLoading && !userLoading;
-    if (!shouldFetch) return;
+    if (!playerIdKey || playerStatsLoading || userLoading) return;
 
-    // If parent provided badges, use them once per user and avoid network call
+    // Prefer parent-supplied badges when populated
     if (playerBadges && playerBadges.length > 0) {
-      if (lastFetchedUserIdRef.current !== String(playerId)) {
-        setFetchedBadges(playerBadges);
-        lastFetchedUserIdRef.current = String(playerId);
-      }
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setBadgesLoading(false);
+      setBadgesError(null);
+      setFetchedBadges(playerBadges);
+      lastFetchedUserIdRef.current = playerIdKey;
       return;
     }
 
-    // Prevent duplicate fetches for the same user
-    if (lastFetchedUserIdRef.current === String(playerId) && fetchedBadges !== null) {
+    if (lastFetchedUserIdRef.current === playerIdKey) {
       return;
     }
 
-    // Start a new fetch
     setBadgesLoading(true);
     setBadgesError(null);
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
-    fetchBadgesByUserId(String(playerId))
+    fetchBadgesByUserId(playerIdKey)
       .then((data) => {
         if (controller.signal.aborted) return;
         setFetchedBadges(data || []);
-        lastFetchedUserIdRef.current = String(playerId);
+        lastFetchedUserIdRef.current = playerIdKey;
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -184,23 +221,39 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
         setBadgesLoading(false);
       });
 
-    // Cleanup: abort on unmount or when dependencies change
     return () => controller.abort();
-  }, [playerId, playerStatsLoading, userLoading, playerBadges, fetchedBadges]);
+  }, [playerIdKey, playerStatsLoading, userLoading, playerBadges]);
 
   if (playerStatsLoading || !playerStats || userLoading || badgesLoading) {
     return <div style={{ marginTop: "2rem" }}>Loading promotion progress...</div>;
   }
 
-  // Determine current rank from user.rank (or user.rank_id)
+  // Prefer rank info from playerStats to avoid stale user rank flashes
+  const statsRankRaw =
+    playerStats?.rank_id ??
+    playerStats?.rank ??
+    playerStats?.rank_name ??
+    playerStats?.rankName ??
+    playerStats?.rank_text;
+  const rankSource =
+    statsRankRaw ??
+    user?.rank ??
+    user?.rank_id ??
+    (playerStats as any)?.detected_rank ??
+    null;
+  const userRankId = rankSource !== null && rankSource !== undefined && rankSource !== ''
+    ? String(rankSource)
+    : '';
+
+  // Determine current rank from derived rank id/name (fallback arrays cover either form)
   let detectedRank: string | null = null;
-  const userRankRaw = (user?.rank ?? user?.rank_id ?? "") as string | number;
-  const userRankId = String(userRankRaw);
-  if (bloodedIds.includes(userRankId)) detectedRank = "Blooded";
-  else if (marauderIds.includes(userRankId)) detectedRank = "Marauder";
-  else if (crewIds.includes(userRankId)) detectedRank = "Crew";
-  else if (prospectIds.includes(userRankId)) detectedRank = "Prospect";
-  else if (friendlyIds.includes(userRankId)) detectedRank = "Friendly";
+  if (userRankId) {
+    if (bloodedIds.includes(userRankId)) detectedRank = "Blooded";
+    else if (marauderIds.includes(userRankId)) detectedRank = "Marauder";
+    else if (crewIds.includes(userRankId)) detectedRank = "Crew";
+    else if (prospectIds.includes(userRankId)) detectedRank = "Prospect";
+    else if (friendlyIds.includes(userRankId)) detectedRank = "Friendly";
+  }
 
   // Centralized promotion computation, including badge-aware Prospect summary
   const activeBadges = (fetchedBadges !== null ? fetchedBadges : (playerBadges ?? []));
@@ -210,6 +263,8 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
   detectedRank = summary.detectedRank;
   const prospectPiracyHits = summary.prospectPiracyHits;
   const prospectCrewChallenge = summary.prospectCrewChallenge;
+  const requiresPrestigeRoles = detectedRank === 'Crew' && nextRank === 'Marauder';
+  const promotionBlockedForPrestige = requiresPrestigeRoles && !meetsMarauderPrestigeRequirement;
 
   // Prepare requirements breakdown
   let requirementsSection = null;
@@ -236,11 +291,24 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
       requirementsSection = (
         <div style={{ marginTop: "1rem", background: "#1e232b", color: "#e6eef8", border: "1px solid #2c3440", borderRadius: 8, padding: 12 }}>
           <strong>How to reach Marauder</strong>
-          <ul style={{ marginTop: 6, lineHeight: 1.6 }}>
-            <li>Heavy engagement with Prestige Schools, gaining multiple levels</li>
-            <li>High activity</li>
-            <li>Longevity (seniority)</li>
+          <p style={{ marginTop: 6, marginBottom: 10, lineHeight: 1.5 }}>
+            Crew members must hold both a RAPTOR Tier I (or higher) role and a RAIDER Tier I (or higher) role before they can be promoted to Marauder.
+          </p>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+            <li style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", borderRadius: 6, background: hasRaptorRole ? "rgba(76, 175, 80, 0.15)" : "rgba(255, 152, 0, 0.15)", color: hasRaptorRole ? "#9fefb4" : "#ffb874" }}>
+              <span>RAPTOR role assigned</span>
+              <span>{hasRaptorRole ? "Complete" : "Missing"}</span>
+            </li>
+            <li style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", borderRadius: 6, background: hasRaiderRole ? "rgba(76, 175, 80, 0.15)" : "rgba(255, 152, 0, 0.15)", color: hasRaiderRole ? "#9fefb4" : "#ffb874" }}>
+              <span>RAIDER role assigned</span>
+              <span>{hasRaiderRole ? "Complete" : "Missing"}</span>
+            </li>
           </ul>
+          <div style={{ marginTop: 8, fontSize: 13, color: "#a8b3c7" }}>
+            RAPTOR is IronPoint's Dogfighting rating, which requires assessments to increment.
+            <br />
+            RAIDER is IronPoint's Piracy Skillset measurement, which gains through learning and demonstrating proficiencies.
+          </div>
         </div>
       );
     } else if (detectedRank === "Marauder") {
@@ -259,6 +327,10 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
 
   // Handler for promotion using backend API
   const handlePromote = async () => {
+    if (promotionBlockedForPrestige) {
+      setPromoteError("RAPTOR I and RAIDER I (or higher) roles are required before promoting to Marauder.");
+      return;
+    }
     setPromoting(true);
     setPromoteError(null);
     try {
@@ -296,21 +368,33 @@ const PromotionProgress: React.FC<PlayerPromotionProgressProps> = ({ playerStats
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
         <div style={{ fontWeight: 700, fontSize: 20 }}>Promotion Progress</div>
         {isModerator && dbUser?.id !== playerStats?.user_id && (
-          <button
-            style={{
-              background: "#2196f3",
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 16px",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: 15
-            }}
-            onClick={() => setShowPromoteModal(true)}
-          >
-            Promote
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <button
+              style={{
+                background: promotionBlockedForPrestige ? "#4a5568" : "#2196f3",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                padding: "6px 16px",
+                fontWeight: 600,
+                cursor: promotionBlockedForPrestige || promoting ? "not-allowed" : "pointer",
+                fontSize: 15,
+                opacity: promotionBlockedForPrestige ? 0.7 : 1
+              }}
+              onClick={() => {
+                if (promotionBlockedForPrestige) return;
+                setShowPromoteModal(true);
+              }}
+              disabled={promotionBlockedForPrestige}
+            >
+              Promote
+            </button>
+            {promotionBlockedForPrestige && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "#ffb874", textAlign: "right", maxWidth: 260 }}>
+                Add both RAPTOR and RAIDER prestige roles before promoting to Marauder.
+              </div>
+            )}
+          </div>
         )}
       </div>
       {badgesError && (

@@ -19,6 +19,7 @@ import { fetchPlayerStatsByUserId } from "../api/playerStatsApi";
 import { fetchAllActiveBadgeReusables, fetchBadgeReusablesById } from "../api/badgeReusableApi";
 import UpcomingEvents from "../components/dashboardComponents/UpcomingEvents";
 import { fetchBadgesByUserId } from "../api/badgeRecordApi";
+import { hasRoleMatch, splitRoleIds } from "../utils/roleUtils";
 
 import { getAllGameVersions } from "../api/patchApi";
 
@@ -38,10 +39,10 @@ export default function Dashboard() {
   const [playerBadges, setPlayerBadges] = useState<any[]>([]);
   const [playerBadgesLoading, setPlayerBadgesLoading] = useState(false);
   // isModerator: true if any dbUser.roles[] matches any BLOODED_IDS
-  const BLOODED_IDS = (import.meta.env.VITE_BLOODED_ID || "").split(",");
-  const RONIN_IDS = (import.meta.env.VITE_RONIN_ID || "").split(",");
-  const isModerator = dbUser?.roles?.some((role: string) => BLOODED_IDS.includes(role)) ?? false;
-  const isRonin = dbUser?.roles?.some((role: string) => RONIN_IDS.includes(role)) ?? false;
+  const BLOODED_IDS = splitRoleIds(import.meta.env.VITE_BLOODED_ID);
+  const RONIN_IDS = splitRoleIds(import.meta.env.VITE_RONIN_ID);
+  const isModerator = hasRoleMatch(dbUser?.roles, BLOODED_IDS);
+  const isRonin = hasRoleMatch(dbUser?.roles, RONIN_IDS);
 
   // State for latest patch version string
   const [latestPatch, setLatestPatch] = useState<string>("");
@@ -192,10 +193,13 @@ export default function Dashboard() {
         </div>
         {/* Bottom row: three progress sections */}
         <div className="dashboard-area">
-          <SpecializedTeams 
-            dbUser={dbUser} 
-            orgSummaries={orgSummaries}
-            latestPatch={latestPatch}
+          <PlayerPrestigeProgress
+            activeBadgeReusables={activeBadgeReusables}
+            playerStats={playerStats}
+            playerStatsLoading={playerStatsLoading}
+            player={dbUser}
+            dbUser={dbUser}
+            showMembers={false}
           />
           <PlayerBadgeProgress
             badgeReusables={activeBadgeReusables}
@@ -208,24 +212,44 @@ export default function Dashboard() {
           />
         </div>
         <div className="dashboard-area">
-          <PlayerPrestigeProgress
-            activeBadgeReusables={activeBadgeReusables}
-            playerStats={playerStats}
-            playerStatsLoading={playerStatsLoading}
-            player={dbUser}
-            dbUser={dbUser}
-            onlyPrestige="RAPTOR"
+          <SpecializedTeams 
+            dbUser={dbUser} 
+            orgSummaries={orgSummaries}
+            latestPatch={latestPatch}
+            includeTeams={["ronin"]}
           />
+          <div style={{ marginTop: "1.5rem" }}>
+            <PlayerPrestigeProgress
+              activeBadgeReusables={activeBadgeReusables}
+              playerStats={playerStats}
+              playerStatsLoading={playerStatsLoading}
+              player={dbUser}
+              dbUser={dbUser}
+              onlyPrestige="RAPTOR"
+              showProgress={false}
+              showHeading={false}
+            />
+          </div>
         </div>
         <div className="dashboard-area">
-          <PlayerPrestigeProgress
-            activeBadgeReusables={activeBadgeReusables}
-            playerStats={playerStats}
-            playerStatsLoading={playerStatsLoading}
-            player={dbUser}
-            dbUser={dbUser}
-            onlyPrestige="RAIDER"
+          <SpecializedTeams 
+            dbUser={dbUser} 
+            orgSummaries={orgSummaries}
+            latestPatch={latestPatch}
+            includeTeams={["reaver"]}
           />
+          <div style={{ marginTop: "1.5rem" }}>
+            <PlayerPrestigeProgress
+              activeBadgeReusables={activeBadgeReusables}
+              playerStats={playerStats}
+              playerStatsLoading={playerStatsLoading}
+              player={dbUser}
+              dbUser={dbUser}
+              onlyPrestige="RAIDER"
+              showProgress={false}
+              showHeading={false}
+            />
+          </div>
         </div>
       </main>
     </div>

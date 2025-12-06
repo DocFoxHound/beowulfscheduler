@@ -12,3 +12,16 @@
 .org-goals-user-details {
   text-align: center;
 }
+
+.player-rank-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(66, 165, 245, 0.15);
+  color: #e5f4ff;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}

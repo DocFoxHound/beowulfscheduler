@@ -1,8 +1,45 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "./playerCard.css";
 import PlayerPromotionProgress from "../adminComponents/PlayerPromotionProgress";
 import RsiHandleModal from "./RsiHandleModal";
 import { fetchPlayerStatsByUserId } from "../../api/playerStatsApi";
+
+const parseIds = (value?: string) =>
+  (value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+const rankConfig = [
+  { label: "Friendly", ids: parseIds(import.meta.env.VITE_FRIENDLY_ID) },
+  { label: "Prospect", ids: parseIds(import.meta.env.VITE_PROSPECT_ID) },
+  { label: "Crew", ids: parseIds(import.meta.env.VITE_CREW_ID) },
+  { label: "Marauder", ids: parseIds(import.meta.env.VITE_MARAUDER_ID) },
+  { label: "Blooded", ids: parseIds(import.meta.env.VITE_BLOODED_ID) },
+];
+
+const resolveRolesFromSources = (sources: any[]): string[] => {
+  for (const source of sources) {
+    if (Array.isArray(source) && source.length > 0) {
+      return source
+        .map((role) => (role === null || role === undefined ? null : String(role)))
+        .filter((role): role is string => Boolean(role && role.length));
+    }
+  }
+  return [];
+};
+
+const determineRankFromRoles = (roles: string[]): string | undefined => {
+  if (!roles.length) return undefined;
+  let detected: string | undefined;
+  rankConfig.forEach(({ label, ids }) => {
+    if (!ids.length) return;
+    if (roles.some((role) => ids.includes(role))) {
+      detected = label;
+    }
+  });
+  return detected;
+};
 
 interface PlayerCardProps {
   dbUser: any;
@@ -27,28 +64,24 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, play
     avatar && userId
       ? `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png`
       : undefined;
+  const userRoles = useMemo(
+    () =>
+      resolveRolesFromSources([
+        dbUser?.roles,
+        dbUser?.discord_roles,
+        dbUser?.role_ids,
+        dbUser?.roleIds,
+        user?.roles,
+        user?.role_ids,
+        user?.roleIds,
+      ]),
+    [dbUser, user]
+  );
+  const presentRank = useMemo(() => determineRankFromRoles(userRoles), [userRoles]);
 
   // If parent didn't provide stats, fetch them by userId
   useEffect(() => {
     let cancelled = false;
-
-    // Derive rank name from Discord roles as a fallback when stats are missing
-    const deriveRankNameFromRoles = (): string | undefined => {
-      const roles: string[] = Array.isArray(dbUser?.roles) ? dbUser.roles : [];
-      const toIds = (v: string | undefined) => (v || "").split(",").map((s) => s.trim()).filter(Boolean);
-      const bloodedIds = toIds(import.meta.env.VITE_BLOODED_ID);
-      const marauderIds = toIds(import.meta.env.VITE_MARAUDER_ID);
-      const crewIds = toIds(import.meta.env.VITE_CREW_ID);
-      const prospectIds = toIds(import.meta.env.VITE_PROSPECT_ID);
-      const friendlyIds = toIds(import.meta.env.VITE_FRIENDLY_ID);
-      const hasAny = (ids: string[]) => roles.some((r) => ids.includes(r));
-      if (hasAny(bloodedIds)) return "Blooded";
-      if (hasAny(marauderIds)) return "Marauder";
-      if (hasAny(crewIds)) return "Crew";
-      if (hasAny(prospectIds)) return "Prospect";
-      if (hasAny(friendlyIds)) return "Friendly";
-      return undefined;
-    };
 
     const run = async () => {
       // If props provided, mirror them
@@ -72,11 +105,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, play
             setLocalStats(stats);
           } else {
             // Build minimal stats so PlayerPromotionProgress can still render requirements
-            setLocalStats({ user_id: userId, rank_name: deriveRankNameFromRoles() });
+            setLocalStats({ user_id: userId, rank_name: presentRank });
           }
         }
       } catch {
-        if (!cancelled) setLocalStats({ user_id: userId, rank_name: deriveRankNameFromRoles() });
+        if (!cancelled) setLocalStats({ user_id: userId, rank_name: presentRank });
       } finally {
         if (!cancelled) setLocalLoading(false);
       }
@@ -86,7 +119,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, play
     return () => {
       cancelled = true;
     };
-  }, [playerStats, playerStatsLoading, userId]);
+  }, [playerStats, playerStatsLoading, userId, presentRank]);
 
   return (
     <>
@@ -115,6 +148,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ dbUser, user, playerStats, play
                 <span role="img" aria-label="edit">✏️</span>
               </button>
             </span>
+            <div className="player-rank-chip">
+              Rank: {presentRank ?? "Unranked"}
+            </div>
           </h3>
         </div>
       </div>

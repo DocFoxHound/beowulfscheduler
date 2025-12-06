@@ -20,6 +20,29 @@ type PlaceholderEntry = {
   badgeName?: string;
   badgeSubject?: string;
   type?: 'badge' | 'prestige' | 'promotion';
+  promotionTarget?: string;
+};
+
+const parseEnvIds = (value?: string) =>
+  (value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+const RAPTOR_ROLE_IDS = parseEnvIds(import.meta.env.VITE_RAPTOR_ID);
+const RAIDER_ROLE_IDS = parseEnvIds(import.meta.env.VITE_RAIDER_ID);
+
+const resolveUserRoles = (user: any): string[] => {
+  if (!user) return [];
+  const candidateLists = [user.roles, user.discord_roles, user.role_ids, user.roleIds];
+  for (const candidate of candidateLists) {
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      return candidate
+        .map((role) => (role === null || role === undefined ? null : String(role)))
+        .filter((role): role is string => Boolean(role && role.length));
+    }
+  }
+  return [];
 };
 
 const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData, activeBadgeReusables, playerBadgesByUser }) => {
@@ -62,6 +85,10 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
           const promo = assessPromotion(ps, userRankId, undefined, userBadges as any[]);
           const nextRank = promo?.nextRank as string | undefined;
           const progressPercent = typeof promo?.progressPercent === 'number' ? promo.progressPercent : 0;
+          const resolvedRoles = resolveUserRoles(user);
+          const hasRaptorRole = resolvedRoles.some((role) => RAPTOR_ROLE_IDS.includes(role));
+          const hasRaiderRole = resolvedRoles.some((role) => RAIDER_ROLE_IDS.includes(role));
+          const readyForMarauderByPrestigeRoles = nextRank === 'Marauder' && hasRaptorRole && hasRaiderRole;
           const updates = assessPlayerForAdminUpdates({
             user,
             stats: ps,
@@ -75,8 +102,7 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
             // Only show promotion when ready (no partial progress)
             if (u.type === 'promotion') {
               if (u.severity !== 'success') return;
-              // Remove Crew -> Marauder promotion notices
-              if (nextRank === 'Marauder') return;
+              if (nextRank === 'Marauder' && !readyForMarauderByPrestigeRoles) return;
             }
             // Avoid showing badge "ready" items unless we have confirmed earned-badge data for this user.
             // This prevents false positives when bulk badge data hasn't been fetched for this user.
@@ -91,22 +117,32 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
               badgeName: u.type === 'badge' ? (u as any).badgeName : undefined,
               badgeSubject: u.type === 'badge' ? (u as any).badgeSubject : undefined,
               type: u.type as 'badge' | 'prestige' | 'promotion',
+              promotionTarget: u.type === 'promotion' ? nextRank : undefined,
             });
             });
           }
 
 
-            // Manual injection parity with PlayerPromotionProgress for Prospect -> Crew only
-            // If engine didn't produce a promotion entry but progress is 100% to Crew, add one.
+            // Manual injection parity with PlayerPromotionProgress for key promotions
+            // If engine didn't produce a promotion entry but the user is Crew-ready (stats) or Marauder-ready (prestige roles), add one.
             try {
-              const hasPromotionEntry = updatesList.some(e => String(e.id).startsWith(`${id}-promotion-`));
-              if (!hasPromotionEntry && nextRank === 'Crew' && progressPercent >= 100) {
+              const hasPromotionEntry = updatesList.some(
+                (e) => e.type === 'promotion' && e.name === name && e.promotionTarget === nextRank
+              );
+              const readyForCrewByStats = nextRank === 'Crew' && progressPercent >= 100;
+              const readyForMarauderByRoles = readyForMarauderByPrestigeRoles;
+              if (!hasPromotionEntry && (readyForCrewByStats || readyForMarauderByRoles)) {
+                const targetRank = readyForMarauderByRoles ? 'Marauder' : 'Crew';
+                const tooltip = targetRank === 'Marauder'
+                  ? 'Ready for promotion to Marauder (RAPTOR & RAIDER roles met)'
+                  : 'Ready for promotion to Crew';
                 updatesList.push({
                   id: `${id}-promotion-manual`,
                   name,
                   status: 'eligible',
-                  tooltip: 'Ready for promotion to Crew',
+                  tooltip,
                   type: 'promotion',
+                  promotionTarget: targetRank,
                 });
               }
             } catch (e) {
@@ -116,7 +152,7 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
         return updatesList;
       }
 
-      // No badge reusables provided: still compute Prospect -> Crew promotion readiness
+      // No badge reusables provided: still compute Prospect -> Crew and Crew -> Marauder readiness
       const manualOnly: PlaceholderEntry[] = [];
       activeUsersWithStats.forEach(({ user, stats: ps }, uIdx) => {
         const id = user?.id ?? uIdx + 1;
@@ -127,14 +163,23 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
         const promo = assessPromotion(ps, userRankId, undefined, userBadges as any[]);
         const nextRank = promo?.nextRank as string | undefined;
         const progressPercent = typeof promo?.progressPercent === 'number' ? promo.progressPercent : 0;
-        // Only add Prospect -> Crew
-        if (nextRank === 'Crew' && progressPercent >= 100) {
+        const resolvedRoles = resolveUserRoles(user);
+        const hasRaptorRole = resolvedRoles.some((role) => RAPTOR_ROLE_IDS.includes(role));
+        const hasRaiderRole = resolvedRoles.some((role) => RAIDER_ROLE_IDS.includes(role));
+        const readyForMarauderByPrestigeRoles = nextRank === 'Marauder' && hasRaptorRole && hasRaiderRole;
+        const readyForCrewByStats = nextRank === 'Crew' && progressPercent >= 100;
+        if (readyForCrewByStats || readyForMarauderByPrestigeRoles) {
+          const targetRank = readyForMarauderByPrestigeRoles ? 'Marauder' : 'Crew';
+          const tooltip = targetRank === 'Marauder'
+            ? 'Ready for promotion to Marauder (RAPTOR & RAIDER roles met)'
+            : 'Ready for promotion to Crew';
           manualOnly.push({
             id: `${id}-promotion-manual`,
             name,
             status: 'eligible',
-            tooltip: 'Ready for promotion to Crew',
+            tooltip,
             type: 'promotion',
+            promotionTarget: targetRank,
           });
         }
       });
@@ -215,9 +260,11 @@ const AdminUpdate: React.FC<AdminUpdateProps> = ({ allPlayerStats, usersWithData
   const statusText = (e: PlaceholderEntry) => {
     // If we know the update type, tailor copy accordingly
     if (e.type === 'promotion') {
-  if (e.status === 'eligible') return 'is eligible to promote';
-  if (e.status === 'progress') return 'has promotion progress';
-  return 'has a promotion update';
+      if (e.status === 'eligible') {
+        return e.promotionTarget ? `is eligible to promote to ${e.promotionTarget}` : 'is eligible to promote';
+      }
+      if (e.status === 'progress') return 'has promotion progress';
+      return e.promotionTarget ? `has a promotion update for ${e.promotionTarget}` : 'has a promotion update';
     }
     if (e.type === 'prestige') {
       if (e.status === 'earned') return 'is ready to advance prestige';

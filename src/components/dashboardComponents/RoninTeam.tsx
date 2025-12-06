@@ -13,13 +13,10 @@ interface RoninTeamProps {
 
 export default function RoninTeam(props: RoninTeamProps) {
   const { dbUser, orgSummaries } = props;
-  const [playerSummary, setPlayerSummary] = useState<any>(null);
   const [roninUsers, setRoninUsers] = useState<any[]>([]);
   const [roninSummaries, setRoninSummaries] = useState<any[]>([]); // enriched with summary + user id/handle
   const [roninMissing, setRoninMissing] = useState<any[]>([]); // users without summary
   const [globalSummaries, setGlobalSummaries] = useState<any[] | null>(null); // cache of all player summaries
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
     //   {orgSummaries && Array.isArray(orgSummaries) && orgSummaries.length > 0 && (() => {
   const RONIN_IDS = (import.meta.env.VITE_RONIN_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
 
@@ -55,28 +52,6 @@ export default function RoninTeam(props: RoninTeamProps) {
       }
       throw new Error('No summary found for any variant');
     };
-
-    if (dbUser?.rsi_handle) {
-      console.log('[RoninTeam] Fetching player summary for handle:', dbUser.rsi_handle);
-      setLoading(true);
-      attemptFetchSummary(dbUser.rsi_handle)
-        .then((data) => {
-          setPlayerSummary(data);
-          setError(null);
-          console.log('[RoninTeam] Loaded player summary:', {
-            handle: dbUser.rsi_handle,
-            rank: (data as any)?.rank,
-            total_rating: (data as any)?.total_rating,
-            avg_rank: (data as any)?.avg_rank,
-          });
-        })
-        .catch(() => {
-          setError("You do not have a leaderboard summary yet. Please play some matches to generate one.");
-          setPlayerSummary(null);
-          console.warn('[RoninTeam] No player summary found for handle (after variant attempts):', dbUser.rsi_handle);
-        })
-        .finally(() => setLoading(false));
-    }
 
     // Helper to lazy-load all summaries once so we can do client-side matching (mirrors AdminUserList approach)
     const loadAllSummariesOnce = async () => {
@@ -250,7 +225,13 @@ export default function RoninTeam(props: RoninTeamProps) {
             // Separate valid summaries and missing records
             const validSummaries = summaryResults
               .filter(({ summary }) => summary)
-              .map(({ summary, user }) => ({ ...summary, rsi_handle: user.rsi_handle, id: user.id } as any));
+              .map(({ summary, user }) => ({
+                ...summary,
+                rsi_handle: user?.rsi_handle ?? (summary as any)?.rsi_handle,
+                username: user?.username ?? (summary as any)?.username,
+                nickname: (summary as any)?.nickname ?? user?.nickname,
+                id: user.id,
+              } as any));
 
             // Sort by avg_rank ascending (best rank = lowest number). If avg_rank missing, push to end.
             validSummaries.sort((a, b) => {
@@ -286,7 +267,7 @@ export default function RoninTeam(props: RoninTeamProps) {
       }
     };
     loadRoninUsers();
-  }, [dbUser?.rsi_handle]);
+  }, []);
 
   // Normalize media URLs from RSI: accept absolute URLs, fix missing colon (https// -> https://),
   // and prefix host when path starts with '/media'.
@@ -311,80 +292,121 @@ export default function RoninTeam(props: RoninTeamProps) {
     return `${BASE}/${s}`;
   };
 
+  const formatFlightTime = (input: any) => {
+    if (!input) return "-";
+    if (typeof input === "object") {
+      const hours = input.hours ?? 0;
+      const mins = input.minutes ?? 0;
+      return `${hours}h ${mins}m`;
+    }
+    if (typeof input === "number") {
+      const hours = Math.floor(input);
+      const mins = Math.round((input - hours) * 60);
+      return `${hours}h ${mins}m`;
+    }
+    return String(input);
+  };
+
+  const roninHandle = dbUser?.rsi_handle || dbUser?.username;
+
   return (
-    <div>
-      <h2>RONIN</h2>
-      {/* You can use dbUser for more personalized info here if needed */}
-      {loading && <p>Loading leaderboard data...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {playerSummary && (
-        <div style={{ marginTop: '1em' }}>
-          <h3>Leaderboard Summary for {dbUser.rsi_handle}</h3>
-          <ul>
-            <li>Rank: {playerSummary.rank}</li>
-            <li>Total Kills: {String(playerSummary.total_kills)}</li>
-            <li>Total Deaths: {String(playerSummary.total_deaths)}</li>
-            <li>Total Rating: {playerSummary.total_rating}</li>
-            <li>Average Rank: {playerSummary.avg_rank}</li>
-            <li>Flight Time: {typeof playerSummary.total_flight_time === "object" && playerSummary.total_flight_time !== null
-              ? `${playerSummary.total_flight_time.hours ?? 0}:${playerSummary.total_flight_time.minutes ?? 0}:${playerSummary.total_flight_time.seconds ?? 0}`
-              : playerSummary.total_flight_time}
-            </li>
-            {/* Add more fields as needed */}
-          </ul>
-        </div>
-      )}
-      
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5em' }}>
+      <header style={{ display: 'flex', flexDirection: 'column', gap: '0.25em' }}>
+        <span style={{ fontSize: '0.8em', letterSpacing: '0.35em', color: '#ffd88c', textTransform: 'uppercase' }}>RONIN</span>
+        <h3 style={{ margin: 0, fontSize: '1.5em', color: '#ffffff' }}>Competitive Dogfighters</h3>
+        {roninHandle && (
+          <p style={{ margin: 0, fontSize: '0.85em', color: '#d7d7d7' }}>
+            {roninHandle}, Ronin sorties prioritize discipline, tempo control, and advanced dogfighting micro. Maintain your lead queue; cadence reviews happen weekly.
+          </p>
+        )}
+      </header>
+      <p style={{ margin: 0, lineHeight: 1.5 }}>
+        Ronin are IronPoint's competitive pilots—structured wing fights, mirrored drills, and high-intensity duels. Gold standard comms, shared mental map, no wasted motion.
+      </p>
+      <div
+        style={{
+          marginTop: '0.6em',
+          padding: '0.6em 0.8em',
+          borderRadius: '8px',
+          background: 'rgba(255,215,0,0.08)',
+          border: '1px solid rgba(255,215,0,0.25)',
+          fontSize: '0.85em',
+          color: '#f7f2d0',
+        }}
+      >
+        Team Captain: <strong>K0zuka</strong>
+      </div>
+      <div style={{ display: 'flex', gap: '0.75em', flexWrap: 'wrap' }}>
+        <span style={{ background: '#ffd700', color: '#121212', padding: '0.35em 0.8em', borderRadius: '999px', fontSize: '0.75em', fontWeight: 600 }}>Competitive</span>
+        <span style={{ background: '#2f3034', color: '#ededed', padding: '0.35em 0.8em', borderRadius: '999px', fontSize: '0.75em', fontWeight: 500 }}>Dogfighting</span>
+        <span style={{ background: '#2f3034', color: '#ededed', padding: '0.35em 0.8em', borderRadius: '999px', fontSize: '0.75em', fontWeight: 500 }}>Teamfight Micro</span>
+      </div>
 
-
-      <div style={{ marginTop: '2em' }}>
-        <h3 style={{ fontWeight: 'bold', fontSize: '1.5em', letterSpacing: '1px', borderBottom: '2px solid #222', paddingBottom: '0.3em', marginBottom: '1em' }}>The Ronin</h3>
+      <div style={{ marginTop: '0.5em' }}>
+        <h3 style={{ fontWeight: 'bold', fontSize: '1.25em', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.4em', marginBottom: '1em' }}>Roster</h3>
         {(roninSummaries.length === 0 && roninMissing.length === 0) ? (
           <p>No Ronin pilot summaries found.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2em' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6em' }}>
             {roninSummaries.length > 0 && (
-              <div>
-                {roninSummaries.map((summary) => (
-                  <div key={summary.id} style={{ display: 'flex', alignItems: 'center', background: '#181a1b', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', padding: '1em', marginBottom: '0.5em' }}>
-                    <img
-                      src={resolveMediaUrl(summary.account_media)}
-                      alt={summary.rsi_handle}
-                      title={(summary.nickname || summary.displayname || summary.rsi_handle) as string}
-                      style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', marginRight: '1em', border: '2px solid #444' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '1.15em', color: '#e0e0e0', marginBottom: '0.2em' }}>{summary.rsi_handle}</div>
-                      <div style={{ color: '#b0b0b0', fontSize: '0.85em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        <span style={{ marginRight: '1.5em' }}>Rating: <span style={{ fontWeight: 'bold', color: '#ffd700' }}>{summary.total_rating}</span></span>
-                        <span style={{ marginRight: '1.5em' }}>Flight Time: <span style={{ fontWeight: 'bold' }}>{typeof summary.total_flight_time === "object" && summary.total_flight_time !== null
-                          ? `${summary.total_flight_time.hours ?? 0}:${summary.total_flight_time.minutes ?? 0}:${summary.total_flight_time.seconds ?? 0}`
-                          : summary.total_flight_time}</span></span>
-                        <span>Rank: <span style={{ fontWeight: 'bold', color: '#9ad0ff' }}>{summary.avg_rank !== undefined && summary.avg_rank !== null ? Math.round(summary.avg_rank) : '-'}</span></span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6em' }}>
+                {roninSummaries.map((summary) => {
+                  const primaryLabel = summary.nickname?.trim()
+                    ? summary.nickname
+                    : (summary.username || summary.rsi_handle);
+                  const stats = [
+                    { label: 'Rating', value: summary.total_rating ?? '-' },
+                    { label: 'Avg Rank', value: summary.avg_rank !== undefined && summary.avg_rank !== null ? `#${Math.round(summary.avg_rank)}` : '-' },
+                    { label: 'Flight Time', value: formatFlightTime(summary.total_flight_time) },
+                  ];
+                  return (
+                    <div
+                      key={summary.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '1.35em',
+                        padding: '0.6em 0.9em',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        background: 'rgba(14,15,18,0.9)',
+                        boxShadow: '0 6px 16px rgba(0,0,0,0.22)',
+                        flexWrap: 'nowrap',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65em', minWidth: 0, maxWidth: '32%', flexShrink: 0 }}>
+                        <img
+                          src={resolveMediaUrl(summary.account_media)}
+                          alt={summary.rsi_handle}
+                          title={(primaryLabel || summary.displayname || summary.rsi_handle) as string}
+                          style={{ width: '38px', height: '38px', borderRadius: '999px', objectFit: 'cover', border: '1px solid rgba(255,215,0,0.35)' }}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.98em', color: '#f7f6f1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{primaryLabel}</div>
+                          <div style={{ fontSize: '0.78em', color: '#b4b4b4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>@{summary.rsi_handle}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.1em', marginLeft: 'auto', flexWrap: 'nowrap', fontSize: '0.82em', minWidth: 0, overflow: 'hidden' }}>
+                        {stats.map((stat) => (
+                          <span
+                            key={`${summary.id}-${stat.label}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'baseline',
+                              gap: '0.25em',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0
+                            }}
+                          >
+                            <span style={{ fontSize: '0.62em', letterSpacing: '0.08em', color: '#8f8f8f', textTransform: 'uppercase' }}>{stat.label}</span>
+                            <span style={{ fontSize: '0.9em', fontWeight: 600, color: '#fdfdfd' }}>{stat.value}</span>
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {roninMissing.length > 0 && (
-              <div style={{ marginTop: '0.2em' }}>
-                <h4 style={{ color: '#c00', fontWeight: 'bold' }}>No leaderboard record yet</h4>
-                {roninSummaries.length === 0 && (
-                  <p style={{ color: '#999', marginTop: '0.3em' }}>Showing placeholder roster cards until summaries are generated.</p>
-                )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6em', marginTop: '0.6em' }}>
-                  {roninMissing.map((user) => (
-                    <div key={user.id} style={{ display: 'flex', alignItems: 'center', background: '#141516', borderRadius: '8px', padding: '0.75em 0.9em', boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7em', color: '#666', marginRight: '0.9em', border: '2px solid #333' }}>N/A</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '1.05em', color: '#ddd', marginBottom: '0.15em' }}>{user.rsi_handle || user.username || user.name}</div>
-                        <div style={{ fontSize: '0.75em', color: '#777' }}>Rating: - | Flight Time: - | Rank: -</div>
-                      </div>
-                      <div style={{ fontSize: '0.65em', background: '#333', color: '#aaa', padding: '0.25em 0.55em', borderRadius: '6px' }}>Pending</div>
-                    </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -3,6 +3,7 @@ import { grantPrestige } from "../../api/grantPrestige";
 import { groupPrestige, getBadgeProgress, isBadgeReady, voiceHoursFromStats } from "../../utils/progressionEngine";
 import { getAllUsers } from "../../api/userService";
 import type { User as OrgUser } from "../../types/user";
+import { hasRoleMatch, splitRoleIds } from "../../utils/roleUtils";
 
 // Simple module-level cache to avoid duplicate fetches when component is rendered twice
 let cachedOrgUsers: OrgUser[] | null = null;
@@ -19,13 +20,26 @@ interface PlayerPrestigeProgressProps {
   onlyPrestige?: 'RAPTOR' | 'RAIDER';
   /** If false, hides the member lists (used on Admin Activity page) */
   showMembers?: boolean;
+  /** If false, hides the progress / requirements UI for the prestige */
+  showProgress?: boolean;
+  /** Allows embedding the component without the default heading */
+  showHeading?: boolean;
 }
 
-
-const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeReusables, playerStats, playerStatsLoading, isModerator, dbUser, player, onlyPrestige, showMembers = true }) => {
+const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({
+  activeBadgeReusables,
+  playerStats,
+  playerStatsLoading,
+  isModerator,
+  dbUser,
+  player,
+  onlyPrestige,
+  showMembers = true,
+  showProgress = true,
+  showHeading = true,
+}) => {
   // Build groups with shared engine
   const prestigeGroups = groupPrestige(activeBadgeReusables || []);
-
 
   // Local state for prestige levels to allow UI refresh after grant
   const [localLevels, setLocalLevels] = useState({
@@ -44,6 +58,7 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   const raiderLevel = localLevels.raider;
   const raptorLevel = localLevels.raptor;
   const nextRaider = (prestigeGroups["RAIDER"] || []).filter((b) => (b.prestige_level ?? 0) === raiderLevel + 1);
+  const nextRaptor = (prestigeGroups["RAPTOR"] || []).filter((b) => (b.prestige_level ?? 0) === raptorLevel + 1);
 
   // Max level for prestige
   const MAX_PRESTIGE_LEVEL = 5;
@@ -86,7 +101,7 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
 
   // Fetch and cache org users to build lists under cards
   const [orgUsers, setOrgUsers] = useState<OrgUser[] | null>(cachedOrgUsers);
-  const [orgUsersLoading, setOrgUsersLoading] = useState<boolean>(!cachedOrgUsers);
+  const [orgUsersLoading, setOrgUsersLoading] = useState<boolean>(showMembers && !cachedOrgUsers);
 
   React.useEffect(() => {
     if (!showMembers) {
@@ -116,15 +131,17 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
     };
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [showMembers]);
 
   // Helper to parse env role IDs
-  const toIds = (envVar?: string) => (envVar || "").split(",").map(s => s.trim()).filter(Boolean);
+  const toIds = (envVar?: string) => splitRoleIds(envVar);
   const CREW_IDS = toIds(import.meta.env.VITE_CREW_ID);
   const MARAUDER_IDS = toIds(import.meta.env.VITE_MARAUDER_ID);
   const BLOODED_IDS_ENV = toIds(import.meta.env.VITE_BLOODED_ID);
   const RONIN_IDS = toIds(import.meta.env.VITE_RONIN_ID); // Ronin role IDs for highlight/tag
-  const hasAny = (roles: string[] | undefined, ids: string[]) => Array.isArray(roles) && roles.some(r => ids.includes(r));
+  const REAVER_IDS = toIds(import.meta.env.VITE_REAVER_ID); // Reaver role IDs for RAIDER list highlight
+
+  const hasAny = (roles: string[] | undefined, ids: string[]) => hasRoleMatch(roles, ids);
   const isActiveRank = (u: OrgUser) => hasAny(u.roles, BLOODED_IDS_ENV) || hasAny(u.roles, MARAUDER_IDS) || hasAny(u.roles, CREW_IDS);
 
   // Build sorted lists depending on view
@@ -215,31 +232,42 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
   // Determine which sections to show based on onlyPrestige prop
   const showRaptor = !onlyPrestige || onlyPrestige === 'RAPTOR';
   const showRaider = !onlyPrestige || onlyPrestige === 'RAIDER';
+  const wrapperStyle = {
+    marginTop: showProgress || showHeading ? "2rem" : 0,
+    position: "relative" as const,
+  };
 
   return (
-    <div style={{ marginTop: "2rem", position: "relative" }}>
-      <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>
-        {onlyPrestige ? `${onlyPrestige} Prestige Progress` : 'Prestige Progress'}
-      </div>
+    <div style={wrapperStyle}>
+      {showHeading && (
+        <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 18 }}>
+          {onlyPrestige ? `${onlyPrestige} Prestige Progress` : 'Prestige Progress'}
+        </div>
+      )}
       {showRaptor && (
-        <div style={{ marginBottom: "1rem" }}>
-          <strong>RAPTOR {raptorLevel} → {Math.min(raptorLevel + 1, MAX_PRESTIGE_LEVEL)} Advancement:</strong>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
-            {canGrant && raptorLevel < MAX_PRESTIGE_LEVEL && (
-              <button
-                style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-                onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAPTOR"); }}
-              >
-                Grant
-              </button>
-            )}
-          </div>
-          <div style={{ marginTop: 10, background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 12 }}>
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              <li style={{ marginBottom: 6 }}>Defeat the next level of RAPTOR pilot in a Best-Out-Of-Three dogfight.</li>
-              <li>Pass a Teamfight assessment with a Ronin Team (our competitive dogfighting team) pilot.</li>
-            </ul>
-          </div>
+        <section style={{ marginBottom: "1rem" }}>
+          {showProgress && (
+            <>
+              <strong>RAPTOR {raptorLevel} → {Math.min(raptorLevel + 1, MAX_PRESTIGE_LEVEL)} Advancement:</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+                <ProgressBar progress={raptorLevel >= MAX_PRESTIGE_LEVEL ? 1 : getPrestigeProgress(nextRaptor)} />
+                {canGrant && raptorLevel < MAX_PRESTIGE_LEVEL && (
+                  <button
+                    style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                    onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAPTOR"); }}
+                  >
+                    Grant
+                  </button>
+                )}
+              </div>
+              <div style={{ marginTop: 10, background: '#1e232b', color: '#e6eef8', border: '1px solid #2c3440', borderRadius: 8, padding: 12 }}>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  <li style={{ marginBottom: 6 }}>Defeat the next level of RAPTOR pilot in a Best-Out-Of-Three dogfight.</li>
+                  <li>Pass a Teamfight assessment with a Ronin Team (our competitive dogfighting team) pilot.</li>
+                </ul>
+              </div>
+            </>
+          )}
           {showMembers && (
             <div style={{ marginTop: 14 }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>RAPTOR Members</div>
@@ -274,7 +302,7 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
                         {!collapsedRaptorLevels[group.level] && (
                           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 0 14px' }}>
                             {group.users.map((u, idx) => {
-                            const isRoninRole = Array.isArray(u.roles) && u.roles.some(r => RONIN_IDS.includes(r));
+                            const isRoninRole = hasRoleMatch(u.roles, RONIN_IDS);
                             return (
                               <li
                                 key={u.id}
@@ -321,68 +349,72 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
               </div>
             </div>
           )}
-        </div>
+        </section>
       )}
       {showRaider && (
-        <>
-          <div style={{ marginBottom: "1rem" }}>
-            <strong>RAIDER {raiderLevel} → {raiderLevel + 1} Requirements:</strong>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <ProgressBar progress={raiderLevel >= MAX_PRESTIGE_LEVEL ? 1 : getPrestigeProgress(nextRaider)} />
-              {canGrant && raiderLevel < MAX_PRESTIGE_LEVEL && (
-                <button
-                  style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-                  onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAIDER"); }}
-                >
-                  Grant
-                </button>
-              )}
-            </div>
-          </div>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {raiderLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
-              nextRaider.length === 0 ? <li>No requirements for next level.</li> :
-              nextRaider.map((badge, idx) => (
-                <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 16 }}>{badge.badge_name}</div>
-                    <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{badge.badge_description}</div>
-                    {(!badge.trigger || badge.trigger.length === 0) ? (
-                      <div><em>Given Manually</em></div>
-                    ) : (
-                      <div style={{ fontSize: 13 }}>
-                        {badge.trigger.map((triggerStr: string | { metric: string; operator: string; value: number }, tIdx: number) => {
-                          let parsed: any;
-                          try {
-                            parsed = typeof triggerStr === 'string' ? JSON.parse(triggerStr) : triggerStr;
-                          } catch {
-                            return <div key={tIdx}>Invalid requirement</div>;
-                          }
-                          if (!parsed || typeof parsed !== 'object' || parsed.metric === undefined || parsed.operator === undefined || parsed.value === undefined) {
-                            return <div key={tIdx}>Invalid requirement</div>;
-                          }
-                          const metric: string = parsed.metric;
-                          const operator: string = parsed.operator;
-                          const value: number = Number(parsed.value);
-                          let playerValue = playerStats?.[metric] ?? 0;
-                          if (metric === 'voicehours' || metric === 'voice_minutes') {
-                            playerValue = voiceHoursFromStats(playerStats);
-                          }
-                          const met = isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
-                          return (
-                            <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
-                              <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
-                              (<span>you: {typeof playerValue === 'number' ? Math.round(playerValue) : playerValue}</span>)
-                            </div>
-                          );
-                        })}
+        <section>
+          {showProgress && (
+            <>
+              <div style={{ marginBottom: "1rem" }}>
+                <strong>RAIDER {raiderLevel} → {Math.min(raiderLevel + 1, MAX_PRESTIGE_LEVEL)} Advancement:</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <ProgressBar progress={raiderLevel >= MAX_PRESTIGE_LEVEL ? 1 : getPrestigeProgress(nextRaider)} />
+                  {canGrant && raiderLevel < MAX_PRESTIGE_LEVEL && (
+                    <button
+                      style={{ height: 32, padding: '0 18px', fontWeight: 600, background: '#0ebc37ff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                      onClick={() => { setShowGrantModal(true); setSelectedPrestige("RAIDER"); }}
+                    >
+                      Grant
+                    </button>
+                  )}
+                </div>
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0 }}>
+                {raiderLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
+                  nextRaider.length === 0 ? <li>No requirements for next level.</li> :
+                  nextRaider.map((badge, idx) => (
+                    <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 16 }}>{badge.badge_name}</div>
+                        <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{badge.badge_description}</div>
+                        {(!badge.trigger || badge.trigger.length === 0) ? (
+                          <div><em>Given Manually</em></div>
+                        ) : (
+                          <div style={{ fontSize: 13 }}>
+                            {badge.trigger.map((triggerStr: string | { metric: string; operator: string; value: number }, tIdx: number) => {
+                              let parsed: any;
+                              try {
+                                parsed = typeof triggerStr === 'string' ? JSON.parse(triggerStr) : triggerStr;
+                              } catch {
+                                return <div key={tIdx}>Invalid requirement</div>;
+                              }
+                              if (!parsed || typeof parsed !== 'object' || parsed.metric === undefined || parsed.operator === undefined || parsed.value === undefined) {
+                                return <div key={tIdx}>Invalid requirement</div>;
+                              }
+                              const metric: string = parsed.metric;
+                              const operator: string = parsed.operator;
+                              const value: number = Number(parsed.value);
+                              let playerValue = playerStats?.[metric] ?? 0;
+                              if (metric === 'voicehours' || metric === 'voice_minutes') {
+                                playerValue = voiceHoursFromStats(playerStats);
+                              }
+                              const met = isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
+                              return (
+                                <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
+                                  <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
+                                  (<span>you: {typeof playerValue === 'number' ? Math.round(playerValue) : playerValue}</span>)
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </li>
-              ))}
-          </ul>
+                    </li>
+                  ))}
+              </ul>
+            </>
+          )}
           {showMembers && (
             <div style={{ marginTop: 4 }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>RAIDER Members</div>
@@ -416,11 +448,45 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
                         </div>
                         {!collapsedRaiderLevels[group.level] && (
                           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 0 14px' }}>
-                            {group.users.map((u, idx) => (
-                              <li key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 6px', borderBottom: '1px solid #2c3440', marginLeft: 6, borderRadius: 4, background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                                <span>{u.nickname || u.username}</span>
-                              </li>
-                            ))}
+                            {group.users.map((u, idx) => {
+                              const isReaverRole = hasRoleMatch(u.roles, REAVER_IDS);
+                              return (
+                                <li
+                                  key={u.id}
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    padding: '6px 6px',
+                                    borderBottom: '1px solid #2c3440',
+                                    marginLeft: 6,
+                                    borderRadius: 4,
+                                    background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                                    ...(isReaverRole ? {
+                                      background: 'rgba(240,93,94,0.10)',
+                                      color: '#f05d5e',
+                                      fontWeight: 600
+                                    } : {})
+                                  }}
+                                >
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {u.nickname || u.username}
+                                    {isReaverRole && (
+                                      <span
+                                        style={{
+                                          background: '#f05d5e',
+                                          color: '#1a1a1a',
+                                          padding: '2px 6px',
+                                          borderRadius: 4,
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          letterSpacing: '0.05em'
+                                        }}
+                                      >REAVER</span>
+                                    )}
+                                  </span>
+                                </li>
+                              );
+                            })}
                           </ul>
                         )}
                       </div>
@@ -430,7 +496,7 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({ activeBadgeRe
               </div>
             </div>
           )}
-        </>
+        </section>
       )}
       {showGrantModal && (
         <div style={{
