@@ -5,7 +5,7 @@ const sbColumns: LeaderboardColumn<any>[] = [
     key: "rank",
     title: "#",
     align: "center",
-    render: (row) => row.rank ?? "-",
+    render: (row) => row.sort_rank ?? "-",
   },
   {
     key: "account_media",
@@ -41,7 +41,7 @@ const sbColumns: LeaderboardColumn<any>[] = [
   },
   {
     key: "total_rating",
-    title: "RSI Rating",
+    title: "Rating Sum",
     render: row => row.total_rating ?? "-",
     sortable: true,
     sortAccessor: row => Number(row.total_rating) || 0,
@@ -67,21 +67,19 @@ const sbColumns: LeaderboardColumn<any>[] = [
     sortAccessor: row => Number(row.total_deaths) || 0,
   },
   {
-    key: "avg_kill_death_ratio",
+    key: "total_kda",
     title: "K/D Ratio",
-    render: row =>
-      row.avg_kill_death_ratio != null
-        ? Number(row.avg_kill_death_ratio).toLocaleString()
-        : "-",
+    render: row => {
+      const ratio = Number(row.total_kda);
+      if (!Number.isFinite(ratio)) return "-";
+      return Number.isFinite(ratio) ? ratio.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "-";
+    },
     sortable: true,
-    sortAccessor: row => Number(row.avg_kill_death_ratio) || 0,
-  },
-  {
-    key: "ranking_score",
-    title: "IronPoint Score",
-    render: row => row.ranking_score?.toFixed(3) ?? "-",
-    sortable: true,
-    sortAccessor: row => Number(row.ranking_score) || 0,
+    sortAccessor: row => {
+      const kills = Number(row.total_kills);
+      const deaths = Number(row.total_deaths);
+      return Number.isFinite(kills) && Number.isFinite(deaths) && deaths > 0 ? kills / deaths : 0;
+    },
   },
   // {
   //   key: "modified_rating",

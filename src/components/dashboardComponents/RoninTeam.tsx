@@ -4,7 +4,22 @@ import { fetchPlayerSummaryByNickname, fetchSBAllPlayerSummaries } from "../../a
 
 import { getUsersByRoninRole, getAllUsers } from "../../api/userService";
 
-
+const normalizeHandleVariants = (raw?: string): string[] => {
+  if (!raw || typeof raw !== "string") return [];
+  const base = raw.trim();
+  if (!base) return [];
+  const set = new Set<string>();
+  const push = (val?: string | null) => {
+    const cleaned = val?.trim().toLowerCase();
+    if (cleaned) set.add(cleaned);
+  };
+  push(base);
+  push(base.replace(/\s+/g, ""));
+  push(base.replace(/[._]/g, ""));
+  push(base.replace(/["']/g, ""));
+  push(base.replace(/[\s._"']/g, ""));
+  return Array.from(set);
+};
 
 interface RoninTeamProps {
   dbUser: any;
@@ -17,14 +32,12 @@ export default function RoninTeam(props: RoninTeamProps) {
   const [roninSummaries, setRoninSummaries] = useState<any[]>([]); // enriched with summary + user id/handle
   const [roninMissing, setRoninMissing] = useState<any[]>([]); // users without summary
   const [globalSummaries, setGlobalSummaries] = useState<any[] | null>(null); // cache of all player summaries
-    //   {orgSummaries && Array.isArray(orgSummaries) && orgSummaries.length > 0 && (() => {
   const RONIN_IDS = (import.meta.env.VITE_RONIN_ID || "").split(",").map((s: string) => s.trim()).filter(Boolean);
 
   useEffect(() => {
-    // Fetch leaderboard summary for the current user
     const attemptFetchSummary = async (handle: string) => {
-      // Build normalization variants to maximize match likelihood across case/punctuation differences
-      const trimmed = handle.trim();
+      const trimmed = (handle || "").trim();
+      if (!trimmed) throw new Error('No summary found for empty handle');
       const variants = Array.from(new Set([
         trimmed,
         trimmed.toLowerCase(),
@@ -47,13 +60,11 @@ export default function RoninTeam(props: RoninTeamProps) {
           } else {
             console.debug('[RoninTeam] Variant fetch error (network/other):', { variant, message: err?.message });
           }
-          // Continue trying other variants
         }
       }
       throw new Error('No summary found for any variant');
     };
 
-    // Helper to lazy-load all summaries once so we can do client-side matching (mirrors AdminUserList approach)
     const loadAllSummariesOnce = async () => {
       if (globalSummaries && Array.isArray(globalSummaries) && globalSummaries.length > 0) {
         return globalSummaries;
@@ -64,27 +75,27 @@ export default function RoninTeam(props: RoninTeamProps) {
         setGlobalSummaries(all);
         console.log('[RoninTeam] Loaded all summaries count:', all.length);
         return all;
-      } catch (e) {
+      } catch {
         console.warn('[RoninTeam] Failed to prefetch all summaries, will fall back to per-user variant fetching.');
         return null;
       }
     };
 
-    // Fetch all users with Ronin role (backend endpoint), fallback to client-side filter if needed
     const loadRoninUsers = async () => {
       try {
         console.log('[RoninTeam] Loading Ronin users via backend endpoint...');
         let users = await getUsersByRoninRole();
-        console.log('[RoninTeam] Backend returned users count:', Array.isArray(users) ? users.length : 0);
-        if (!users || users.length === 0) {
-          // Fallback: fetch all users and filter by env Ronin IDs
+        if (!Array.isArray(users)) users = [];
+        console.log('[RoninTeam] Backend returned users count:', users.length);
+
+        if (users.length === 0) {
           console.warn('[RoninTeam] Backend returned 0 Ronin users. Falling back to getAllUsers with RONIN_IDS:', RONIN_IDS);
           const allUsers = await getAllUsers();
           if (Array.isArray(allUsers) && RONIN_IDS.length > 0) {
             users = allUsers.filter((u: any) => Array.isArray(u.roles) && u.roles.some((r: string) => RONIN_IDS.includes(r)));
             console.log('[RoninTeam] Filtered Ronin users from all users:', users.length);
           } else {
-            users = [] as any[];
+            users = [];
             if (!Array.isArray(allUsers)) {
               console.warn('[RoninTeam] getAllUsers did not return an array');
             }
@@ -93,179 +104,151 @@ export default function RoninTeam(props: RoninTeamProps) {
             }
           }
         }
-        setRoninUsers(users || []);
-        if (Array.isArray(users)) {
+
+        setRoninUsers(users);
+        if (users.length > 0) {
           console.debug('[RoninTeam] Ronin users sample:', users.slice(0, 5).map((u: any) => ({ id: u.id, username: u.username, rsi_handle: u.rsi_handle, roles: u.roles })));
         }
-        if (users && users.length > 0) {
-          // Load all summaries first for efficient matching
-            const allSummaries = await loadAllSummariesOnce();
-            let summaryResults: Array<{ user: any; summary: any | null }> = [];
 
-            if (Array.isArray(allSummaries) && allSummaries.length > 0) {
-              // Normalization helper: generate multiple variant keys for robust matching
-              const normKeys = (raw?: string) => {
-                if (!raw || typeof raw !== 'string') return [] as string[];
-                const t = raw.trim();
-                const set = new Set<string>();
-                const push = (s: string) => { if (s) set.add(s.toLowerCase()); };
-                // Base variants
-                push(t);
-                push(t.replace(/\s+/g, ''));
-                push(t.replace(/"/g, ''));
-                push(t.replace(/[._]/g, ''));
-                push(t.replace(/[\s._]/g, ''));
-                // Leet-style digit -> letter substitutions (k0zuka -> kozuka, 3lite -> elite)
-                const digitToLetter = t
-                  .replace(/0/g, 'o')
-                  .replace(/1/g, 'l')
-                  .replace(/3/g, 'e')
-                  .replace(/4/g, 'a')
-                  .replace(/5/g, 's')
-                  .replace(/7/g, 't');
-                push(digitToLetter);
-                push(digitToLetter.replace(/[._]/g, ''));
-                // Letter -> digit (optional) to catch inverse scoreboard oddities (e.g., o -> 0)
-                const letterToDigit = t
-                  .replace(/o/gi, '0')
-                  .replace(/l/gi, '1')
-                  .replace(/e/gi, '3')
-                  .replace(/a/gi, '4')
-                  .replace(/s/gi, '5')
-                  .replace(/t/gi, '7');
-                push(letterToDigit);
-                push(letterToDigit.replace(/[._]/g, ''));
-                return Array.from(set);
-              };
-              // Preprocess for O(1) matching using normalized keys (both raw and cleaned variants)
-              const index = new Map<string, any>();
-              for (const s of allSummaries) {
-                const candidates = [
-                  ...(normKeys((s as any).nickname)),
-                  ...(normKeys((s as any).displayname)),
-                  ...(normKeys((s as any).rsi_handle)),
-                ];
-                candidates.forEach((k) => {
-                  if (!index.has(k)) index.set(k, s); // first wins; order not critical
-                });
-              }
-              // Attempt index match using rsi_handle, username, nickname and their variants
-              const initial = users.map((user: any) => {
-                const variantsSet = new Set<string>();
-                const pushAll = (arr: string[]) => arr.forEach(v => variantsSet.add(v));
-                pushAll(normKeys(user.rsi_handle));
-                pushAll(normKeys(user.username));
-                pushAll(normKeys(user.nickname));
-                const variantsArr = Array.from(variantsSet);
-                let found: any | null = null;
-                for (const h of variantsArr) {
-                  if (index.has(h)) { found = index.get(h); break; }
+        if (users.length > 0) {
+          const allSummaries = await loadAllSummariesOnce();
+          let summaryResults: Array<{ user: any; summary: any | null }> = [];
+          let globalRankIndex: Map<string, number> | null = null;
+
+          if (Array.isArray(allSummaries) && allSummaries.length > 0) {
+            globalRankIndex = new Map<string, number>();
+            const globalSorted = [...allSummaries].sort((a: any, b: any) => {
+              const ratingDiff = (Number(b?.total_rating) || 0) - (Number(a?.total_rating) || 0);
+              if (ratingDiff !== 0) return ratingDiff;
+              const ar = typeof a?.avg_rank === 'number' ? a.avg_rank : Number.POSITIVE_INFINITY;
+              const br = typeof b?.avg_rank === 'number' ? b.avg_rank : Number.POSITIVE_INFINITY;
+              return ar - br;
+            });
+            globalSorted.forEach((summary: any, idx: number) => {
+              const keys = [
+                ...normalizeHandleVariants(summary?.nickname),
+                ...normalizeHandleVariants(summary?.displayname),
+                ...normalizeHandleVariants(summary?.rsi_handle),
+              ];
+              keys.forEach((key) => {
+                if (key && !globalRankIndex!.has(key)) {
+                  globalRankIndex!.set(key, idx + 1);
                 }
-                // Targeted diagnostic logging for kozuka / k0zuka matching issues
-                const loweredName = (user.username || '').toLowerCase();
-                const loweredNick = (user.nickname || '').toLowerCase();
-                if (loweredName.includes('k0zuka') || loweredNick.includes('kozuka')) {
-                  console.log('[RoninTeam][DEBUG][Kozuka] User variants generated:', {
-                    userId: user.id,
-                    username: user.username,
-                    nickname: user.nickname,
-                    rsi_handle: user.rsi_handle,
-                    variants: variantsArr.slice(0, 50), // cap size
-                    matchedKey: found ? variantsArr.find(v => index.has(v)) : null,
-                    summaryFound: !!found,
-                  });
-                }
-                return { user, summary: found };
               });
-              // Fallback for still-missing: try per-user network variant attempts by RSI handle, username, then nickname
-              summaryResults = await Promise.all(initial.map(async (rec) => {
-                if (rec.summary) return rec;
-                const candidates = [rec.user?.rsi_handle, rec.user?.username, rec.user?.nickname].filter(Boolean);
-                for (const c of candidates) {
-                  try {
-                    const s = await attemptFetchSummary(String(c));
-                    const lowered = String(c).toLowerCase();
-                    if (lowered.includes('k0zuka') || lowered.includes('kozuka')) {
-                      console.log('[RoninTeam][DEBUG][Kozuka] Fallback network fetch succeeded for candidate:', c);
-                    }
-                    return { user: rec.user, summary: s };
-                  } catch {
-                    // try next candidate
-                  }
-                }
-                const loweredAll = candidates.map(c => String(c).toLowerCase());
-                if (loweredAll.some(v => v.includes('k0zuka') || v.includes('kozuka'))) {
-                  console.warn('[RoninTeam][DEBUG][Kozuka] All fallback candidates failed for user:', {
-                    userId: rec.user.id,
-                    username: rec.user.username,
-                    nickname: rec.user.nickname,
-                    rsi_handle: rec.user.rsi_handle,
-                    candidates,
-                  });
-                }
-                return rec;
-              }));
-            } else {
-              // Fallback to per-user network variant attempts (slower)
-              summaryResults = await Promise.all(
-                users.map(async (user: any) => {
-                  if (user.rsi_handle) {
-                    try {
-                      const summary = await attemptFetchSummary(user.rsi_handle);
-                      return { user, summary };
-                    } catch {
-                      return { user, summary: null };
-                    }
-                  }
-                  return { user, summary: null };
-                })
-              );
+            });
+
+            const index = new Map<string, any>();
+            for (const s of allSummaries) {
+              const candidates = [
+                ...normalizeHandleVariants((s as any).nickname),
+                ...normalizeHandleVariants((s as any).displayname),
+                ...normalizeHandleVariants((s as any).rsi_handle),
+              ];
+              candidates.forEach((k) => {
+                if (!index.has(k)) index.set(k, s);
+              });
             }
 
-            // Separate valid summaries and missing records
-            const validSummaries = summaryResults
-              .filter(({ summary }) => summary)
-              .map(({ summary, user }) => ({
-                ...summary,
-                rsi_handle: user?.rsi_handle ?? (summary as any)?.rsi_handle,
-                username: user?.username ?? (summary as any)?.username,
-                nickname: (summary as any)?.nickname ?? user?.nickname,
-                id: user.id,
-              } as any));
-
-            // Sort by avg_rank ascending (best rank = lowest number). If avg_rank missing, push to end.
-            validSummaries.sort((a, b) => {
-              const ar = typeof a.avg_rank === 'number' ? a.avg_rank : Number.POSITIVE_INFINITY;
-              const br = typeof b.avg_rank === 'number' ? b.avg_rank : Number.POSITIVE_INFINITY;
-              if (ar !== br) return ar - br; // ascending rank number
-              // Secondary tie-breaker: higher total_rating first
-              return (b.total_rating ?? 0) - (a.total_rating ?? 0);
+            const initial = users.map((user: any) => {
+              const variantsSet = new Set<string>();
+              const pushAll = (arr: string[]) => arr.forEach((v) => variantsSet.add(v));
+              pushAll(normalizeHandleVariants(user.rsi_handle));
+              pushAll(normalizeHandleVariants(user.username));
+              pushAll(normalizeHandleVariants(user.nickname));
+              const variantsArr = Array.from(variantsSet);
+              let found: any | null = null;
+              for (const h of variantsArr) {
+                if (index.has(h)) { found = index.get(h); break; }
+              }
+              return { user, summary: found };
             });
-            setRoninSummaries(validSummaries);
 
-            const missing = summaryResults
-              .filter(({ summary }) => !summary)
-              .map(({ user }) => user);
-            setRoninMissing(missing);
-            console.log('[RoninTeam] Summary results:', {
-              totalUsers: users.length,
-              summariesFound: validSummaries.length,
-              missingCount: missing.length,
-              missingHandles: missing.slice(0, 10).map((u: any) => u.rsi_handle || u.username || u.id),
-            });
+            summaryResults = await Promise.all(initial.map(async (rec) => {
+              if (rec.summary) return rec;
+              const candidates = [rec.user?.rsi_handle, rec.user?.username, rec.user?.nickname].filter(Boolean);
+              for (const c of candidates) {
+                try {
+                  const s = await attemptFetchSummary(String(c));
+                  return { user: rec.user, summary: s };
+                } catch {
+                  // try next candidate
+                }
+              }
+              return rec;
+            }));
           } else {
-            setRoninSummaries([]);
-            setRoninMissing([]);
-            console.warn('[RoninTeam] No Ronin users found after both backend and fallback.');
+            summaryResults = await Promise.all(
+              users.map(async (user: any) => {
+                if (user.rsi_handle) {
+                  try {
+                    const summary = await attemptFetchSummary(user.rsi_handle);
+                    return { user, summary };
+                  } catch {
+                    return { user, summary: null };
+                  }
+                }
+                return { user, summary: null };
+              })
+            );
           }
+
+          const validSummaries = summaryResults
+            .filter(({ summary }) => summary)
+            .map(({ summary, user }) => ({
+              ...summary,
+              rsi_handle: user?.rsi_handle ?? (summary as any)?.rsi_handle,
+              username: user?.username ?? (summary as any)?.username,
+              nickname: (summary as any)?.nickname ?? user?.nickname,
+              id: user.id,
+            } as any));
+
+          const leaderboardSorted = [...validSummaries]
+            .map((summary) => {
+              const keys = [
+                ...normalizeHandleVariants(summary.nickname),
+                ...normalizeHandleVariants(summary.displayname),
+                ...normalizeHandleVariants(summary.rsi_handle),
+              ];
+              const rank = keys
+                .map((key) => globalRankIndex?.get(key))
+                .find((val) => typeof val === 'number');
+              return { ...summary, rating_rank: rank ?? null };
+            })
+            .sort((a, b) => {
+              const ar = typeof a.rating_rank === 'number' ? a.rating_rank : Number.POSITIVE_INFINITY;
+              const br = typeof b.rating_rank === 'number' ? b.rating_rank : Number.POSITIVE_INFINITY;
+              if (ar !== br) return ar - br;
+              const ratingDiff = (Number(b.total_rating) || 0) - (Number(a.total_rating) || 0);
+              if (ratingDiff !== 0) return ratingDiff;
+              const aAvg = typeof a.avg_rank === 'number' ? a.avg_rank : Number.POSITIVE_INFINITY;
+              const bAvg = typeof b.avg_rank === 'number' ? b.avg_rank : Number.POSITIVE_INFINITY;
+              return aAvg - bAvg;
+            });
+          setRoninSummaries(leaderboardSorted);
+
+          const missing = summaryResults
+            .filter(({ summary }) => !summary)
+            .map(({ user }) => user);
+          setRoninMissing(missing);
+          console.log('[RoninTeam] Summary results:', {
+            totalUsers: users.length,
+            summariesFound: validSummaries.length,
+            missingCount: missing.length,
+            missingHandles: missing.slice(0, 10).map((u: any) => u.rsi_handle || u.username || u.id),
+          });
+        } else {
+          setRoninSummaries([]);
+          setRoninMissing([]);
+          console.warn('[RoninTeam] No Ronin users found after both backend and fallback.');
+        }
       } catch (e) {
-        // Silent fail; keep UI minimal but avoid crash
         setRoninUsers([]);
         setRoninSummaries([]);
         setRoninMissing([]);
         console.error('[RoninTeam] Error loading Ronin users:', e);
       }
     };
+
     loadRoninUsers();
   }, []);
 
@@ -355,8 +338,8 @@ export default function RoninTeam(props: RoninTeamProps) {
                     ? summary.nickname
                     : (summary.username || summary.rsi_handle);
                   const stats = [
-                    { label: 'Rating', value: summary.total_rating ?? '-' },
-                    { label: 'Avg Rank', value: summary.avg_rank !== undefined && summary.avg_rank !== null ? `#${Math.round(summary.avg_rank)}` : '-' },
+                    { label: 'KDA', value: summary.total_kda ? summary.total_kda.toFixed(2) : '-' },
+                    { label: 'Rank', value: summary.sort_rank ? `#${summary.sort_rank}` : '-' },
                     { label: 'Flight Time', value: formatFlightTime(summary.total_flight_time) },
                   ];
                   return (

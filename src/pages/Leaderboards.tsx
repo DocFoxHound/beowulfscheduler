@@ -82,7 +82,18 @@ const Leaderboards: React.FC = () => {
             ...player,
             ranking_score: (computeRankingScore(player, data)*100),
           }));
-          const sorted = [...withScores].sort((a, b) => a.avg_rank - b.avg_rank);
+          const sorted = [...withScores]
+            .sort((a, b) => {
+              const ratingDiff = (Number(b.total_rating) || 0) - (Number(a.total_rating) || 0);
+              if (ratingDiff !== 0) return ratingDiff;
+              const aRank = typeof a.avg_rank === "number" ? a.avg_rank : Number.POSITIVE_INFINITY;
+              const bRank = typeof b.avg_rank === "number" ? b.avg_rank : Number.POSITIVE_INFINITY;
+              return aRank - bRank;
+            })
+            .map((player, idx) => ({
+              ...player,
+              rank: idx + 1,
+            }));
           setPlayers(sorted);
         })
         .finally(() => setLoading(false));
@@ -117,8 +128,6 @@ const Leaderboards: React.FC = () => {
       ? sbColumns
       : mode === "piracy"
       ? piracyColumns
-      : mode === "killtracker"
-      ? killTrackerColumns
       : [];
 
   // Patch selector UI
@@ -213,26 +222,6 @@ const Leaderboards: React.FC = () => {
             <img src="https://i.imgur.com/FNBpkfz.png" alt="Piracy" style={{ width: 48, height: 48, marginBottom: 8 }} />
             <span style={{ fontSize: 20, fontWeight: 700 }}>Piracy</span>
           </button>
-          <button
-            onClick={() => setMode("killtracker")}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              background: mode === "killtracker" ? "#2d7aee" : "#23272a",
-              color: "#fff",
-              border: "none",
-              borderRadius: 12,
-              padding: "1rem 2rem",
-              cursor: "pointer",
-              boxShadow: mode === "killtracker" ? "0 2px 8px #2d7aee88" : "0 2px 8px #0008",
-              minWidth: 160,
-              transition: "background 0.2s",
-            }}
-          >
-            <img src="https://i.imgur.com/UoZsrrM.png" alt="Kill Tracker" style={{ width: 48, height: 48, marginBottom: 8 }} />
-            <span style={{ fontSize: 20, fontWeight: 700 }}>Kill Tracker</span>
-          </button>
         </div>
         {/* Patch selector below the buttons */}
         <div style={{ width: '100%', display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
@@ -252,54 +241,6 @@ const Leaderboards: React.FC = () => {
             columns={columns}
           />
         </div>
-        {/* IronPoint Rating Explanation Card */}
-        {mode === "dogfighting" && (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem", marginBottom: "2rem", width: '100%' }}>
-            <div style={{ background: "#23272a", borderRadius: "12px", boxShadow: "0 2px 8px #0008", padding: "1.5rem", maxWidth: "800px", color: "#fff", margin: '0 auto' }}>
-              <h2 style={{ marginTop: 0 }}>🏆 IronPoint Score Equation</h2>
-              <BlockMath math={`
-                \\text{Score} = 0.30E + 0.25I + 0.20D + 0.15KDR + 0.10K
-              `} />
-              <BlockMath math={`
-                \\text{normalized}(x) = \\frac{x - \\min(x)}{\\max(x) - \\min(x)}
-              `} />
-              <p>
-                This formula ranks pilots based on efficiency, impact, consistent damage output, survival, and kill contribution:
-              </p>
-              <ul style={{ marginLeft: "1.5rem" }}>
-                <li><strong>E</strong>: Average score per minute (normalized)</li>
-                <li><strong>I</strong>: Average score per round (normalized)</li>
-                <li><strong>D</strong>: Damage per kill (normalized)</li>
-                <li><strong>KDR</strong>: Kill/Death ratio (normalized)</li>
-                <li><strong>K</strong>: Total kills (normalized)</li>
-              </ul>
-              <h3 style={{ marginTop: "2rem" }}>📊 Explanation</h3>
-              <p>
-                This ranking formula is designed to measure true player performance in dogfighting by combining several metrics:
-              </p>
-              <ul style={{ marginLeft: "1.5rem" }}>
-                <li>
-                  <strong>avg_score_minute (E)</strong> rewards players who earn points efficiently over time, rewarding aggressive behavior.
-                </li>
-                <li>
-                  <strong>avg_score (I)</strong> emphasizes high-impact gameplay by factoring in kill difficulty, damage, and round performance.
-                </li>
-                <li>
-                  <strong>damage_per_kill (D)</strong> discourages kill-stealing by valuing consistent damage over opportunistic kills.
-                </li>
-                <li>
-                  <strong>avg_kill_death_ratio (KDR)</strong> rewards players who maintain a good balance between aggression and survival.
-                </li>
-                <li>
-                  <strong>total_kills (K)</strong> has minimal weight, recognizing raw output while avoiding overinflation from farming.
-                </li>
-              </ul>
-              <p>
-                The weights are tuned to ensure balanced scoring across play styles, encouraging aggressive but efficient, impactful play rather than passive or opportunistic strategies.
-              </p>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

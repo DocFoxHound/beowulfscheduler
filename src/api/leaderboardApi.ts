@@ -64,6 +64,8 @@ export const fetchSBAllPlayerSummaries = async (): Promise<SBLeaderboardPlayerSu
       account_media: normalizeMediaUrl(p.account_media),
       total_rating: p.total_rating ? Number(p.total_rating) : 0, // Add total_rating
       total_score: p.total_score ? Number(p.total_score) : 0, // Add total_score
+      sort_rank: p.sort_rank ? Number(p.sort_rank) : 0, // Add sort_rank
+      total_kda: p.total_kda ? Number(p.total_kda) : 0, // Add total_kda
     }))
     // Keep entries that have at least one display name field
     .filter((player: SBLeaderboardPlayerSummary) => {
