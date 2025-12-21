@@ -24,6 +24,8 @@ interface PlayerPrestigeProgressProps {
   showProgress?: boolean;
   /** Allows embedding the component without the default heading */
   showHeading?: boolean;
+  /** Already-earned badges for the player */
+  playerBadges?: any[];
 }
 
 const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({
@@ -37,9 +39,23 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({
   showMembers = true,
   showProgress = true,
   showHeading = true,
+  playerBadges = [],
 }) => {
   // Build groups with shared engine
   const prestigeGroups = groupPrestige(activeBadgeReusables || []);
+
+  // Track earned badges for quick lookup
+  const playerBadgeNames = useMemo(() => {
+    const names = new Set<string>();
+    (playerBadges || []).forEach((badge) => {
+      if (badge?.badge_name) names.add(String(badge.badge_name).toLowerCase());
+    });
+    return names;
+  }, [playerBadges]);
+  const playerHasBadge = (badgeName?: string | null) => {
+    if (!badgeName) return false;
+    return playerBadgeNames.has(String(badgeName).toLowerCase());
+  };
 
   // Local state for prestige levels to allow UI refresh after grant
   const [localLevels, setLocalLevels] = useState({
@@ -66,7 +82,10 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({
   // Helper to calculate overall progress for a prestige's next level using engine
   const getPrestigeProgress = (badges: any[]): number => {
     if (!badges.length) return 0;
-    const total = badges.reduce((sum, badge) => sum + getBadgeProgress(badge, playerStats), 0);
+    const total = badges.reduce((sum, badge) => {
+      if (playerHasBadge(badge?.badge_name)) return sum + 1;
+      return sum + getBadgeProgress(badge, playerStats);
+    }, 0);
     return total / badges.length;
   };
 
@@ -372,14 +391,26 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({
               <ul style={{ listStyle: 'none', padding: 0 }}>
                 {raiderLevel >= MAX_PRESTIGE_LEVEL ? <li>Max level reached.</li> :
                   nextRaider.length === 0 ? <li>No requirements for next level.</li> :
-                  nextRaider.map((badge, idx) => (
-                    <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  nextRaider.map((badge, idx) => {
+                    const isEarned = playerHasBadge(badge?.badge_name);
+                    return (
+                      <li key={idx} style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                       {badge.image_url && <img src={badge.image_url} alt="badge" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, marginRight: 8 }} />}
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 16 }}>{badge.badge_name}</div>
+                        <div style={{ fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {badge.badge_name}
+                          {isEarned && (
+                            <span style={{ background: '#4caf50', color: '#fff', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                              Awarded
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>{badge.badge_description}</div>
                         {(!badge.trigger || badge.trigger.length === 0) ? (
-                          <div><em>Given Manually</em></div>
+                          <div>
+                            <em>Given Manually</em>
+                            {isEarned && <div style={{ color: '#4caf50', fontWeight: 600, marginTop: 4 }}>Already awarded</div>}
+                          </div>
                         ) : (
                           <div style={{ fontSize: 13 }}>
                             {badge.trigger.map((triggerStr: string | { metric: string; operator: string; value: number }, tIdx: number) => {
@@ -399,7 +430,7 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({
                               if (metric === 'voicehours' || metric === 'voice_minutes') {
                                 playerValue = voiceHoursFromStats(playerStats);
                               }
-                              const met = isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
+                              const met = isEarned || isBadgeReady({ ...badge, trigger: [parsed] }, playerStats);
                               return (
                                 <div key={tIdx} style={{ color: met ? '#4caf50' : '#d32f2f' }}>
                                   <strong>{metric}</strong> {operator} <strong>{value}</strong> &nbsp;
@@ -411,7 +442,8 @@ const PrestigeProgress: React.FC<PlayerPrestigeProgressProps> = ({
                         )}
                       </div>
                     </li>
-                  ))}
+                  );
+                  })}
               </ul>
             </>
           )}

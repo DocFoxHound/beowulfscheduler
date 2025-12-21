@@ -199,6 +199,7 @@ export default function Dashboard() {
             playerStatsLoading={playerStatsLoading}
             player={dbUser}
             dbUser={dbUser}
+            playerBadges={playerBadges}
             showMembers={false}
           />
           <PlayerBadgeProgress
@@ -225,6 +226,7 @@ export default function Dashboard() {
               playerStatsLoading={playerStatsLoading}
               player={dbUser}
               dbUser={dbUser}
+              playerBadges={playerBadges}
               onlyPrestige="RAPTOR"
               showProgress={false}
               showHeading={false}
@@ -245,6 +247,7 @@ export default function Dashboard() {
               playerStatsLoading={playerStatsLoading}
               player={dbUser}
               dbUser={dbUser}
+              playerBadges={playerBadges}
               onlyPrestige="RAIDER"
               showProgress={false}
               showHeading={false}

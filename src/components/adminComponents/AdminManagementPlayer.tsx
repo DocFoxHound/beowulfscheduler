@@ -120,6 +120,7 @@ const AdminManagementPlayer: React.FC<AdminManagementPlayerProps> = ({ player, p
         player={player}
         isModerator={isModerator}
         dbUser={dbUser}
+        playerBadges={badges}
         showMembers={false}
       />
     </div>
